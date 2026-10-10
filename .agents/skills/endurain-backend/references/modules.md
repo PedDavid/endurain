@@ -42,7 +42,7 @@ Other files (`utils.py`, `signing.py`, `pipeline.py`...) are package-private.
 - It holds only operations with a real caller; a pure pass-through goes straight to CRUD.
 - Packages inside a namespace form a DAG; invert one edge with a seam if two import each other.
 - `core` and `jasil` never import `modules`; the platform asks, the module registers.
-- `jasil`: use `providers`, `publisher`, `events`, `subscribers`, `jobs.registry`; never `backends` or `_core`.
+- `jasil` usage (storage, events, jobs): see `platform-jasil.md`.
 - `modules.activities` makes no raw network calls (`requests`, `httpx`, `socket`); add a platform provider.
 - Migrations import only `*.migration_service`; domain and core code never do.
 

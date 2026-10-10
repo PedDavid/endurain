@@ -22,12 +22,15 @@ Where this skill and a guide disagree, the guide wins.
 - Non-auth code reaches identity only through `modules.auth.dependencies` and `modules.auth.identity_service`.
 - Filenames are the contract: a misnamed file silently escapes the rules.
 - Never register contributors, subscribers or providers as an import side effect.
+- Storage, events, jobs and geocoding come from `jasil` ports (`jasil.providers`, `jasil.publisher`, ...); never import `jasil.backends` or `jasil._core`.
+- Events are published from `service` via `event_publishers`, with the commit callable, never from `crud` or `integration_service`.
 
 ## Read on demand
 
 | When you are | Read |
 | --- | --- |
-| Creating a module, deciding where code goes, wiring events/jobs/contributors | `references/modules.md` |
+| Creating a module, deciding where code goes, wiring contributors | `references/modules.md` |
+| Storage, events, subscribers, durable jobs, reconciliation nets, scheduled work | `references/platform-jasil.md` |
 | Writing models, schemas, endpoints, docstrings, logging | `references/code-standards.md` |
 | Handling uploads, access control, secrets, outbound requests | `references/security.md` |
 | Writing or fixing tests | `references/testing.md` |
