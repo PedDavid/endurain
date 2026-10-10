@@ -16,8 +16,7 @@ lets the work run durably/async when durable jobs are enabled.
 
 import logging
 
-import jasil.runtime as platform_runtime
-from jasil.providers import GeocodedPlace
+from jasil.providers import GeocodedPlace, GeocodingProvider
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
@@ -28,10 +27,15 @@ import modules.activities.activity_streams.integration_service as activity_strea
 logger = core_logger.get_logger(__name__)
 
 
-def reverse_geocode(latitude: float | None, longitude: float | None) -> GeocodedPlace | None:
+def reverse_geocode(
+    geocoding: GeocodingProvider,
+    latitude: float | None,
+    longitude: float | None,
+) -> GeocodedPlace | None:
     """Reverse-geocode a ``(lat, lon)`` pair through the platform provider.
 
     Args:
+        geocoding: The platform geocoding provider.
         latitude: Latitude in decimal degrees, or None.
         longitude: Longitude in decimal degrees, or None.
 
@@ -44,10 +48,10 @@ def reverse_geocode(latitude: float | None, longitude: float | None) -> Geocoded
     """
     if latitude is None or longitude is None:
         return None
-    return platform_runtime.get_active_platform().geocoding.reverse(latitude, longitude)
+    return geocoding.reverse(latitude, longitude)
 
 
-def geocode_and_store_activity_location(activity_id: int, db: Session) -> bool:
+def geocode_and_store_activity_location(activity_id: int, db: Session, geocoding: GeocodingProvider) -> bool:
     """Resolve and persist a created activity's location from its GPS stream.
 
     Loads the activity's first GPS waypoint, reverse-geocodes it, and writes
@@ -57,6 +61,7 @@ def geocode_and_store_activity_location(activity_id: int, db: Session) -> bool:
     Args:
         activity_id: The activity to geocode.
         db: Database session.
+        geocoding: The platform geocoding provider.
 
     Returns:
         True when a location was resolved and stored, else False.
@@ -70,7 +75,7 @@ def geocode_and_store_activity_location(activity_id: int, db: Session) -> bool:
         return False
 
     first_waypoint = stream.stream_waypoints[0]
-    location = reverse_geocode(first_waypoint.get("lat"), first_waypoint.get("lon"))
+    location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
     if location is None:
         return False
 
@@ -90,7 +95,7 @@ def geocode_and_store_activity_location(activity_id: int, db: Session) -> bool:
     return True
 
 
-def backfill_missing_activity_locations(db: Session) -> int:
+def backfill_missing_activity_locations(db: Session, geocoding: GeocodingProvider) -> int:
     """Resolve locations for GPS activities that still have none.
 
     Reconciliation net for the ``activity.created`` geocoding subscriber: it lists
@@ -100,6 +105,7 @@ def backfill_missing_activity_locations(db: Session) -> int:
 
     Args:
         db: Database session.
+        geocoding: The platform geocoding provider.
 
     Returns:
         The number of activities whose location was resolved and stored.
@@ -117,7 +123,7 @@ def backfill_missing_activity_locations(db: Session) -> int:
         if not waypoints:
             continue
         first_waypoint = waypoints[0]
-        location = reverse_geocode(first_waypoint.get("lat"), first_waypoint.get("lon"))
+        location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
         if location is None:
             continue
         activities_service.set_activity_location(

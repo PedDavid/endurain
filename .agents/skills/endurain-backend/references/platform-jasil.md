@@ -23,7 +23,11 @@ Use `jasil.admin` when a short-lived session of its own is needed.
 
 ## Storage
 
-- Get it with `platform_runtime.get_active_platform().storage` (a `StorageProvider`); in services that receive it as an argument, type it `jasil.providers.StorageProvider`.
+- Take it as an argument typed `jasil.providers.StorageProvider`; never resolve it inside a service, CRUD, pipeline or helper.
+- Resolve it once at the entry point: routers use `Depends(core.dependencies.get_storage)`; subscribers, jobs and `integration_service` surface functions call `platform_runtime.get_active_platform()` and pass the provider down.
+- The same applies to `geocoding`, `lock` and `state`.
+- Tests then pass a `MagicMock()` or a real `LocalStorage`, and route tests use `app.dependency_overrides[get_storage]`; no runtime patching.
+- `tests/architecture/test_module_boundaries.py::TestProviderResolution` fails on `get_active_platform` below an entry point.
 - Each domain owns a storage *area* constant (`ACTIVITY_FILE_STORAGE_AREA = "activity_files"`); an area is a single namespace component, so put hierarchy in the key (`processed/42.fit`).
 - Derive keys from ids; keep key builders next to the code that owns the area.
 - Local disk and object storage behave identically; never assume a filesystem path.

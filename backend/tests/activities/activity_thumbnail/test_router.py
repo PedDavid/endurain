@@ -6,9 +6,8 @@ import pytest
 
 
 class TestReadActivityThumbnailUnit:
-    @patch("modules.activities.activity_thumbnail.router.platform_runtime")
     @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
-    def test_serves_webp_bytes_for_valid_token(self, mock_signing, mock_runtime):
+    def test_serves_webp_bytes_for_valid_token(self, mock_signing):
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = True
@@ -16,9 +15,8 @@ class TestReadActivityThumbnailUnit:
         mock_signing.thumbnail_key.return_value = "1.webp"
         storage = MagicMock()
         storage.get.return_value = b"webpdata"
-        mock_runtime.get_active_platform.return_value.storage = storage
 
-        resp = read_activity_thumbnail(1, "tok")
+        resp = read_activity_thumbnail(1, "tok", storage)
 
         assert resp.status_code == 200
         assert resp.media_type == "image/webp"
@@ -27,24 +25,23 @@ class TestReadActivityThumbnailUnit:
         storage.get.assert_called_once_with("activity_thumbnails", "1.webp")
         mock_signing.verify_thumbnail_token.assert_called_once_with(1, "tok")
 
-    @patch("modules.activities.activity_thumbnail.router.platform_runtime")
     @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
-    def test_404_for_invalid_token_without_touching_storage(self, mock_signing, mock_runtime):
+    def test_404_for_invalid_token_without_touching_storage(self, mock_signing):
         from fastapi import HTTPException
 
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = False
+        storage = MagicMock()
 
         with pytest.raises(HTTPException) as exc:
-            read_activity_thumbnail(1, "bad")
+            read_activity_thumbnail(1, "bad", storage)
 
         assert exc.value.status_code == 404
-        mock_runtime.get_active_platform.assert_not_called()
+        storage.get.assert_not_called()
 
-    @patch("modules.activities.activity_thumbnail.router.platform_runtime")
     @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
-    def test_404_when_blob_missing(self, mock_signing, mock_runtime):
+    def test_404_when_blob_missing(self, mock_signing):
         from fastapi import HTTPException
 
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
@@ -52,10 +49,9 @@ class TestReadActivityThumbnailUnit:
         mock_signing.verify_thumbnail_token.return_value = True
         storage = MagicMock()
         storage.get.return_value = None
-        mock_runtime.get_active_platform.return_value.storage = storage
 
         with pytest.raises(HTTPException) as exc:
-            read_activity_thumbnail(1, "tok")
+            read_activity_thumbnail(1, "tok", storage)
 
         assert exc.value.status_code == 404
 
@@ -65,26 +61,23 @@ class TestReadActivityThumbnailEndToEnd:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
+        import core.dependencies as core_dependencies
         import modules.activities.activity_thumbnail.router as thumb_router
 
         app = FastAPI()
         app.include_router(thumb_router.router)
-        patcher = patch("modules.activities.activity_thumbnail.router.platform_runtime")
-        mock_runtime = patcher.start()
-        mock_runtime.get_active_platform.return_value.storage = storage
-        return TestClient(app), patcher
+        app.dependency_overrides[core_dependencies.get_storage] = lambda: storage
+        return TestClient(app)
 
     def test_valid_signed_token_serves_image(self):
         import modules.activities.activity_thumbnail.signing as signing
 
         storage = MagicMock()
         storage.get.return_value = b"webpdata"
-        client, patcher = self._client(storage)
-        try:
-            token = signing.sign_thumbnail_token(7)
-            resp = client.get("/7/thumbnail", params={"t": token})
-        finally:
-            patcher.stop()
+        client = self._client(storage)
+
+        token = signing.sign_thumbnail_token(7)
+        resp = client.get("/7/thumbnail", params={"t": token})
 
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "image/webp"
@@ -93,21 +86,16 @@ class TestReadActivityThumbnailEndToEnd:
     def test_forged_token_is_rejected(self):
         storage = MagicMock()
         storage.get.return_value = b"webpdata"
-        client, patcher = self._client(storage)
-        try:
-            resp = client.get("/7/thumbnail", params={"t": "forged"})
-        finally:
-            patcher.stop()
+        client = self._client(storage)
+
+        resp = client.get("/7/thumbnail", params={"t": "forged"})
 
         assert resp.status_code == 404
         storage.get.assert_not_called()
 
     def test_missing_token_is_unprocessable(self):
-        storage = MagicMock()
-        client, patcher = self._client(storage)
-        try:
-            resp = client.get("/7/thumbnail")
-        finally:
-            patcher.stop()
+        client = self._client(MagicMock())
+
+        resp = client.get("/7/thumbnail")
 
         assert resp.status_code == 422

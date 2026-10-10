@@ -1,7 +1,7 @@
 """Tests for accepting, running and pruning activity upload jobs."""
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -100,7 +100,7 @@ class TestAcceptUpload:
         ):
             ingestion_jobs.accept_upload(7, _file(), db)
 
-        discard.assert_called_once_with("abc.gpx")
+        discard.assert_called_once_with("abc.gpx", ANY)
 
 
 class TestRunUploadJob:
@@ -222,7 +222,7 @@ class TestFailUploadJob:
             )
 
         failed.assert_called_once()
-        discard.assert_called_once_with("abc.gpx")
+        discard.assert_called_once_with("abc.gpx", ANY)
 
     def test_looks_the_key_up_when_the_caller_does_not_have_it(self):
         """The dead-letter path only knows the job id."""
@@ -237,7 +237,7 @@ class TestFailUploadJob:
                 "job-1", activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED
             )
 
-        discard.assert_called_once_with("abc.gpx")
+        discard.assert_called_once_with("abc.gpx", ANY)
 
     def test_a_bookkeeping_failure_never_propagates(self):
         """It must not mask the original import failure."""

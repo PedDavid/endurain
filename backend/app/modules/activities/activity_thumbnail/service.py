@@ -10,7 +10,6 @@ backfill (guarded by the ``LockProvider`` so a single replica runs it) and the
 from collections.abc import Callable, Iterator
 
 import jasil.providers as platform_providers
-import jasil.runtime as platform_runtime
 from sqlalchemy.orm import Session
 
 import core.database as core_database
@@ -167,7 +166,10 @@ def delete_activity_thumbnail(activity_id: int, storage: platform_providers.Stor
     )
 
 
-def delete_and_regenerate_all_activity_thumbnails() -> None:
+def delete_and_regenerate_all_activity_thumbnails(
+    storage: platform_providers.StorageProvider,
+    lock: platform_providers.LockProvider,
+) -> None:
     """
     Delete all existing thumbnails and regenerate from scratch.
 
@@ -176,6 +178,10 @@ def delete_and_regenerate_all_activity_thumbnails() -> None:
     thumbnail blob through the storage provider, clears the DB
     references, then triggers a full regeneration pass.
 
+    Args:
+        storage: The blob-storage provider.
+        lock: The coordination lock provider.
+
     Returns:
         None
 
@@ -183,8 +189,6 @@ def delete_and_regenerate_all_activity_thumbnails() -> None:
         None — errors are logged; execution continues.
     """
     logger.info("Thumbnail regeneration: deleting all existing thumbnails")
-
-    storage = platform_runtime.get_active_platform().storage
 
     deleted = 0
     with core_database.SessionLocal() as db:
@@ -206,10 +210,13 @@ def delete_and_regenerate_all_activity_thumbnails() -> None:
     logger.info("Thumbnail regeneration: deleted thumbnails", extra=core_logger.context(deleted=deleted))
 
     # Regenerate all thumbnails
-    generate_missing_activity_thumbnails()
+    generate_missing_activity_thumbnails(storage, lock)
 
 
-def generate_missing_activity_thumbnails() -> None:
+def generate_missing_activity_thumbnails(
+    storage: platform_providers.StorageProvider,
+    lock: platform_providers.LockProvider,
+) -> None:
     """
     Generate thumbnails for activities that are missing one.
 
@@ -218,18 +225,21 @@ def generate_missing_activity_thumbnails() -> None:
     own database session, reconciles stale references, and renders and
     stores a thumbnail for each activity whose map_thumbnail_path is NULL.
 
+    Args:
+        storage: The blob-storage provider.
+        lock: The coordination lock provider.
+
     Returns:
         None
 
     Raises:
         None — errors are logged per-activity; execution continues.
     """
-    platform = platform_runtime.get_active_platform()
-    with platform.lock.try_acquire("thumbnail_backfill") as acquired:
+    with lock.try_acquire("thumbnail_backfill") as acquired:
         if not acquired:
             logger.debug("Thumbnail scheduler: another replica holds the backfill lock; skipping")
             return
-        _run_missing_thumbnail_generation(platform.storage)
+        _run_missing_thumbnail_generation(storage)
 
 
 def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvider) -> None:

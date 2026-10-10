@@ -23,6 +23,7 @@ Where this skill and a guide disagree, the guide wins.
 - Filenames are the contract: a misnamed file silently escapes the rules.
 - Never register contributors, subscribers or providers as an import side effect.
 - Storage, events, jobs and geocoding come from `jasil` ports (`jasil.providers`, `jasil.publisher`, ...); never import `jasil.backends` or `jasil._core`.
+- Resolve providers (`get_active_platform()`) only at entry points - router `Depends`, subscriber, job, `integration_service`; below that, take the provider as an argument.
 - Events are published from `service` via `event_publishers`, with the commit callable, never from `crud` or `integration_service`.
 
 ## Read on demand

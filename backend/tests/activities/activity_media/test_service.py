@@ -85,22 +85,23 @@ class TestListActivityMedia:
 
 class TestStoreActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_saves_blob_and_creates_record(self, mock_activities_service, mock_uploads, mock_storage, mock_media_crud):
+    def test_saves_blob_and_creates_record(self, mock_activities_service, mock_uploads, mock_media_crud):
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
         mock_uploads.read_validated_upload_sync.return_value = b"bytes"
-        storage = mock_storage.return_value
+        storage = MagicMock()
         mock_media_crud.get_activity_media_by_content_hash.return_value = None
         mock_media_crud.create_activity_media.return_value = ActivityMediaRecord(
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        result = store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="text/html"), MagicMock())
+        result = store_activity_media(
+            1, 2, MagicMock(filename="ride.jpg", content_type="text/html"), MagicMock(), storage
+        )
 
         assert result.id == 9
         assert "/activities/1/media/9/file?t=" in result.url
@@ -117,11 +118,10 @@ class TestStoreActivityMedia:
         assert mock_media_crud.create_activity_media.call_args.kwargs["content_hash"]
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
     def test_returns_existing_record_without_storing_when_content_matches(
-        self, mock_activities_service, mock_uploads, mock_storage, mock_media_crud
+        self, mock_activities_service, mock_uploads, mock_media_crud
     ):
         """A retried upload of the exact same photo must not create a second row."""
         from modules.activities.activity_media.contracts import ActivityMediaRecord
@@ -129,63 +129,59 @@ class TestStoreActivityMedia:
 
         mock_activities_service.owns_activity.return_value = True
         mock_uploads.read_validated_upload_sync.return_value = b"bytes"
-        storage = mock_storage.return_value
+        storage = MagicMock()
         existing = ActivityMediaRecord(id=4, activity_id=1, media_path="1_existing.jpg", media_type=1)
         mock_media_crud.get_activity_media_by_content_hash.return_value = existing
 
-        result = store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock())
+        result = store_activity_media(
+            1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage
+        )
 
         assert result.id == 4
         storage.save.assert_not_called()
         mock_media_crud.create_activity_media.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_rejects_activity_owned_by_another_user(
-        self, mock_activities_service, mock_uploads, mock_storage, mock_media_crud
-    ):
+    def test_rejects_activity_owned_by_another_user(self, mock_activities_service, mock_uploads, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = False
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
-            store_activity_media(1, 2, MagicMock(filename="ride.jpg"), MagicMock())
+            storage = MagicMock()
+            store_activity_media(1, 2, MagicMock(filename="ride.jpg"), MagicMock(), storage)
 
         assert exc.value.status_code == 404
         # Nothing is read or stored for an activity the caller does not own.
         mock_uploads.read_validated_upload_sync.assert_not_called()
-        mock_storage.return_value.save.assert_not_called()
+        storage.save.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_removes_blob_when_record_creation_fails(
-        self, mock_activities_service, mock_uploads, mock_storage, mock_media_crud
-    ):
+    def test_removes_blob_when_record_creation_fails(self, mock_activities_service, mock_uploads, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
         mock_uploads.read_validated_upload_sync.return_value = b"bytes"
-        storage = mock_storage.return_value
+        storage = MagicMock()
         mock_media_crud.get_activity_media_by_content_hash.return_value = None
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
         with pytest.raises(core_exceptions.ConflictError):
-            store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock())
+            store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage)
 
         # A failed upload leaves no orphaned blob.
         stored_key = storage.save.call_args.args[1]
         storage.delete.assert_called_once_with("activity_media", stored_key)
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
     def test_race_lost_to_a_concurrent_store_returns_the_winner(
-        self, mock_activities_service, mock_uploads, mock_storage, mock_media_crud
+        self, mock_activities_service, mock_uploads, mock_media_crud
     ):
         """The pre-check is read-then-write; losing the race to the unique index
         must return the winner rather than surfacing a conflict for what the
@@ -195,13 +191,15 @@ class TestStoreActivityMedia:
 
         mock_activities_service.owns_activity.return_value = True
         mock_uploads.read_validated_upload_sync.return_value = b"bytes"
-        storage = mock_storage.return_value
+        storage = MagicMock()
         winner = ActivityMediaRecord(id=4, activity_id=1, media_path="1_winner.jpg", media_type=1)
         # Miss on the pre-check, then find the winner once the insert conflicts.
         mock_media_crud.get_activity_media_by_content_hash.side_effect = [None, winner]
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
-        result = store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock())
+        result = store_activity_media(
+            1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage
+        )
 
         assert result.id == 4
         stored_key = storage.save.call_args.args[1]
@@ -212,18 +210,17 @@ class TestStoreActivityMediaBytes:
     """The server-side ingestion counterpart (Strava bulk-export sidecar photos)."""
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
-    def test_saves_blob_and_creates_record(self, mock_storage, mock_media_crud):
+    def test_saves_blob_and_creates_record(self, mock_media_crud):
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media_bytes
 
-        storage = mock_storage.return_value
+        storage = MagicMock()
         mock_media_crud.get_activity_media_by_content_hash.return_value = None
         mock_media_crud.create_activity_media.return_value = ActivityMediaRecord(
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock())
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), storage)
 
         assert result.id == 9
         area, _key, data, content_type = storage.save.call_args.args
@@ -233,18 +230,17 @@ class TestStoreActivityMediaBytes:
         assert mock_media_crud.create_activity_media.call_args.kwargs["content_hash"]
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
-    def test_re_running_a_bulk_import_does_not_duplicate_the_photo(self, mock_storage, mock_media_crud):
+    def test_re_running_a_bulk_import_does_not_duplicate_the_photo(self, mock_media_crud):
         """A Strava bulk-export re-run must not create a second media row for a
         photo it already imported for this activity."""
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media_bytes
 
-        storage = mock_storage.return_value
+        storage = MagicMock()
         existing = ActivityMediaRecord(id=4, activity_id=1, media_path="1_existing.jpg", media_type=1)
         mock_media_crud.get_activity_media_by_content_hash.return_value = existing
 
-        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock())
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), storage)
 
         assert result.id == 4
         storage.save.assert_not_called()
@@ -253,18 +249,18 @@ class TestStoreActivityMediaBytes:
 
 class TestDeleteActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.activities_service")
-    def test_deletes_record_and_blob(self, mock_activities_service, mock_storage, mock_media_crud):
+    def test_deletes_record_and_blob(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import delete_activity_media
 
         mock_media_crud.get_activity_media_by_id.return_value = MagicMock(activity_id=1, media_path="1_abc.jpg")
         mock_activities_service.owns_activity.return_value = True
 
-        delete_activity_media(1, 5, 2, MagicMock())
+        storage = MagicMock()
+        delete_activity_media(1, 5, 2, MagicMock(), storage)
 
         mock_media_crud.delete_activity_media.assert_called_once()
-        mock_storage.return_value.delete.assert_called_once_with("activity_media", "1_abc.jpg")
+        storage.delete.assert_called_once_with("activity_media", "1_abc.jpg")
 
     @patch(f"{_SVC}.activity_media_crud")
     def test_missing_media_is_404(self, mock_media_crud):
@@ -273,7 +269,8 @@ class TestDeleteActivityMedia:
         mock_media_crud.get_activity_media_by_id.return_value = None
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
-            delete_activity_media(1, 5, 2, MagicMock())
+            storage = MagicMock()
+            delete_activity_media(1, 5, 2, MagicMock(), storage)
         assert exc.value.status_code == 404
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -289,7 +286,8 @@ class TestDeleteActivityMedia:
         mock_media_crud.get_activity_media_by_id.return_value = MagicMock(activity_id=99, media_path="/media/x.jpg")
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
-            delete_activity_media(1, 5, 2, MagicMock())
+            storage = MagicMock()
+            delete_activity_media(1, 5, 2, MagicMock(), storage)
 
         assert exc.value.status_code == 404
         mock_media_crud.delete_activity_media.assert_not_called()
@@ -303,7 +301,8 @@ class TestDeleteActivityMedia:
         mock_activities_service.owns_activity.return_value = False
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
-            delete_activity_media(1, 5, 2, MagicMock())
+            storage = MagicMock()
+            delete_activity_media(1, 5, 2, MagicMock(), storage)
 
         assert exc.value.status_code == 404
         # 404 rather than 403 so media ids cannot be probed, and nothing is deleted.
@@ -311,18 +310,16 @@ class TestDeleteActivityMedia:
 
     @patch(f"{_SVC}.logger")
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}._storage")
     @patch(f"{_SVC}.activities_service")
-    def test_cleanup_failure_is_logged_not_raised(
-        self, mock_activities_service, mock_storage, mock_media_crud, mock_logger
-    ):
+    def test_cleanup_failure_is_logged_not_raised(self, mock_activities_service, mock_media_crud, mock_logger):
         from modules.activities.activity_media.service import delete_activity_media
 
         mock_media_crud.get_activity_media_by_id.return_value = MagicMock(activity_id=1, media_path="1_abc.jpg")
         mock_activities_service.owns_activity.return_value = True
-        mock_storage.return_value.delete.side_effect = OSError("backend down")
+        storage = MagicMock()
+        storage.delete.side_effect = OSError("backend down")
 
-        delete_activity_media(1, 5, 2, MagicMock())
+        delete_activity_media(1, 5, 2, MagicMock(), storage)
 
         # The row is still gone; only the blob cleanup failed.
         mock_media_crud.delete_activity_media.assert_called_once()

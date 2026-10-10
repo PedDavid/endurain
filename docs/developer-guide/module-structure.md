@@ -250,6 +250,15 @@ Downward only. `crud` never calls `service`; `service` never touches `models`.
 - **`fastapi`** — routers and dependencies only. Persistence raises
   `core.exceptions`; the app's error handler maps those to responses.
 
+Providers are resolved at the edge and passed down. A router declares
+`Depends(core.dependencies.get_storage)`; a subscriber, scheduled job or
+`integration_service` surface function (callers with nothing to carry a provider)
+calls `jasil.runtime.get_active_platform()` once and hands the provider to
+`service`. A `service`, `crud` or helper never resolves it itself:
+`TestProviderResolution` fails on `get_active_platform` below an entry point, so
+a dependency is visible in the signature and a test substitutes it without
+patching the runtime.
+
 The dependency direction is fixed: `core` and the substrate must never import
 `modules`. A module publishes its scheduled work (`scheduled_jobs.py`), its
 subscribers (`subscriber_registry.py`) and its plug-ins; the platform *collects*

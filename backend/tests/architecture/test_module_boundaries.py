@@ -428,6 +428,41 @@ class TestModuleInventory:
         )
 
 
+class TestProviderResolution:
+    """A platform provider is resolved at an entry point and passed down."""
+
+    #: Roles that are entry points: something external (HTTP, the bus, the
+    #: scheduler, a peer module) calls them with nothing to carry a provider.
+    _ENTRY_ROLES = frozenset({"router", "public_router", "subscribers", "integration_service", "scheduled_jobs"})
+
+    #: Stem suffixes for entry layers whose names are not in the role vocabulary.
+    _ENTRY_SUFFIXES = ("_jobs", "_entry", "_subscribers")
+
+    def test_services_and_helpers_receive_their_providers(self):
+        """``get_active_platform()`` is a service locator, so it stays at the edge.
+
+        A function that reaches for the process-wide platform has a dependency
+        its signature does not show: it cannot be tested without patching the
+        runtime, and it cannot be lifted out of this application without
+        dragging the runtime with it. Entry points resolve the provider once and
+        hand it down as an argument; routers declare it with
+        ``Depends(core.dependencies.get_storage)`` so a test overrides it.
+        """
+        offenders: list[str] = []
+        for module_name in _CONVERTED:
+            for path in _python_files(_MODULES_ROOT / module_name):
+                if _role(path.stem) in self._ENTRY_ROLES or path.stem.endswith(self._ENTRY_SUFFIXES):
+                    continue
+                for node in ast.walk(ast.parse(path.read_text())):
+                    if isinstance(node, ast.Attribute) and node.attr in {"get_active_platform", "get_state"}:
+                        offenders.append(f"{path}:{node.lineno}")
+        assert not offenders, (
+            "Provider resolved below an entry point. Take the provider as an "
+            "argument and resolve it in the router (Depends), subscriber, job or "
+            "integration_service that calls you:\n  " + "\n  ".join(sorted(offenders))
+        )
+
+
 class TestPackageIndependence:
     """A package is the unit of extraction, so the graph between them is a DAG."""
 

@@ -19,6 +19,7 @@ idempotent teardown keyed by activity id, and a stray orphaned file is harmless.
 """
 
 import jasil.event_versioning as platform_event_versioning
+import jasil.runtime as platform_runtime
 from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
@@ -49,7 +50,9 @@ def cleanup_activity_media_for_event(event: Event) -> None:
         None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityDeletedPayload, event)
-    activity_media_service.delete_media_files_for_activity(payload.activity_id)
+    activity_media_service.delete_media_files_for_activity(
+        payload.activity_id, platform_runtime.get_active_platform().storage
+    )
     logger.debug(
         "Deleted media files for deleted activity",
         extra=core_logger.context(activity_id=payload.activity_id),

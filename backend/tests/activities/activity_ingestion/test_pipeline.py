@@ -100,14 +100,14 @@ class TestRetainSourceFile:
         source = tmp_path / "ride.gpx"
         source.write_bytes(b"<gpx/>")
 
-        with (
-            patch.object(pipeline.file_storage_integration, "store_activity_file_for_ids") as store,
-            patch.object(pipeline.platform_runtime, "get_active_platform"),
-        ):
-            pipeline._retain_source_file(str(source), ".gpx", [4, 5])
+        storage = MagicMock()
+
+        with patch.object(pipeline.file_storage_integration, "store_activity_file_for_ids") as store:
+            pipeline._retain_source_file(str(source), ".gpx", [4, 5], storage)
 
         assert store.call_args.args[0] == [4, 5]
         assert store.call_args.args[2] == b"<gpx/>"
+        assert store.call_args.args[3] is storage
         assert not source.exists()
 
     def test_removes_the_input_even_when_nothing_was_created(self, tmp_path):
@@ -115,7 +115,7 @@ class TestRetainSourceFile:
         source.write_bytes(b"<gpx/>")
 
         with patch.object(pipeline.file_storage_integration, "store_activity_file_for_ids") as store:
-            pipeline._retain_source_file(str(source), ".gpx", [])
+            pipeline._retain_source_file(str(source), ".gpx", [], MagicMock())
 
         store.assert_not_called()
         assert not source.exists()
@@ -157,6 +157,7 @@ class TestStoreActivitiesFromFile:
                 "empty.fit",
                 "db",
                 source=sources.UploadSource(),
+                storage=MagicMock(),
             )
 
         assert result == []
@@ -184,6 +185,7 @@ class TestStoreActivitiesFromFile:
                 "unknown.fit",
                 "db",
                 source=sources.UploadSource(),
+                storage=MagicMock(),
             )
 
     def test_a_file_that_yields_no_activities_is_still_cleaned_up(self, tmp_path):
@@ -206,6 +208,7 @@ class TestStoreActivitiesFromFile:
                 "empty.fit",
                 "db",
                 source=sources.UploadSource(),
+                storage=MagicMock(),
             )
 
         assert result == []
@@ -228,6 +231,7 @@ class TestStoreActivitiesFromFile:
                 "keep.gpx",
                 "db",
                 source=sources.UploadSource(),
+                storage=MagicMock(),
             )
 
         assert result is None

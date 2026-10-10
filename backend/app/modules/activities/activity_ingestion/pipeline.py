@@ -24,7 +24,7 @@ import gzip
 import os
 from pathlib import Path
 
-import jasil.runtime as platform_runtime
+import jasil.providers as platform_providers
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -111,6 +111,7 @@ def _retain_source_file(
     file_path: str,
     file_extension: str,
     activity_ids: list[int],
+    storage: platform_providers.StorageProvider,
 ) -> None:
     """Persist the source file against each activity parsed from it, then consume it.
 
@@ -125,6 +126,7 @@ def _retain_source_file(
         file_path: The parsed file on disk. Removed afterwards.
         file_extension: The file's extension, used for the stored object's name.
         activity_ids: IDs of the activities parsed from the file.
+        storage: The blob-storage provider the file is retained in.
     """
     if activity_ids:
         with open(file_path, "rb") as source_file:
@@ -133,7 +135,7 @@ def _retain_source_file(
             activity_ids,
             file_extension,
             file_bytes,
-            platform_runtime.get_active_platform().storage,
+            storage,
         )
 
     with contextlib.suppress(OSError):
@@ -148,6 +150,7 @@ def store_activities_from_file(
     db: Session,
     *,
     source: ingestion_sources.IngestionSource,
+    storage: platform_providers.StorageProvider,
     garmin_connect_activity_id: str | None = None,
 ) -> list[activities_schema.Activity] | None:
     """Parse a validated, on-disk activity file and persist its activities.
@@ -171,6 +174,7 @@ def store_activities_from_file(
             the Strava bulk-import metadata.
         db: SQLAlchemy database session.
         source: Where the file came from, and any source-specific metadata.
+        storage: The blob-storage provider the source file is retained in.
         garmin_connect_activity_id: Garmin Connect activity id parsed from the
             filename, for a Garmin sync.
 
@@ -277,6 +281,7 @@ def store_activities_from_file(
         file_path,
         file_extension,
         [activity.id for activity in created_activities if activity.id is not None],
+        storage,
     )
 
     if bulk_source is not None:
@@ -327,6 +332,7 @@ def validate_prepare_and_store_file(
     db: Session,
     *,
     source: ingestion_sources.IngestionSource,
+    storage: platform_providers.StorageProvider,
 ) -> list[activities_schema.Activity] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
 
@@ -344,6 +350,7 @@ def validate_prepare_and_store_file(
         file_path: Absolute path to the activity file to parse.
         db: SQLAlchemy database session.
         source: Where the file came from, and any source-specific metadata.
+        storage: The blob-storage provider the source file is retained in.
 
     Returns:
         List of created activity schema objects.
@@ -393,5 +400,6 @@ def validate_prepare_and_store_file(
         file_base_name,
         db,
         source=source,
+        storage=storage,
         garmin_connect_activity_id=garmin_connect_activity_id,
     )

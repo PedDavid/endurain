@@ -17,7 +17,6 @@ import uuid
 from pathlib import PurePosixPath
 
 import jasil.providers as platform_providers
-import jasil.runtime as platform_runtime
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
@@ -117,11 +116,6 @@ def _content_type_for(storage_key: str) -> str:
     return f"image/{subtype}"
 
 
-def _storage() -> platform_providers.StorageProvider:
-    """Return the active platform's blob-storage provider."""
-    return platform_runtime.get_active_platform().storage
-
-
 def _cleanup_orphaned_blob(storage: platform_providers.StorageProvider, storage_key: str, activity_id: int) -> None:
     """Best-effort delete of a blob whose database row was never created.
 
@@ -147,6 +141,7 @@ def _persist_media_bytes(
     original_filename: str | None,
     data: bytes,
     db: Session,
+    storage: platform_providers.StorageProvider,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """Store validated image bytes, no-op'ing a byte-for-byte repeat.
 
@@ -160,6 +155,7 @@ def _persist_media_bytes(
         original_filename: Source filename, used only for its extension.
         data: Validated image bytes.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         The stored record — freshly created, or the existing one when the exact
@@ -180,7 +176,6 @@ def _persist_media_bytes(
         return existing
 
     storage_key = _build_storage_key(activity_id, original_filename)
-    storage = _storage()
     storage.save(activity_media_signing.MEDIA_STORAGE_AREA, storage_key, data, _content_type_for(storage_key))
 
     try:
@@ -258,7 +253,12 @@ def list_activity_media(
     return [_to_read_model(record) for record in records]
 
 
-def read_activity_media_blob(activity_id: int, media_id: int, db: Session) -> tuple[bytes, str] | None:
+def read_activity_media_blob(
+    activity_id: int,
+    media_id: int,
+    db: Session,
+    storage: platform_providers.StorageProvider,
+) -> tuple[bytes, str] | None:
     """Read one media blob for the token-gated serve route.
 
     Authorization is the signed token the caller already presented; this only
@@ -270,6 +270,7 @@ def read_activity_media_blob(activity_id: int, media_id: int, db: Session) -> tu
         activity_id: The activity from the request path.
         media_id: The media record from the request path.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         A ``(data, content_type)`` tuple, or ``None`` when the record or its blob
@@ -279,7 +280,7 @@ def read_activity_media_blob(activity_id: int, media_id: int, db: Session) -> tu
     if media is None or media.activity_id != activity_id:
         return None
 
-    data = _storage().get(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
+    data = storage.get(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
     if data is None:
         logger.warning(
             "Activity media row has no blob behind its storage key",
@@ -295,6 +296,7 @@ def store_activity_media(
     user_id: int,
     file: UploadFile,
     db: Session,
+    storage: platform_providers.StorageProvider,
 ) -> activity_media_schema.ActivityMedia:
     """Persist an uploaded image and register it against an activity.
 
@@ -308,6 +310,7 @@ def store_activity_media(
         user_id: The authenticated user, who must own the activity.
         file: The uploaded image.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         The created media record, carrying its signed servable URL. The same
@@ -325,7 +328,7 @@ def store_activity_media(
     # Callers run on a worker thread (the route is synchronous), so the blocking
     # read never touches the event loop.
     data = core_file_uploads.read_validated_upload_sync(file, kind=core_file_uploads.UploadKind.IMAGE)
-    created = _persist_media_bytes(activity_id, file.filename, data, db)
+    created = _persist_media_bytes(activity_id, file.filename, data, db, storage)
 
     logger.info(
         "Stored activity media",
@@ -339,6 +342,7 @@ def store_activity_media_bytes(
     original_filename: str | None,
     data: bytes,
     db: Session,
+    storage: platform_providers.StorageProvider,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """Register already-validated image bytes as media for an activity.
 
@@ -357,6 +361,7 @@ def store_activity_media_bytes(
         original_filename: The source filename, used only for its extension.
         data: The validated image bytes.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         The stored record — freshly created, or the existing one when a
@@ -365,7 +370,7 @@ def store_activity_media_bytes(
     Raises:
         UnsupportedMediaTypeError: For an unsupported extension.
     """
-    created = _persist_media_bytes(activity_id, original_filename, data, db)
+    created = _persist_media_bytes(activity_id, original_filename, data, db, storage)
     logger.info(
         "Stored activity media from a server-side import",
         extra=core_logger.context(activity_id=activity_id, media_id=created.id),
@@ -373,7 +378,13 @@ def store_activity_media_bytes(
     return created
 
 
-def delete_activity_media(activity_id: int, media_id: int, user_id: int, db: Session) -> None:
+def delete_activity_media(
+    activity_id: int,
+    media_id: int,
+    user_id: int,
+    db: Session,
+    storage: platform_providers.StorageProvider,
+) -> None:
     """Delete one of the user's media records and its stored blob.
 
     Args:
@@ -383,6 +394,7 @@ def delete_activity_media(activity_id: int, media_id: int, user_id: int, db: Ses
         media_id: The media record to delete.
         user_id: The authenticated user, who must own the owning activity.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         None.
@@ -403,7 +415,7 @@ def delete_activity_media(activity_id: int, media_id: int, user_id: int, db: Ses
         # Best-effort: the row is the source of truth, and a stray blob is
         # harmless now that nothing serves it without a signed token.
         try:
-            _storage().delete(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
+            storage.delete(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
         except Exception as storage_err:
             logger.warning(
                 "Failed to remove the stored blob for a deleted activity media record",
@@ -416,7 +428,7 @@ def delete_activity_media(activity_id: int, media_id: int, user_id: int, db: Ses
     )
 
 
-def delete_media_files_for_activity(activity_id: int) -> int:
+def delete_media_files_for_activity(activity_id: int, storage: platform_providers.StorageProvider) -> int:
     """Remove every stored media blob belonging to one activity.
 
     Used by the ``activity.deleted`` cleanup subscriber. It works from the
@@ -430,11 +442,11 @@ def delete_media_files_for_activity(activity_id: int) -> int:
 
     Args:
         activity_id: The deleted activity whose media blobs to remove.
+        storage: The blob-storage provider.
 
     Returns:
         The number of blobs removed.
     """
-    storage = _storage()
     # ``activity_id`` is an int, so the prefix carries no metacharacters. The
     # trailing underscore keeps activity 42 from matching activity 421's keys.
     prefix = f"{activity_id}_"

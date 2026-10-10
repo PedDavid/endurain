@@ -1,6 +1,6 @@
 """Tests for Idempotency-Key handling on activity upload."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
@@ -130,7 +130,7 @@ class TestConcurrentSameKey:
             result = ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
 
         assert result is winner
-        discard.assert_called_once_with("abc.gpx")
+        discard.assert_called_once_with("abc.gpx", ANY)
         db.rollback.assert_called_once()
 
     def test_a_racing_key_reuse_with_different_content_still_conflicts(self):

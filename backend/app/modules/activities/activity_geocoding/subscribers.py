@@ -44,7 +44,9 @@ def geocode_activity_for_event(event: Event) -> None:
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     with core_database.SessionLocal() as db:
-        activity_geocoding_service.geocode_and_store_activity_location(payload.activity_id, db)
+        activity_geocoding_service.geocode_and_store_activity_location(
+            payload.activity_id, db, platform_runtime.get_active_platform().geocoding
+        )
     logger.debug(
         "Handled reverse geocoding for created activity",
         extra=core_logger.context(activity_id=payload.activity_id, user_id=payload.user_id),
@@ -110,4 +112,4 @@ def run_missing_location_backfill() -> None:
             logger.debug("Geocoding scheduler: another replica holds the backfill lock; skipping")
             return
         with core_database.SessionLocal() as db:
-            activity_geocoding_service.backfill_missing_activity_locations(db)
+            activity_geocoding_service.backfill_missing_activity_locations(db, platform.geocoding)

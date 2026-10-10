@@ -18,13 +18,13 @@ _AREA = "activity_media"
 
 
 def _local_storage(tmp_path):
-    """Back the service with a real ``LocalStorage`` rooted at ``tmp_path``.
+    """Return a real ``LocalStorage`` rooted at ``tmp_path``.
 
     The real backend rather than a mock, because half of what is being asserted
     here (prefix matching, symlink containment, skipping directories) lives in
     ``list_keys`` itself.
     """
-    return patch.object(media_service, "_storage", return_value=LocalStorage(str(tmp_path)))
+    return LocalStorage(str(tmp_path))
 
 
 def _area_dir(tmp_path):
@@ -41,8 +41,8 @@ class TestDeleteMediaFilesForActivity:
         (area / "42_bbb.png").write_bytes(b"x")
         (area / "43_ccc.jpeg").write_bytes(b"x")
 
-        with _local_storage(tmp_path):
-            removed = media_service.delete_media_files_for_activity(42)
+        storage = _local_storage(tmp_path)
+        removed = media_service.delete_media_files_for_activity(42, storage)
 
         assert removed == 2
         assert not (area / "42_aaa.jpeg").exists()
@@ -55,8 +55,8 @@ class TestDeleteMediaFilesForActivity:
         (area / "421_aaa.jpeg").write_bytes(b"x")
         (area / "4_bbb.jpeg").write_bytes(b"x")
 
-        with _local_storage(tmp_path):
-            removed = media_service.delete_media_files_for_activity(42)
+        storage = _local_storage(tmp_path)
+        removed = media_service.delete_media_files_for_activity(42, storage)
 
         assert removed == 0
         assert (area / "421_aaa.jpeg").exists()
@@ -64,27 +64,27 @@ class TestDeleteMediaFilesForActivity:
 
     def test_activity_without_media_is_a_no_op(self, tmp_path):
         _area_dir(tmp_path)
-        with _local_storage(tmp_path):
-            assert media_service.delete_media_files_for_activity(42) == 0
+        storage = _local_storage(tmp_path)
+        assert media_service.delete_media_files_for_activity(42, storage) == 0
 
     def test_is_idempotent(self, tmp_path):
         area = _area_dir(tmp_path)
         (area / "42_aaa.jpeg").write_bytes(b"x")
 
-        with _local_storage(tmp_path):
-            assert media_service.delete_media_files_for_activity(42) == 1
-            assert media_service.delete_media_files_for_activity(42) == 0
+        storage = _local_storage(tmp_path)
+        assert media_service.delete_media_files_for_activity(42, storage) == 1
+        assert media_service.delete_media_files_for_activity(42, storage) == 0
 
     def test_missing_area_directory_is_a_no_op(self, tmp_path):
-        with _local_storage(tmp_path / "does-not-exist"):
-            assert media_service.delete_media_files_for_activity(42) == 0
+        storage = _local_storage(tmp_path / "does-not-exist")
+        assert media_service.delete_media_files_for_activity(42, storage) == 0
 
     def test_directories_are_left_alone(self, tmp_path):
         area = _area_dir(tmp_path)
         (area / "42_subdir").mkdir()
 
-        with _local_storage(tmp_path):
-            assert media_service.delete_media_files_for_activity(42) == 0
+        storage = _local_storage(tmp_path)
+        assert media_service.delete_media_files_for_activity(42, storage) == 0
 
         assert (area / "42_subdir").is_dir()
 
@@ -96,8 +96,8 @@ class TestDeleteMediaFilesForActivity:
         area = _area_dir(tmp_path)
         (area / "42_link.jpeg").symlink_to(outside)
 
-        with _local_storage(tmp_path):
-            removed = media_service.delete_media_files_for_activity(42)
+        storage = _local_storage(tmp_path)
+        removed = media_service.delete_media_files_for_activity(42, storage)
 
         assert removed == 0
         assert outside.exists()
@@ -107,8 +107,7 @@ class TestDeleteMediaFilesForActivity:
         storage.list_keys.return_value = ["42_aaa.jpeg", "42_bbb.jpeg"]
         storage.delete.side_effect = [OSError("permission denied"), None]
 
-        with patch.object(media_service, "_storage", return_value=storage):
-            removed = media_service.delete_media_files_for_activity(42)
+        removed = media_service.delete_media_files_for_activity(42, storage)
 
         assert removed == 1
 
@@ -124,10 +123,13 @@ class TestCleanupSubscriber:
     def test_durable_handler_cleans_up_by_activity_id(self):
         event = self._event({"activity_id": 42})
 
-        with patch.object(media_subscribers.activity_media_service, "delete_media_files_for_activity") as cleanup:
+        with (
+            patch.object(media_subscribers.platform_runtime, "get_active_platform") as platform,
+            patch.object(media_subscribers.activity_media_service, "delete_media_files_for_activity") as cleanup,
+        ):
             media_subscribers.cleanup_activity_media_for_event(event)
 
-        cleanup.assert_called_once_with(42)
+        cleanup.assert_called_once_with(42, platform.return_value.storage)
 
     def test_durable_handler_rejects_a_malformed_payload(self):
         # Raising is what lets the durable runner retry / dead-letter instead of

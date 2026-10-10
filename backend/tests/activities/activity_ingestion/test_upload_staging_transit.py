@@ -51,9 +51,8 @@ class TestStagingTransit:
             # The safeuploads validator is covered by its own tests; this one is
             # about where the bytes go.
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
-            patch.object(upload_entry.platform_runtime, "get_active_platform", return_value=platform),
         ):
-            key = upload_entry.store_received_upload(upload_entry.receive_upload(upload))
+            key = upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
 
         # It really was written to disk first, under the server-generated name.
         assert observed["during"] == [key]
@@ -73,9 +72,8 @@ class TestStagingTransit:
         with (
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
-            patch.object(upload_entry.platform_runtime, "get_active_platform", return_value=platform),
         ):
-            upload_entry.store_received_upload(upload_entry.receive_upload(upload))
+            upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
 
         assert incoming.is_dir()
 
@@ -89,9 +87,8 @@ class TestStagingTransit:
         with (
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
-            patch.object(upload_entry.platform_runtime, "get_active_platform", return_value=platform),
             pytest.raises(RuntimeError),
         ):
-            upload_entry.store_received_upload(upload_entry.receive_upload(upload))
+            upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
 
         assert list(pathlib.Path(incoming).iterdir()) == []

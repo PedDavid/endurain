@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 import jasil.providers as platform_providers
+import jasil.runtime as platform_runtime
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
@@ -91,8 +92,13 @@ def attach_media_bytes(
     data: bytes,
     db: Session,
 ) -> activity_media_contracts.ActivityMediaRecord:
-    """Attach already-validated image bytes to an activity."""
-    return activity_media_service.store_activity_media_bytes(activity_id, original_filename, data, db)
+    """Attach already-validated image bytes to an activity.
+
+    A server-side import calls this with no request to carry the provider, so
+    this surface function is the point that resolves it.
+    """
+    storage = platform_runtime.get_active_platform().storage
+    return activity_media_service.store_activity_media_bytes(activity_id, original_filename, data, db, storage)
 
 
 def list_media_blobs(

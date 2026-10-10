@@ -1,6 +1,6 @@
 """Tests for the durable bulk-import-file subscriber."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from jasil.events import Event
@@ -132,7 +132,7 @@ class TestPublishBulkImportFile:
             bulk_import_subscribers.publish_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db)
 
         settle.assert_not_called()
-        unstage.assert_called_once_with(["k1"])
+        unstage.assert_called_once_with(["k1"], ANY)
 
     def test_staging_failure_propagates(self):
         """This event *is* the work: a swallowed failure would silently drop the import."""
@@ -175,7 +175,7 @@ class TestProcessBulkImportFileForEvent:
 
         assert error is None
         assert run.call_args.args[1] == "/tmp/work/x.gpx"
-        discard.assert_called_once_with("3_abc.gpx")
+        discard.assert_called_once_with("3_abc.gpx", ANY)
         move.assert_not_called()
 
     def test_the_caller_handle_follows_the_import(self):
@@ -193,7 +193,7 @@ class TestProcessBulkImportFileForEvent:
         _run, discard, _move, error, jobs = self._run(_event(_payload(), schema_version=2))
 
         assert error is None
-        discard.assert_called_once_with("3_abc.gpx")
+        discard.assert_called_once_with("3_abc.gpx", ANY)
         jobs.mark_processing.assert_not_called()
         jobs.mark_completed.assert_not_called()
 
@@ -222,7 +222,7 @@ class TestProcessBulkImportFileForEvent:
             )
 
         assert isinstance(error, RuntimeError)
-        move.assert_called_once_with("3_abc.gpx", 3, "x.gpx")
+        move.assert_called_once_with("3_abc.gpx", 3, "x.gpx", ANY)
         assert jobs.mark_failed.call_args.args[0] == "job-1"
 
     @pytest.mark.parametrize(

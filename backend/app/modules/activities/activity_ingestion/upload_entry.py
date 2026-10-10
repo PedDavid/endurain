@@ -29,7 +29,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import jasil.runtime as platform_runtime
+import jasil.providers as platform_providers
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -142,17 +142,18 @@ def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUp
     )
 
 
-def store_received_upload(received: ReceivedUpload) -> str:
+def store_received_upload(received: ReceivedUpload, storage: platform_providers.StorageProvider) -> str:
     """Hand a received upload to storage and drop the local copy.
 
     Args:
         received: The upload returned by :func:`receive_upload`.
+        storage: The blob-storage provider.
 
     Returns:
         The storage key the upload was staged under.
     """
     try:
-        platform_runtime.get_active_platform().storage.save(
+        storage.save(
             UPLOAD_STAGING_STORAGE_AREA,
             _upload_staging_storage_key(received.storage_key),
             received.data,
@@ -178,6 +179,7 @@ def process_staged_upload(
     token_user_id: int,
     staged_key: str,
     db: Session,
+    storage: platform_providers.StorageProvider,
 ) -> list[activities_schema.Activity] | None:
     """Decompress, parse and persist a previously staged upload.
 
@@ -191,6 +193,7 @@ def process_staged_upload(
         token_user_id: The user the activities belong to.
         staged_key: Key returned by :func:`stage_uploaded_activity_file`.
         db: Database session.
+        storage: The blob-storage provider.
 
     Returns:
         List of created Activity schemas, or None if no activity
@@ -201,7 +204,6 @@ def process_staged_upload(
             decompresses to an unsupported payload.
         ProcessingError: On an internal failure.
     """
-    storage = platform_runtime.get_active_platform().storage
     data = storage.get(UPLOAD_STAGING_STORAGE_AREA, _upload_staging_storage_key(staged_key))
     if data is None:
         raise core_exceptions.InvalidInputError("The uploaded file is no longer available")
@@ -242,8 +244,9 @@ def process_staged_upload(
             file_base_name,
             db,
             source=ingestion_sources.UploadSource(),
+            storage=storage,
         )
-        discard_staged_upload(staged_key)
+        discard_staged_upload(staged_key, storage)
         return created_activities
     except (core_exceptions.DomainError, HTTPException):
         # ``HTTPException`` is still raised by the shared ``core.file_uploads``
@@ -273,7 +276,7 @@ def process_staged_upload(
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
-def discard_staged_upload(staged_key: str) -> None:
+def discard_staged_upload(staged_key: str, storage: platform_providers.StorageProvider) -> None:
     """Remove a staged upload's blob, ignoring failures.
 
     Called once a job reaches a terminal state so a rejected or imported upload
@@ -282,12 +285,13 @@ def discard_staged_upload(staged_key: str) -> None:
 
     Args:
         staged_key: The storage key to remove.
+        storage: The blob-storage provider.
 
     Returns:
         None.
     """
     try:
-        platform_runtime.get_active_platform().storage.delete(
+        storage.delete(
             UPLOAD_STAGING_STORAGE_AREA,
             _upload_staging_storage_key(staged_key),
         )

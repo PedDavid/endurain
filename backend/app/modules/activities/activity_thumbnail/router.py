@@ -11,9 +11,10 @@ fetch the blob — while the activity owner keeps their map.
 
 from typing import Annotated
 
-import jasil.runtime as platform_runtime
-from fastapi import APIRouter, HTTPException, Query, Response, status
+import jasil.providers as platform_providers
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+import core.dependencies as core_dependencies
 import core.logger as core_logger
 import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
 
@@ -32,12 +33,14 @@ _CACHE_MAX_AGE = 3600
 def read_activity_thumbnail(
     activity_id: int,
     token: Annotated[str, Query(alias="t", description="Signed thumbnail access token")],
+    storage: Annotated[platform_providers.StorageProvider, Depends(core_dependencies.get_storage)],
 ) -> Response:
     """Serve an activity's map thumbnail when the signed token is valid.
 
     Args:
         activity_id: The activity whose thumbnail to serve.
         token: The signed access token (``?t=``) minted at serialization time.
+        storage: Blob-storage provider.
 
     Returns:
         The WebP thumbnail bytes.
@@ -56,7 +59,6 @@ def read_activity_thumbnail(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thumbnail not found")
 
-    storage = platform_runtime.get_active_platform().storage
     data = storage.get(
         activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA,
         activity_thumbnail_signing.thumbnail_key(activity_id),

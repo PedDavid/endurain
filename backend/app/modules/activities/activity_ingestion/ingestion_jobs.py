@@ -95,6 +95,7 @@ def accept_upload(
         ConflictError: When the key was already used for different content.
         HTTPException: When the shared upload validators reject the payload.
     """
+    storage = platform_runtime.get_active_platform().storage
     received = upload_entry.receive_upload(file, fingerprint=idempotency_key is not None)
 
     if idempotency_key:
@@ -112,7 +113,7 @@ def accept_upload(
             )
             return replayed
 
-    staged_key = upload_entry.store_received_upload(received)
+    staged_key = upload_entry.store_received_upload(received, storage)
     job_id = str(uuid.uuid4())
 
     try:
@@ -146,7 +147,7 @@ def accept_upload(
     except IntegrityError:
         # Two requests carrying the same key raced past the check above. The
         # constraint is what actually decides; the loser reports the winner's job.
-        upload_entry.discard_staged_upload(staged_key)
+        upload_entry.discard_staged_upload(staged_key, storage)
         db.rollback()
         prior = (
             ingestion_jobs_crud.get_job_for_idempotency(
@@ -164,7 +165,7 @@ def accept_upload(
     except Exception:
         # The row is gone (or never committed), so nothing will consume the
         # staged bytes.
-        upload_entry.discard_staged_upload(staged_key)
+        upload_entry.discard_staged_upload(staged_key, storage)
         raise
 
     if not core_config.settings.JOBS_ENABLED:
@@ -372,9 +373,10 @@ def run_upload_job(job_id: str) -> None:
         user_id, staged_key = work_item
         ingestion_jobs_crud.mark_processing(job_id, db)
 
+    storage = platform_runtime.get_active_platform().storage
     with core_database.SessionLocal() as db:
         try:
-            created = upload_entry.process_staged_upload(user_id, staged_key, db)
+            created = upload_entry.process_staged_upload(user_id, staged_key, db, storage)
         except (
             core_exceptions.UnsupportedFormatError,
             core_exceptions.InvalidInputError,
@@ -452,7 +454,7 @@ def fail_ingestion_job(
     # After the row is terminal, so a crash in between leaves a readable blob
     # rather than a job pointing at bytes that are gone.
     if staged_key is not None:
-        upload_entry.discard_staged_upload(staged_key)
+        upload_entry.discard_staged_upload(staged_key, platform_runtime.get_active_platform().storage)
 
 
 # Single-runner lock name: the deletes are idempotent, but the lock keeps the

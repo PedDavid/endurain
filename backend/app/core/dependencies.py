@@ -2,7 +2,22 @@
 
 from typing import Annotated
 
+import jasil.providers as platform_providers
+import jasil.runtime as platform_runtime
 from fastapi import HTTPException, Query, status
+
+
+def get_storage() -> platform_providers.StorageProvider:
+    """
+    Return the active platform's blob-storage provider.
+
+    Routers declare it with ``Depends`` so the provider reaches services as an
+    argument and a test can override it without patching the runtime.
+
+    Returns:
+        The storage provider.
+    """
+    return platform_runtime.get_active_platform().storage
 
 
 def validate_id(identifier: int, min_value: int, message: str) -> None:

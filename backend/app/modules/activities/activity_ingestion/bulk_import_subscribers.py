@@ -21,6 +21,7 @@ from collections.abc import Callable
 
 import jasil.event_versioning as platform_event_versioning
 import jasil.publisher as platform_publisher
+import jasil.runtime as platform_runtime
 from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 from sqlalchemy.orm import Session
@@ -99,10 +100,11 @@ def publish_bulk_import_files(
     # Staged here, in the request thread, because this is the only place
     # guaranteed to see the dropped file. A worker that claims the job may be on
     # another node entirely.
+    storage = platform_runtime.get_active_platform().storage
     staged: list[tuple[str, str, str]] = []
     try:
         for job_id, file_path in queued_files:
-            staged.append((job_id, staging.stage_file(user_id, file_path), file_path))
+            staged.append((job_id, staging.stage_file(user_id, file_path, storage), file_path))
 
         platform_publisher.publish_many_committing(
             ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
@@ -124,7 +126,7 @@ def publish_bulk_import_files(
     except Exception:
         # Nothing will import these blobs, and the caller gets a 500. Drop them
         # and leave the dropped files alone so the user can simply retry.
-        staging.unstage([key for _, key, _ in staged])
+        staging.unstage([key for _, key, _ in staged], storage)
         raise
 
     # Only now are the jobs durable, so consuming the originals is safe.
@@ -159,9 +161,10 @@ def process_bulk_import_file_for_event(event: Event) -> None:
         None.
     """
     payload = platform_event_versioning.parse_payload(ingestion_events.BulkImportFilePayload, event)
+    storage = platform_runtime.get_active_platform().storage
     _mark(payload.job_id, ingestion_jobs_crud.mark_processing)
     try:
-        with staging.materialized(payload.storage_key, payload.filename) as file_path:
+        with staging.materialized(payload.storage_key, payload.filename, storage) as file_path:
             if file_path is None:
                 # Already imported and discarded: a duplicate delivery, not a
                 # failure. Raising would retry until the job dead-lettered.
@@ -176,7 +179,7 @@ def process_bulk_import_file_for_event(event: Event) -> None:
                 activities = bulk_entry.store_bulk_import_file(
                     payload.user_id, file_path, payload.import_initiated_time, db
                 )
-        staging.discard(payload.storage_key)
+        staging.discard(payload.storage_key, storage)
         _mark(
             payload.job_id,
             lambda job_id, db: ingestion_jobs_crud.mark_completed(
@@ -191,7 +194,7 @@ def process_bulk_import_file_for_event(event: Event) -> None:
         # ``retry_count`` is the (claim-incremented) attempt number; when it has
         # reached the ceiling this failure dead-letters the job.
         if event.retry_count >= core_config.settings.JOBS_MAX_ATTEMPTS:
-            staging.move_to_errors(payload.storage_key, payload.user_id, payload.filename)
+            staging.move_to_errors(payload.storage_key, payload.user_id, payload.filename, storage)
             _mark(
                 payload.job_id,
                 lambda job_id, db: ingestion_jobs_crud.mark_failed(

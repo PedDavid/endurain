@@ -28,7 +28,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-import jasil.runtime as platform_runtime
+import jasil.providers as platform_providers
 
 import core.logger as core_logger
 
@@ -37,11 +37,6 @@ logger = core_logger.get_logger(__name__)
 # Blobs awaiting import, and the ones whose job exhausted its retries.
 BULK_IMPORT_STORAGE_AREA = "bulk_import"
 BULK_IMPORT_ERROR_STORAGE_AREA = "bulk_import_errors"
-
-
-def _storage():
-    """Return the active platform's storage provider."""
-    return platform_runtime.get_active_platform().storage
 
 
 def build_key(user_id: int, filename: str) -> str:
@@ -65,7 +60,7 @@ def build_key(user_id: int, filename: str) -> str:
     return f"{int(user_id)}_{uuid.uuid4().hex}{extension.lower()}"
 
 
-def stage_file(user_id: int, file_path: str) -> str:
+def stage_file(user_id: int, file_path: str, storage: platform_providers.StorageProvider) -> str:
     """Copy a dropped file into storage and return its key.
 
     Reads on the node that can see the file, so the durable job that follows is
@@ -86,7 +81,7 @@ def stage_file(user_id: int, file_path: str) -> str:
         data = handle.read()
 
     key = build_key(user_id, os.path.basename(file_path))
-    _storage().save(BULK_IMPORT_STORAGE_AREA, key, data)
+    storage.save(BULK_IMPORT_STORAGE_AREA, key, data)
     return key
 
 
@@ -113,16 +108,16 @@ def settle(staged: list[tuple[str, str]], user_id: int) -> None:
             )
 
 
-def unstage(keys: list[str]) -> None:
+def unstage(keys: list[str], storage: platform_providers.StorageProvider) -> None:
     """Drop staged blobs whose jobs were never published.
 
     Args:
         keys: Storage keys staged before the failure.
+        storage: The blob-storage provider.
 
     Returns:
         None.
     """
-    storage = _storage()
     for key in keys:
         try:
             storage.delete(BULK_IMPORT_STORAGE_AREA, key)
@@ -135,7 +130,7 @@ def unstage(keys: list[str]) -> None:
 
 
 @contextmanager
-def materialized(key: str, filename: str) -> Iterator[str | None]:
+def materialized(key: str, filename: str, storage: platform_providers.StorageProvider) -> Iterator[str | None]:
     """Yield a local path for a staged blob, cleaning it up afterwards.
 
     Yields ``None`` when the blob is gone, which is the shape of a job whose
@@ -146,11 +141,12 @@ def materialized(key: str, filename: str) -> Iterator[str | None]:
         key: The staged blob's storage key.
         filename: The dropped file's original name, preserved because the
             pipeline reads meaning from it.
+        storage: The blob-storage provider.
 
     Yields:
         Path to the materialised file, or ``None`` when the blob is absent.
     """
-    data = _storage().get(BULK_IMPORT_STORAGE_AREA, key)
+    data = storage.get(BULK_IMPORT_STORAGE_AREA, key)
     if data is None:
         yield None
         return
@@ -164,19 +160,20 @@ def materialized(key: str, filename: str) -> Iterator[str | None]:
         yield path
 
 
-def discard(key: str) -> None:
+def discard(key: str, storage: platform_providers.StorageProvider) -> None:
     """Delete a staged blob after its import succeeded.
 
     Args:
         key: The staged blob's storage key.
+        storage: The blob-storage provider.
 
     Returns:
         None.
     """
-    _storage().delete(BULK_IMPORT_STORAGE_AREA, key)
+    storage.delete(BULK_IMPORT_STORAGE_AREA, key)
 
 
-def move_to_errors(key: str, user_id: int, filename: str) -> None:
+def move_to_errors(key: str, user_id: int, filename: str, storage: platform_providers.StorageProvider) -> None:
     """Move a dead-lettered blob into the import-error area.
 
     The trail a user follows to find out which file failed. It goes through
@@ -188,11 +185,11 @@ def move_to_errors(key: str, user_id: int, filename: str) -> None:
         key: The staged blob's storage key.
         user_id: Owner of the import.
         filename: The dropped file's original name, recorded for the operator.
+        storage: The blob-storage provider.
 
     Returns:
         None.
     """
-    storage = _storage()
     try:
         data = storage.get(BULK_IMPORT_STORAGE_AREA, key)
         if data is None:

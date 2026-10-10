@@ -7,10 +7,12 @@ Thin HTTP adapter: authorization, storage naming and file cleanup live in
 from collections.abc import Callable
 from typing import Annotated
 
+import jasil.providers as platform_providers
 from fastapi import APIRouter, Depends, Request, Security, UploadFile, status
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import core.dependencies as core_dependencies
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_media.dependencies as activities_media_dependencies
 import modules.activities.activity_media.schema as activity_media_schema
@@ -78,6 +80,10 @@ def upload_media(
         Session,
         Depends(core_database.get_db),
     ],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
 ) -> activity_media_schema.ActivityMedia:
     """
     Upload an image file to associate with an activity.
@@ -99,6 +105,7 @@ def upload_media(
         _check_scopes: Scope validation dependency.
         token_user_id: Authenticated user ID.
         db: Database session.
+        storage: Blob-storage provider.
 
     Returns:
         The newly created ActivityMedia record.
@@ -108,7 +115,7 @@ def upload_media(
         UnsupportedMediaTypeError: If the extension is rejected.
         ConflictError: If a media with the same path already exists.
     """
-    return activity_media_service.store_activity_media(activity_id, token_user_id, file, db)
+    return activity_media_service.store_activity_media(activity_id, token_user_id, file, db, storage)
 
 
 @router.delete(
@@ -131,6 +138,10 @@ def delete_activity_media(
         Session,
         Depends(core_database.get_db),
     ],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
 ) -> None:
     """
     Delete an activity media record and remove its stored blob.
@@ -142,6 +153,7 @@ def delete_activity_media(
         _check_scopes: Scope validation dependency.
         token_user_id: Authenticated user ID.
         db: Database session.
+        storage: Blob-storage provider.
 
     Returns:
         None.
@@ -150,4 +162,4 @@ def delete_activity_media(
         NotFoundError: If the media is missing, does not belong to this activity,
             or its owning activity is not the user's.
     """
-    activity_media_service.delete_activity_media(activity_id, media_id, token_user_id, db)
+    activity_media_service.delete_activity_media(activity_id, media_id, token_user_id, db, storage)

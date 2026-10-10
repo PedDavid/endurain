@@ -16,6 +16,7 @@ import os
 import shutil
 from pathlib import Path
 
+import jasil.runtime as platform_runtime
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -61,6 +62,7 @@ def store_bulk_import_file(
         file_path,
         db,
         source=ingestion_sources.BulkImportSource(import_initiated_time=import_initiated_time, user_id=user_id),
+        storage=platform_runtime.get_active_platform().storage,
     )
 
 
@@ -118,7 +120,13 @@ def store_activity_file(
         parsed or persisted.
     """
     try:
-        return pipeline.validate_prepare_and_store_file(token_user_id, file_path, db, source=source)
+        return pipeline.validate_prepare_and_store_file(
+            token_user_id,
+            file_path,
+            db,
+            source=source,
+            storage=platform_runtime.get_active_platform().storage,
+        )
     except (
         core_exceptions.DomainError,
         # Still raised by the shared ``core.file_uploads`` validators, which have

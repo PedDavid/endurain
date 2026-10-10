@@ -1,5 +1,7 @@
 """Public addressing and maintenance operations for activity thumbnails."""
 
+import jasil.runtime as platform_runtime
+
 import modules.activities.activity_thumbnail.service as thumbnail_service
 import modules.activities.activity_thumbnail.signing as thumbnail_signing
 
@@ -10,10 +12,16 @@ def thumbnail_url(key: str | None, activity_id: int) -> str | None:
 
 
 def generate_missing_thumbnails() -> None:
-    """Generate thumbnails for activities whose stored key is missing."""
-    thumbnail_service.generate_missing_activity_thumbnails()
+    """Generate thumbnails for activities whose stored key is missing.
+
+    Scheduler-invoked, with no request to carry the providers, so this entry
+    point resolves them.
+    """
+    platform = platform_runtime.get_active_platform()
+    thumbnail_service.generate_missing_activity_thumbnails(platform.storage, platform.lock)
 
 
 def regenerate_all_thumbnails() -> None:
     """Delete and regenerate every activity thumbnail."""
-    thumbnail_service.delete_and_regenerate_all_activity_thumbnails()
+    platform = platform_runtime.get_active_platform()
+    thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock)

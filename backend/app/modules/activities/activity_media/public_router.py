@@ -14,10 +14,12 @@ caller does not own.
 
 from typing import Annotated
 
+import jasil.providers as platform_providers
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import core.dependencies as core_dependencies
 import core.logger as core_logger
 import modules.activities.activity_media.service as activity_media_service
 import modules.activities.activity_media.signing as activity_media_signing
@@ -39,6 +41,10 @@ def read_activity_media_file(
     media_id: int,
     token: Annotated[str, Query(alias="t", description="Signed media access token")],
     db: Annotated[Session, Depends(core_database.get_db)],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
 ) -> Response:
     """Serve an activity media blob when the signed token is valid.
 
@@ -47,6 +53,7 @@ def read_activity_media_file(
         media_id: The media record to serve.
         token: The signed access token (``?t=``) minted at serialization time.
         db: Database session dependency.
+        storage: Blob-storage provider.
 
     Returns:
         The image bytes.
@@ -65,7 +72,7 @@ def read_activity_media_file(
         )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity media not found")
 
-    blob = activity_media_service.read_activity_media_blob(activity_id, media_id, db)
+    blob = activity_media_service.read_activity_media_blob(activity_id, media_id, db, storage)
     if blob is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity media not found")
 
