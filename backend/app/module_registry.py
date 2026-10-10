@@ -42,7 +42,7 @@ class StartupTask:
     func: Callable[[], None]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class RuntimeModule:
     """Runtime wiring published by one installed module."""
 
@@ -56,12 +56,12 @@ class RuntimeModule:
 
 MODULES: tuple[RuntimeModule, ...] = (
     RuntimeModule(
-        "activity_thumbnail",
-        thumbnail_subscribers.register_bus_subscribers,
-        thumbnail_subscribers.register_durable_handlers,
-        thumbnail_subscribers.DURABLE_SUBSCRIBER_NETS,
-        thumbnail_jobs.recurring_jobs,
-        (
+        name="activity_thumbnail",
+        register_bus=thumbnail_subscribers.register_bus_subscribers,
+        register_durable=thumbnail_subscribers.register_durable_handlers,
+        nets=thumbnail_subscribers.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=thumbnail_jobs.recurring_jobs,
+        startup_tasks=(
             StartupTask(
                 "generate_missing_thumbnails",
                 "Scheduling missing activity map thumbnail generation",
@@ -70,12 +70,12 @@ MODULES: tuple[RuntimeModule, ...] = (
         ),
     ),
     RuntimeModule(
-        "activity_streams",
-        stream_subscribers.register_bus_subscribers,
-        stream_subscribers.register_durable_handlers,
-        stream_subscribers.DURABLE_SUBSCRIBER_NETS,
-        stream_jobs.recurring_jobs,
-        (
+        name="activity_streams",
+        register_bus=stream_subscribers.register_bus_subscribers,
+        register_durable=stream_subscribers.register_durable_handlers,
+        nets=stream_subscribers.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=stream_jobs.recurring_jobs,
+        startup_tasks=(
             StartupTask(
                 "backfill_missing_hr_zones",
                 "Scheduling missing HR-zone backfill",
@@ -84,12 +84,12 @@ MODULES: tuple[RuntimeModule, ...] = (
         ),
     ),
     RuntimeModule(
-        "activity_geocoding",
-        geocoding_subscribers.register_bus_subscribers,
-        geocoding_subscribers.register_durable_handlers,
-        geocoding_subscribers.DURABLE_SUBSCRIBER_NETS,
-        geocoding_jobs.recurring_jobs,
-        (
+        name="activity_geocoding",
+        register_bus=geocoding_subscribers.register_bus_subscribers,
+        register_durable=geocoding_subscribers.register_durable_handlers,
+        nets=geocoding_subscribers.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=geocoding_jobs.recurring_jobs,
+        startup_tasks=(
             StartupTask(
                 "backfill_missing_locations",
                 "Scheduling missing activity location backfill",
@@ -98,28 +98,28 @@ MODULES: tuple[RuntimeModule, ...] = (
         ),
     ),
     RuntimeModule(
-        "activity_file_storage",
-        file_storage_subscribers.register_bus_subscribers,
-        file_storage_subscribers.register_durable_handlers,
-        file_storage_subscribers.DURABLE_SUBSCRIBER_NETS,
+        name="activity_file_storage",
+        register_bus=file_storage_subscribers.register_bus_subscribers,
+        register_durable=file_storage_subscribers.register_durable_handlers,
+        nets=file_storage_subscribers.DURABLE_SUBSCRIBER_NETS,
     ),
     RuntimeModule(
-        "activity_media",
-        media_subscribers.register_bus_subscribers,
-        media_subscribers.register_durable_handlers,
-        media_subscribers.DURABLE_SUBSCRIBER_NETS,
+        name="activity_media",
+        register_bus=media_subscribers.register_bus_subscribers,
+        register_durable=media_subscribers.register_durable_handlers,
+        nets=media_subscribers.DURABLE_SUBSCRIBER_NETS,
     ),
     RuntimeModule(
-        "activity_ingestion",
+        name="activity_ingestion",
         register_durable=ingestion_subscribers.register_durable_handlers,
         nets=ingestion_subscribers.DURABLE_SUBSCRIBER_NETS,
         recurring_jobs=ingestion_jobs.recurring_jobs,
     ),
     RuntimeModule(
-        "notifications",
-        notification_subscribers.register_all_notification_bus_subscribers,
-        notification_subscribers.register_all_notification_durable_handlers,
-        notification_subscribers.NOTIFICATION_DURABLE_SUBSCRIBER_NETS,
+        name="notifications",
+        register_bus=notification_subscribers.register_all_notification_bus_subscribers,
+        register_durable=notification_subscribers.register_all_notification_durable_handlers,
+        nets=notification_subscribers.NOTIFICATION_DURABLE_SUBSCRIBER_NETS,
     ),
 )
 

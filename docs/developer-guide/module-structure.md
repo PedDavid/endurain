@@ -50,9 +50,13 @@ copies of "what does this filename mean?" is the drift the rule exists to stop.
 
 Because the role is what the rules see, the role has to be the truth:
 `tests/architecture/test_module_boundaries.py` asserts that only a `crud`-role
-file executes statements against the session. Transaction control (`commit`,
-`flush`, `rollback`) is excluded — that belongs to the service that owns the
-boundary.
+file executes statements against the session, that only `router`/`public_router`
+files construct an `APIRouter`, and that only `models` files declare ORM classes.
+The vocabulary is deliberately open (`pipeline.py`, `render.py` and `signing.py`
+are legitimate private helpers), so the check is that a file's *content* agrees
+with its name rather than that its name is on a list. Transaction control
+(`commit`, `flush`, `rollback`) is excluded — that belongs to the service that
+owns the boundary.
 
 | File | Layer | Responsibility |
 | --- | --- | --- |
@@ -258,6 +262,51 @@ verified on its releases. Which part of it *this* application may touch lives in
 `tests/architecture/test_jasil_boundary.py` — import-linter cannot state it,
 because it rejects a subpackage of an external package as a forbidden module.
 
+## Extraction target
+
+"Could become its own library" means a specific thing here, and it is worth
+stating so the next module is converted to the same target:
+
+- **In scope:** a module is a package that could be installed separately and run
+  **in the same process against the same database**. Its only inbound surface is
+  the published one; it declares its own models, jobs, subscribers and
+  contributors; and a peer can be lifted out without editing another module's
+  internals.
+- **Accepted, not accidental:** surface operations take a SQLAlchemy `Session`
+  (`list_accepted_followee_ids(user_id, db)`). Callers share one transaction,
+  which is what makes "stage, publish, commit" atomic across a module boundary.
+  This is also why a module cannot yet move to another *process*.
+- **Out of scope:** swappable implementations behind Protocol ports. Use a port
+  only for a seam that genuinely has several implementations — providers,
+  geocoding, file storage — and let the consumer own the Protocol. Everywhere
+  else the concrete peer `integration_service` is the contract.
+- **Still shared:** the metadata (`core.database.Base`) and the central Alembic
+  history. A module will need its own migration branch before it can be
+  distributed on its own.
+
+## Choosing a coupling mechanism
+
+| Need | Mechanism | Example |
+| --- | --- | --- |
+| Ask a peer a question, or read its data | Call its `integration_service` | `followers.integration_service.list_accepted_followee_ids` |
+| A write that must be atomic with another module's write | A service call in the same session; the owning module's service arranges stage, publish and commit | `activity` bulk gear update |
+| React to a fact, derive state, tolerate delay | Publish an event; the consumer subscribes; declare a reconciliation net | thumbnails and geocoding reacting to `activity.created` |
+| A lower layer needs something only a higher layer knows | A seam (registry, base class, Protocol) owned by the lower layer, installed by composition | `contributor_registry`, `provider_registry` |
+
+Do not use a contributor for a plain query, and do not use an event for something
+the caller needs the answer to.
+
+## What a module may take from `core`
+
+`core.*` is "always allowed" today, and it is the largest hidden coupling between
+a module and *this* application: configuration, logging, database session,
+exceptions, pagination, timezone, uploads. It is not enforced yet. Treat it as a
+declared dependency rather than free: prefer a primitive that is already generic
+(`core.exceptions`, `core.timezone`, `core.pagination`) over adding a new reach
+into application-wide state (`core.config`, `core.middleware`), and put anything
+generic enough to be shared by other products into `jasil`. A follow-up will turn
+this into an allowlist.
+
 ## Inverting a platform-to-domain reach
 
 When the platform appears to need something from a module, the module registers
@@ -307,7 +356,9 @@ activity module inherits every cross-module rule the day it is created, instead
 of when someone remembers to add it to a list. A separate contract prevents
 domain/core code from consuming `*.migration_service`.
 
-**`backend/tests/architecture/test_module_boundaries.py`** — the one rule
+**`backend/tests/architecture/test_module_boundaries.py`** — also holds
+`TestModuleInventory`, which fails on a top-level module that is neither converted
+nor explicitly outstanding. It is the one rule
 import-linter cannot express. A `forbidden` contract rejects an import if *any*
 source matches *any* forbidden module, so "a package may import its own `crud`
 but not a peer's" is not statable: the wildcard pair
@@ -349,24 +400,57 @@ composition installs the answer.
    to the namespace/application model registry.
 4. Add `migration_service.py` only when an existing data migration needs a
    version-pinned private operation.
-5. Add `subscriber_registry.py` if the module has subscribers; register it in both
-   `main.py` **and** `worker.py`.
-6. Add `scheduled_jobs.py` if the module has recurring work; add it to the list
-   `main.py` hands to `start_scheduler`.
+5. Add `subscriber_registry.py` if the module has subscribers, and `scheduled_jobs.py`
+   if it has recurring work. Register both with one `RuntimeModule(name=..., ...)`
+   entry in `app/module_registry.py`. `main.py` and `worker.py` both consume that
+   list, so registering "in the API but not the worker" is not possible.
+6. Add startup backfills as `StartupTask`s on the same `RuntimeModule` entry.
 7. For an activity child parsed or archived as JSON, add the applicable
    `ingestion_contributor`, `profile_contributor`, or
    `profile_global_contributor` factory to `integration_service.py`, then register
    that factory in `app/module_registry.py`. Do not register at import time.
 8. Add the module to the source lists of the cross-module contracts in
    `backend/.importlinter`.
-9. Add a new top-level bounded context to `_CONVERTED` in
-   `backend/tests/architecture/test_module_boundaries.py`
-   and in `backend/tests/test_logging_rule.py`.
+9. Add a new top-level bounded context to `CONVERTED_MODULES` in
+   `backend/tests/_helpers/module_roles.py`; the architecture and logging tests
+   both read it from there. A module that is in neither `CONVERTED_MODULES` nor
+   `UNCONVERTED_MODULES` fails `TestModuleInventory`, so a module cannot be added
+   outside the rules by omission.
 
 ## Known debt
 
 Tracked here so it is visible rather than discovered. Each item is enumerated in
 the conformance test's allowlist.
+
+### Pilot status and what the next conversion owns
+
+`activities` and `followers` are the pilot of this structure. The remaining
+modules are listed in `UNCONVERTED_MODULES` and are converted in a follow-up.
+Items that need changes outside the two pilot modules are recorded here rather
+than half-done:
+
+- **Top-level cycles.** `users` ⇄ `activities` (profile export/import consumes
+  activities; activities consumes `users.integration_service`) and, by the
+  contracts' own description, `gears` ⇄ `activities`. The planned fix is the
+  contributor pattern the activity children already use: `users_profile`
+  export/import asks each module for its section instead of importing them.
+  A `layers` contract (core, identity, followers/gears/health, activities,
+  providers) then states the module-level direction once.
+- **Hand-listed contract sources.** `auth-boundary`, `consumer-*` and
+  `consumer-users-boundary` name modules by hand, so a new module is
+  unconstrained until it is added. They collapse into one generic rule over
+  `modules/*` once most modules are converted.
+- **One registration seam per concern.** Router, model registry, subscribers,
+  jobs and contributors are each a separate file collected in a different place.
+  A single per-module manifest is the candidate replacement; decide it *before*
+  converting the other modules so they are not migrated twice.
+- **Namespace-level code in `health`.** `health` has `router.py`, `schema.py`
+  and `utils.py` beside its sub-packages, which conflicts with "a composition
+  namespace is not an implementation boundary".
+- **`auth` naming.** `identity_service.py` and `_internal/` instead of
+  `integration_service.py` and the filename vocabulary, as described above.
+  The generic boundary rule needs a special case until it is aligned.
+- **`core` allowlist.** See [What a module may take from `core`](#what-a-module-may-take-from-core).
 
 ### Sibling persistence reaches
 

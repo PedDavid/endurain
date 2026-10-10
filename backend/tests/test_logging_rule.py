@@ -9,17 +9,12 @@ assertions are what keep the layers saying one kind of thing each.
 import pathlib
 import re
 
-from tests._helpers.module_roles import files_with_role
+from tests._helpers.module_roles import CONVERTED_MODULES, files_with_role
 
-#: Modules the logging rule has been applied to. ``activities`` and ``followers``
-#: are the template pair; every other module still predates the convention and is
-#: converted alongside its own refactor. Add a package here when you convert it —
-#: the list is deliberately an opt-in, so an unconverted module is visibly
-#: outstanding rather than silently exempt.
-_CONVERTED = (
-    pathlib.Path("app/modules/activities"),
-    pathlib.Path("app/modules/followers"),
-)
+#: Modules the logging rule has been applied to — the shared
+#: ``CONVERTED_MODULES`` list in ``tests/_helpers/module_roles.py``, so
+#: converting a module is a single edit there.
+_CONVERTED = tuple(pathlib.Path("app/modules") / name for name in CONVERTED_MODULES)
 
 # Layers whose logging level set is fixed by the rule.
 _ALLOWED: dict[str, set[str]] = {

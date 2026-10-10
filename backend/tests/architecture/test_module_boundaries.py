@@ -19,12 +19,14 @@ import fnmatch
 import pathlib
 import re
 
+from tests._helpers.module_roles import CONVERTED_MODULES, UNCONVERTED_MODULES
 from tests._helpers.module_roles import role_of as _role
 
-#: Modules converted to the structure guide. Opt-in, like ``_CONVERTED`` in
-#: ``test_logging_rule.py``: an unconverted module is visibly outstanding rather
-#: than silently exempt.
-_CONVERTED = ("activities", "followers")
+#: Modules converted to the structure guide, shared with ``test_logging_rule.py``
+#: through ``tests/_helpers/module_roles.py``. Opt-in, and ratcheted by
+#: ``TestModuleInventory`` so an unconverted module is visibly outstanding
+#: rather than silently exempt.
+_CONVERTED = CONVERTED_MODULES
 
 _MODULES_ROOT = pathlib.Path("app/modules")
 
@@ -356,6 +358,73 @@ class TestSubPackagePrivacy:
             "Only a crud-role file may execute against the session. Move the "
             "query into the package's crud, or rename the file so its role is "
             "the one it actually plays:\n  " + "\n  ".join(sorted(offenders))
+        )
+
+    def test_a_file_plays_the_role_its_content_declares(self):
+        """A router or an ORM model cannot hide under a helper name.
+
+        Roles are read off filenames, so a file under a name the vocabulary does
+        not know is package-private and inherits none of the router or ORM rules.
+        ``test_only_crud_executes_against_the_session`` holds the persistence
+        half; this holds the other two. The vocabulary is deliberately not
+        closed — ``pipeline.py``, ``render.py`` and ``signing.py`` are legitimate
+        private helpers — so the check is that a file's *content* agrees with
+        its name, not that its name is on a list.
+        """
+        offenders: list[str] = []
+        for module_name in _CONVERTED:
+            for path in _python_files(_MODULES_ROOT / module_name):
+                role = _role(path.stem)
+                nodes = list(ast.walk(ast.parse(path.read_text())))
+                declares_router = any(
+                    isinstance(node, ast.Call)
+                    and getattr(node.func, "attr", getattr(node.func, "id", None)) == "APIRouter"
+                    for node in nodes
+                )
+                declares_model = any(
+                    isinstance(node, ast.ClassDef)
+                    and any(isinstance(base, ast.Name) and base.id == "Base" for base in node.bases)
+                    for node in nodes
+                )
+                if declares_router and role not in {"router", "public_router"}:
+                    offenders.append(f"{path} (role={role}): constructs an APIRouter")
+                if declares_model and role != "models":
+                    offenders.append(f"{path} (role={role}): declares an ORM model")
+        assert not offenders, (
+            "A file's role is its filename, so the filename has to say what the "
+            "file is. Rename it into the vocabulary in "
+            "tests/_helpers/module_roles.py:\n  " + "\n  ".join(sorted(offenders))
+        )
+
+
+class TestModuleInventory:
+    """Every top-level module is either converted or explicitly outstanding."""
+
+    def test_every_top_level_module_is_classified(self):
+        """A module in neither list would start life outside every rule.
+
+        The conformance tests are opt-in (``CONVERTED_MODULES``), which is the
+        right default while modules convert one PR at a time, and the wrong one
+        for a module nobody has thought about yet: it is exempt from all of them
+        without a single line saying so. Naming the outstanding modules makes
+        "convert it" and "consciously leave it" the only two options for a new
+        one. Converting a module is moving its name between the two lists in
+        ``tests/_helpers/module_roles.py``.
+        """
+        on_disk = {
+            path.name for path in _MODULES_ROOT.iterdir() if path.is_dir() and not path.name.startswith(("_", "."))
+        }
+        declared = set(CONVERTED_MODULES) | set(UNCONVERTED_MODULES)
+        unclassified = sorted(on_disk - declared)
+        stale = sorted(declared - on_disk)
+        assert not unclassified, (
+            "Top-level module in neither CONVERTED_MODULES nor UNCONVERTED_MODULES "
+            "(tests/_helpers/module_roles.py). Convert it to the structure guide, "
+            "or list it as outstanding:\n  " + "\n  ".join(unclassified)
+        )
+        assert not stale, "Listed in module_roles.py but not on disk:\n  " + "\n  ".join(stale)
+        assert not set(CONVERTED_MODULES) & set(UNCONVERTED_MODULES), (
+            "A module cannot be both converted and outstanding"
         )
 
 
