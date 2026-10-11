@@ -299,22 +299,18 @@ def create_follower(
     user_id: int,
     target_user_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> followers_schema.FollowRelationship:
     """
-    Create a new follow request between two users.
+    Stage a new follow request between two users.
 
-    Side-effect-free: the resulting follower notification (and its websocket push)
-    is produced by the ``follower.requested`` subscriber, which the follow service
-    triggers after this row is committed.
+    Flushes without committing: the service owns the transaction, and the
+    resulting follower notification (and its websocket push) is produced by the
+    ``follower.requested`` subscriber, which the service triggers when it commits.
 
     Args:
         user_id: ID of the follower user.
         target_user_id: ID of the user being followed.
         db: Database session.
-        commit: Commit immediately when true; otherwise flush for a caller-owned
-            transaction.
 
     Returns:
         The newly created Follower relationship as a DTO.
@@ -337,18 +333,15 @@ def create_follower(
 
     try:
         db.add(new_follow)
-        if commit:
-            db.commit()
-        else:
-            db.flush()
+        db.flush()
         db.refresh(new_follow)
         _invalidate_followee_cache(db)
     except IntegrityError as err:
         # Kept rather than delegated: the decorator deliberately lets IntegrityError
         # through precisely so a caller can map it to its own semantics. The
         # pre-check above races, so a concurrent follow lands here and must be a
-        # 409, not a 500. Everything else is the decorator's job.
-        db.rollback()
+        # 409, not a 500. Rolling the session back is the transaction owner's
+        # job (``service`` / ``core.database.get_db``), not persistence's.
         logger.warning(
             "Integrity error in create_follower",
             exc_info=err,
@@ -364,25 +357,21 @@ def accept_follower(
     user_id: int,
     target_user_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> followers_schema.FollowRelationship:
     """
-    Accept a pending follow request from another user.
+    Stage the acceptance of a pending follow request from another user.
 
-    Side-effect-free: the acceptance notification (and its websocket push) is
-    produced by the ``follower.accepted`` subscriber, which the follow service
-    triggers after this row is committed.
+    Flushes without committing: the service owns the transaction, and the
+    acceptance notification (and its websocket push) is produced by the
+    ``follower.accepted`` subscriber, which the service triggers when it commits.
 
     Args:
         user_id: ID of the user accepting the request (the followed user).
         target_user_id: ID of the user whose follow request is accepted.
         db: Database session.
-        commit: Commit immediately when true; otherwise flush for a caller-owned
-            transaction.
 
     Returns:
-        The accepted relationship as a DTO, read back from the committed row.
+        The accepted relationship as a DTO, read back after the flush.
 
     Raises:
         NotFoundError: If no pending request exists.
@@ -399,10 +388,7 @@ def accept_follower(
         raise core_exceptions.NotFoundError("Follower record not found")
 
     accept_follow.status = FollowStatus.ACCEPTED.value
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()
     db.refresh(accept_follow)
     _invalidate_followee_cache(db)
 
@@ -416,14 +402,12 @@ def delete_follower(
     db: Session,
     *,
     status: FollowStatus | None = None,
-    commit: bool = True,
 ) -> None:
     """
-    Delete a follow relationship between two users.
+    Stage the deletion of a follow relationship between two users.
 
-    Takes the same ``commit`` flag as :func:`create_follower` and
-    :func:`accept_follower` so the service can stage the delete and own the
-    transaction boundary.
+    Flushes without committing, like :func:`create_follower` and
+    :func:`accept_follower`; the service owns the transaction boundary.
 
     Args:
         user_id: ID of the follower user.
@@ -431,8 +415,6 @@ def delete_follower(
         db: Database session.
         status: When given, only delete the row if it is in this state. Declining
             a request must not double as removing an accepted follower.
-        commit: Commit immediately when true; otherwise flush for a caller-owned
-            transaction.
 
     Returns:
         None.
@@ -450,12 +432,7 @@ def delete_follower(
     result = cast("CursorResult[Any]", db.execute(stmt))
 
     if result.rowcount == 0:
-        # Roll back so the no-op transaction does not stay open.
-        db.rollback()
         raise core_exceptions.NotFoundError("Follower record not found")
 
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()
     _invalidate_followee_cache(db)

@@ -208,7 +208,7 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING, commit=False)
+    followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING)
     db.commit()
     logger.debug(
         "Follow request rejected",
@@ -242,7 +242,7 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
             extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
         )
         raise core_exceptions.PermissionDeniedError()
-    followers_crud.delete_follower(follower_id, followee_id, db, commit=False)
+    followers_crud.delete_follower(follower_id, followee_id, db)
     db.commit()
     logger.debug(
         "Deleted a follow relationship",
@@ -295,7 +295,7 @@ def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> fol
         # notifications.
         raise core_exceptions.InvalidInputError("Cannot follow yourself")
 
-    follower = followers_crud.create_follower(requester_user_id, target_user_id, db, commit=False)
+    follower = followers_crud.create_follower(requester_user_id, target_user_id, db)
     followers_event_publishers.publish_follower_requested(requester_user_id, target_user_id, db, db.commit)
     logger.debug(
         "Follow requested",
@@ -322,7 +322,7 @@ def accept_follow_request(
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    relationship = followers_crud.accept_follower(accepter_user_id, requester_user_id, db, commit=False)
+    relationship = followers_crud.accept_follower(accepter_user_id, requester_user_id, db)
     followers_event_publishers.publish_follower_accepted(accepter_user_id, requester_user_id, db, db.commit)
     logger.debug(
         "Follow request accepted",

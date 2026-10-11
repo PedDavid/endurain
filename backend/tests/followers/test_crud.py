@@ -246,19 +246,6 @@ class TestCreateFollower:
             r = crud.create_follower(user_id=1, target_user_id=2, db=mock_db)
         assert r == FollowRelationship(follower_id=1, followee_id=2, status="pending")
         mock_db.add.assert_called_once_with(new_follow)
-        mock_db.commit.assert_called_once()
-
-    @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
-    def test_stages_without_committing(self, mock_get_follow, mock_db):
-        import modules.followers.crud as crud
-        import modules.followers.models as models
-
-        mock_get_follow.return_value = None
-        new_follow = MagicMock(spec=models.Follower, follower_id=1, followee_id=2, status="pending")
-
-        with patch.object(crud.followers_models, "Follower", return_value=new_follow):
-            crud.create_follower(user_id=1, target_user_id=2, db=mock_db, commit=False)
-
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
@@ -277,7 +264,7 @@ class TestCreateFollower:
         import modules.followers.models as m
 
         mock_get_follow.return_value = None
-        mock_db.commit.side_effect = IntegrityError("stmt", "params", "orig")
+        mock_db.flush.side_effect = IntegrityError("stmt", "params", "orig")
 
         with (
             patch.object(crud.followers_models, "Follower", return_value=MagicMock(spec=m.Follower)),
@@ -285,7 +272,8 @@ class TestCreateFollower:
         ):
             crud.create_follower(user_id=1, target_user_id=2, db=mock_db)
         assert e.value.status_code == 409
-        mock_db.rollback.assert_called_once()
+        # The transaction owner rolls back, not persistence.
+        mock_db.rollback.assert_not_called()
 
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
     def test_sqlalchemy_error(self, mock_get_follow, mock_db):
@@ -293,7 +281,7 @@ class TestCreateFollower:
         import modules.followers.models as m
 
         mock_get_follow.return_value = None
-        mock_db.commit.side_effect = SQLAlchemyError("db error")
+        mock_db.flush.side_effect = SQLAlchemyError("db error")
 
         with (
             patch.object(crud.followers_models, "Follower", return_value=MagicMock(spec=m.Follower)),
@@ -314,20 +302,9 @@ class TestAcceptFollower:
 
         crud.accept_follower(user_id=1, target_user_id=2, db=mock_db)
         assert accept_follow.status == "accepted"
-        mock_db.commit.assert_called_once()
-        mock_db.refresh.assert_called_once_with(accept_follow)
-
-    def test_stages_without_committing(self, mock_db):
-        import modules.followers.crud as crud
-        import modules.followers.models as models
-
-        accept_follow = MagicMock(spec=models.Follower, id=1, follower_id=2, followee_id=1, status="pending")
-        mock_db.scalars.return_value.first.return_value = accept_follow
-
-        crud.accept_follower(user_id=1, target_user_id=2, db=mock_db, commit=False)
-
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
+        mock_db.refresh.assert_called_once_with(accept_follow)
 
     def test_not_found(self, mock_db):
         import modules.followers.crud as crud
@@ -343,7 +320,7 @@ class TestAcceptFollower:
 
         accept_follow = MagicMock(spec=m.Follower, id=1, status="pending")
         mock_db.scalars.return_value.first.return_value = accept_follow
-        mock_db.commit.side_effect = SQLAlchemyError("db error")
+        mock_db.flush.side_effect = SQLAlchemyError("db error")
 
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.accept_follower(user_id=1, target_user_id=2, db=mock_db)
@@ -359,15 +336,6 @@ class TestDeleteFollower:
         r.rowcount = 1
         mock_db.execute.return_value = r
         crud.delete_follower(user_id=1, target_user_id=2, db=mock_db)
-        mock_db.commit.assert_called_once()
-
-    def test_commit_false_flushes(self, mock_db):
-        import modules.followers.crud as crud
-
-        r = MagicMock()
-        r.rowcount = 1
-        mock_db.execute.return_value = r
-        crud.delete_follower(user_id=1, target_user_id=2, db=mock_db, commit=False)
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
@@ -380,7 +348,8 @@ class TestDeleteFollower:
         with pytest.raises(core_exceptions.NotFoundError) as e:
             crud.delete_follower(user_id=1, target_user_id=999, db=mock_db)
         assert e.value.status_code == 404
-        mock_db.rollback.assert_called_once()
+        mock_db.flush.assert_not_called()
+        mock_db.rollback.assert_not_called()
 
     def test_db_error(self, mock_db):
         import modules.followers.crud as crud

@@ -54,15 +54,15 @@ file executes statements against the session, that only `router`/`public_router`
 files construct an `APIRouter`, and that only `models` files declare ORM classes.
 The vocabulary is deliberately open (`pipeline.py`, `render.py` and `signing.py`
 are legitimate private helpers), so the check is that a file's *content* agrees
-with its name rather than that its name is on a list. Transaction control
-(`commit`, `flush`, `rollback`) is excluded — that belongs to the service that
-owns the boundary.
+with its name rather than that its name is on a list. Ending a transaction
+(`commit`, `rollback`) is a separate rule, stated under
+[Transaction ownership](#transaction-ownership).
 
 | File | Layer | Responsibility |
 | --- | --- | --- |
 | `models.py` | persistence | SQLAlchemy ORM. The only place a table is declared. |
 | `query.py` | persistence | Reusable SQL expression fragments. No session, no I/O. |
-| `crud.py` | persistence | The **only** file that opens a `Session` against its own tables. Returns schemas/DTOs, never ORM rows. |
+| `crud.py` | persistence | The **only** file that opens a `Session` against its own tables. Stages writes (`flush`), never commits or rolls back. Returns schemas/DTOs, never ORM rows. |
 | `serializers.py` | persistence | ORM ↔ schema transformation, both directions. Called by `crud` at its edges. |
 | `service.py` | application | Decides access, orchestrates, publishes events, owns transaction boundaries. |
 | `router.py` / `public_router.py` | transport | Validate, delegate to `service`, return. No domain rule. |
@@ -237,6 +237,38 @@ router / public_router  →  service  →  crud  →  query / models
 ```
 
 Downward only. `crud` never calls `service`; `service` never touches `models`.
+
+## Transaction ownership
+
+`service` owns the transaction; `crud` only stages. The unit of work is known to
+the layer that arranges it, not to the single statement a `crud` function runs.
+
+| Layer | Does | Never does |
+| --- | --- | --- |
+| `crud` | `add` / `execute`, then `flush()` so constraint violations and row counts surface at the call; `refresh` after the flush when it needs server defaults | `commit()`, `rollback()`, a `commit` parameter |
+| `service` | Stages through `crud`, publishes through `event_publishers` (passing `db.commit` so row and outbox event commit together), or calls `db.commit()` itself when no event is involved | — |
+| `integration_service` | Calls its own `service` for any write | Commit, roll back, publish |
+| entry point (`get_db`, a job, a subscriber) | Rolls back what its caller left open | — |
+
+Two choices in that table are deliberate:
+
+- **No `commit` flag.** A `commit: bool = True` parameter keeps two code paths in
+  every writer, and its default is the wrong one: `service` always passed
+  `commit=False`, so the `commit=True` branch was exercised only by tests. A
+  writer that can end its own transaction also makes "stage, publish, commit"
+  depend on each caller remembering to opt out. A writer that cannot, cannot be
+  misused.
+- **`crud` does not roll back.** A rollback decides the fate of everything the
+  session staged, which `crud` does not know. A `crud` that translates an
+  `IntegrityError` into a `ConflictError` simply raises: the session is rolled
+  back by `@handle_db_errors` for database errors, and otherwise by the
+  transaction owner (`core.database.get_db` on a request, the job or subscriber
+  that opened the session elsewhere).
+
+`test_crud_does_not_end_transactions` enforces it: a `crud`-role file in a
+converted module may not call `commit` or `rollback`. Files that still do are
+listed in `_CRUD_TRANSACTION_DEBT`, and the test fails on an entry that no longer
+offends so the register shrinks rather than lingers.
 
 ## What a module may depend on
 
@@ -538,6 +570,17 @@ and the max-heart-rate lookup in `activity_streams.service`. Enforced by the
 The other modules still do it — `health.*.crud` reaching `users.users.utils`,
 `notifications.utils` reaching `users` and `websocket`, and so on. Each is fixed
 as its module is converted.
+
+### Persistence ending transactions
+
+**Resolved for followers.** `followers.crud` writers stage with `flush()` and
+`service` owns commit and rollback. Every `activities` child `crud` still takes
+`commit=True` or commits and rolls back itself; they are listed in
+`_CRUD_TRANSACTION_DEBT` and are converted as a set, because their callers
+(`integration_service` surfaces, ingestion, bulk operations) rely on the
+`commit=True` default and each has to be audited for who now commits. The
+unconverted modules (`auth`, `users`, `gears`, ...) are outside the rule until
+they are converted.
 
 ### Subscribers reaching past a module surface
 

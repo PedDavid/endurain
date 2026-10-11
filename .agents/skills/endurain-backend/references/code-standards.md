@@ -14,7 +14,7 @@
 
 ## SQLAlchemy 2
 - `Mapped[...]` with `mapped_column()`; every column typed.
-- `db.refresh(obj)` after `db.commit()`.
+- `crud` stages with `db.flush()`; only `service` commits. `db.refresh(obj)` after the flush when you need server defaults.
 - Persistence raises `core.exceptions`; the app handler maps them to responses.
 
 ## Pydantic v2

@@ -75,9 +75,30 @@ _PUBLIC_ACROSS_MODULES = (_PUBLIC_WITHIN_MODULE - {"service", "query"}) | frozen
 _MIGRATION_SURFACE = "migration_service"
 
 #: ``Session`` methods that run a statement. Only a ``crud``-role file may call
-#: them; transaction control (``commit`` / ``flush`` / ``rollback``) is excluded
-#: because the service layer owns the boundary.
+#: them. Transaction control is a separate rule (``_TRANSACTION_CONTROL``): the
+#: service layer owns the boundary, so a ``crud`` file may flush but not end one.
 _SESSION_EXECUTION = frozenset({"execute", "scalars", "scalar", "query", "add", "add_all", "get", "merge"})
+
+#: ``Session`` methods that end a transaction. ``flush`` is deliberately absent:
+#: staging a write so constraint errors and row counts surface is persistence's
+#: job; deciding when it becomes durable is not.
+_TRANSACTION_CONTROL = frozenset({"commit", "rollback"})
+
+#: ``crud`` files that still end transactions themselves, as
+#: ``{path relative to modules/: reason}``. This is the debt register for
+#: ``test_crud_does_not_end_transactions``: an entry is removed when its writers
+#: are converted to stage-only, and the test fails on an entry that no longer
+#: offends so the list cannot outlive the debt.
+_CRUD_TRANSACTION_DEBT: dict[str, str] = {
+    "activities/activity/crud.py": "writers take commit=True and commit/rollback themselves",
+    "activities/activity_exercise_titles/crud.py": "writers commit/rollback themselves",
+    "activities/activity_ingestion/crud.py": "writers take commit=True and commit themselves",
+    "activities/activity_laps/crud.py": "writers take commit=True and commit themselves",
+    "activities/activity_media/crud.py": "writers commit/rollback themselves",
+    "activities/activity_sets/crud.py": "writers take commit=True and commit themselves",
+    "activities/activity_streams/crud.py": "writers commit themselves",
+    "activities/activity_workout_steps/crud.py": "writers commit themselves",
+}
 
 #: Cross-sub-package reaches that are part of the design, as
 #: ``(importer glob, imported glob): reason``. Globs are module paths relative
@@ -333,8 +354,8 @@ class TestSubPackagePrivacy:
         classified it as a session-free ``query``. Naming is the contract, so it
         is checked rather than trusted.
 
-        Transaction control is deliberately not listed: ``commit`` / ``flush`` /
-        ``rollback`` belong to the service layer that owns the boundary.
+        Transaction control is a separate rule
+        (``test_crud_does_not_end_transactions``).
         """
         offenders: list[str] = []
         for module_name in _CONVERTED:
@@ -358,6 +379,50 @@ class TestSubPackagePrivacy:
             "Only a crud-role file may execute against the session. Move the "
             "query into the package's crud, or rename the file so its role is "
             "the one it actually plays:\n  " + "\n  ".join(sorted(offenders))
+        )
+
+    def test_crud_does_not_end_transactions(self):
+        """Persistence stages a write; the service decides when it is durable.
+
+        Only the layer that knows the whole unit of work can commit it: a service
+        stages a row, publishes the event and commits so the two are atomic. A
+        ``crud`` that commits itself makes that atomicity depend on the caller
+        remembering to opt out, and it is the default branch that nobody
+        exercises. ``flush`` is allowed (it surfaces constraint errors and row
+        counts); ``commit`` and ``rollback`` are not. Rolling back belongs to the
+        transaction owner, which is the service or ``core.database.get_db``.
+
+        ``_CRUD_TRANSACTION_DEBT`` records the files that still do. It shrinks;
+        a stale entry fails, so it cannot outlive the debt.
+        """
+        offenders: list[str] = []
+        stale: list[str] = []
+        for module_name in _CONVERTED:
+            for path in _python_files(_MODULES_ROOT / module_name):
+                if _role(path.stem) != "crud":
+                    continue
+                ended = sorted(
+                    {
+                        node.func.attr
+                        for node in ast.walk(ast.parse(path.read_text()))
+                        if isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in _TRANSACTION_CONTROL
+                        and isinstance(node.func.value, ast.Name)
+                    }
+                )
+                relative = path.relative_to(_MODULES_ROOT).as_posix()
+                if ended and relative not in _CRUD_TRANSACTION_DEBT:
+                    offenders.append(f"{relative}: .{', .'.join(ended)}()")
+                if not ended and relative in _CRUD_TRANSACTION_DEBT:
+                    stale.append(relative)
+        assert not offenders, (
+            "A crud-role file may flush but not commit or roll back. Stage the "
+            "write and let the service own the transaction:\n  " + "\n  ".join(sorted(offenders))
+        )
+        assert not stale, (
+            "These files no longer end transactions; remove them from "
+            "_CRUD_TRANSACTION_DEBT:\n  " + "\n  ".join(sorted(stale))
         )
 
     def test_a_file_plays_the_role_its_content_declares(self):

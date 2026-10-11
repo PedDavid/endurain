@@ -17,7 +17,8 @@ Where this skill and a guide disagree, the guide wins.
 - `service`, `crud`, `models`, `query`, `serializers`, `utils`, `signing`, `subscribers`, `event_publishers` are private to their package.
 - Layering is downward only: `router -> service -> crud -> query/models`.
 - `crud` never calls another module and raises `core.exceptions`, not `HTTPException`.
-- `service` owns commit/flush/rollback and publishes events; `integration_service` must not.
+- `service` owns commit and rollback and publishes events; `integration_service` must not.
+- `crud` stages writes with `flush()` and never calls `commit()`/`rollback()` or takes a `commit` flag (enforced by `test_crud_does_not_end_transactions`).
 - `__init__.py` is a docstring and nothing else.
 - Non-auth code reaches identity only through `modules.auth.dependencies` and `modules.auth.identity_service`.
 - Filenames are the contract: a misnamed file silently escapes the rules.

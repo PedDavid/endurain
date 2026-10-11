@@ -63,7 +63,7 @@ class TestFollowUser:
         result = follow_user(1, 2, db)
 
         assert result.follower_id == 1
-        mock_crud.create_follower.assert_called_once_with(1, 2, db, commit=False)
+        mock_crud.create_follower.assert_called_once_with(1, 2, db)
         mock_pub.publish_follower_requested.assert_called_once_with(1, 2, db, db.commit)
 
     @patch("modules.followers.service.followers_event_publishers")
@@ -91,7 +91,7 @@ class TestAcceptFollowRequest:
         db = MagicMock()
         accept_follow_request(1, 2, db)
 
-        mock_crud.accept_follower.assert_called_once_with(1, 2, db, commit=False)
+        mock_crud.accept_follower.assert_called_once_with(1, 2, db)
         mock_pub.publish_follower_accepted.assert_called_once_with(1, 2, db, db.commit)
 
 
@@ -103,7 +103,7 @@ class TestDeleteRelationship:
         with patch("modules.followers.service.followers_crud") as crud:
             delete_relationship(2, 1, 1, db)
 
-        crud.delete_follower.assert_called_once_with(1, 2, db, commit=False)
+        crud.delete_follower.assert_called_once_with(1, 2, db)
         db.commit.assert_called_once()
 
     def test_removing_a_follower_deletes_the_same_row(self):
@@ -114,7 +114,7 @@ class TestDeleteRelationship:
         with patch("modules.followers.service.followers_crud") as crud:
             delete_relationship(1, 2, 1, db)
 
-        crud.delete_follower.assert_called_once_with(2, 1, db, commit=False)
+        crud.delete_follower.assert_called_once_with(2, 1, db)
 
     def test_a_third_party_is_refused(self):
         import core.exceptions as core_exceptions
@@ -140,7 +140,7 @@ class TestRejectFollowRequest:
         with patch("modules.followers.service.followers_crud") as crud:
             reject_follow_request(1, 2, db)
 
-        crud.delete_follower.assert_called_once_with(2, 1, db, status=FollowStatus.PENDING, commit=False)
+        crud.delete_follower.assert_called_once_with(2, 1, db, status=FollowStatus.PENDING)
         db.commit.assert_called_once()
 
 

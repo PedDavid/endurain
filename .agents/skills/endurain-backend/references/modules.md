@@ -39,6 +39,7 @@ Other files (`utils.py`, `signing.py`, `pipeline.py`...) are package-private.
 
 - `models` never import other models; foreign keys are strings (`ForeignKey("activities.id")`), lifecycle is `ON DELETE`.
 - `integration_service` may read its own module but must not publish events or own a commit; arrange writes in `service`.
+- `crud` stages (`flush`) and never commits or rolls back; no `commit` parameter. `service` commits, `get_db` rolls back.
 - It holds only operations with a real caller; a pure pass-through goes straight to CRUD.
 - Packages inside a namespace form a DAG; invert one edge with a seam if two import each other.
 - `core` and `jasil` never import `modules`; the platform asks, the module registers.
