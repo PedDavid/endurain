@@ -6,7 +6,7 @@ description: Endurain frontend conventions (Vue 3, TypeScript, Tailwind v4, shad
 # Endurain frontend
 
 Design source of truth: `docs/developer-guide/brand-and-ux-guidelines.md` and the tokens in `frontend/src/assets/main.css`.
-Coding standards live in `.github/instructions/javascript.instructions.md`; this skill is the working summary.
+Repo-wide rules are in `AGENTS.md`.
 
 ## Core rules (always apply)
 

@@ -34,6 +34,8 @@ Writes:
 
 ## Client state, composables, config
 
+- Keep tokens in HTTP-only cookies, never `localStorage` or `sessionStorage`.
+
 - Pinia setup stores for UI/client state only.
 - Shared composables: `useForm`, `useToasts`, `useTheme`, `useLocale`, `useNavigation`, `useListPagination`, `useInfiniteScroll`, `useRouteQuery`, `useSafeRedirect`, `useRealtime`.
 - Charts and maps go through `useChartProvider` / `useMapProvider`.

@@ -1,4 +1,4 @@
-"""The logging rule from ``.github/instructions/python.instructions.md``, enforced.
+"""The logging-by-layer rule from ``.agents/skills/endurain-backend/references/code-standards.md``, enforced.
 
 A convention that only exists in prose drifts: before this, CRUD modules narrated
 every successful read and write at DEBUG — duplicating what the service already

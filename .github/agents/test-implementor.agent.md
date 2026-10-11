@@ -33,9 +33,7 @@ Receive test requirements (typically from the Test Reviewer agent) and orchestra
 ### Step 1 — Understand Requirements
 
 - Read `pyproject.toml` to understand the project structure, dependencies, and test configuration.
-- Read the instruction files under `.github/instructions/` for coding conventions:
-  - `.github/instructions/python.instructions.md` — Python style and testing conventions.
-  - `.github/instructions/python-mcp-server.instructions.md` — MCP server patterns.
+- Read `AGENTS.md` and `.agents/skills/endurain-backend/references/testing.md` for coding and testing conventions.
 - If a review report is provided, parse it for the prioritised list of test gaps.
 - If no review report is provided, perform a quick assessment of what needs testing.
 
@@ -62,8 +60,7 @@ For each work unit, invoke a sub-agent with the following prompt pattern:
 This phase must be performed as the agent "test-implementor" defined in ".github/agents/test-implementor.agent.md".
 
 IMPORTANT:
-- Read and apply the coding conventions in ".github/instructions/python.instructions.md".
-- Read and apply the MCP patterns in ".github/instructions/python-mcp-server.instructions.md".
+- Read and apply the conventions in "AGENTS.md" and ".agents/skills/endurain-backend/references/testing.md".
 - Base path: "${basePath}"
 - Test directory: "${testDir}"
 
