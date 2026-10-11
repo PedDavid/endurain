@@ -12,7 +12,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-from tests._helpers.db import create_sqlite_session_factory
+from tests._helpers.db import (
+    POSTGRES_TEST_URL_ENV,
+    create_postgres_session_factory,
+    create_sqlite_session_factory,
+    drop_postgres_schema,
+    ensure_user,
+    postgres_test_url,
+)
 
 import modules.activities.activity_ingestion.bulk_import_subscribers as bulk_import_subscribers
 import modules.activities.activity_ingestion.crud as ingestion_jobs_crud
@@ -21,13 +28,29 @@ import modules.activities.activity_ingestion.models as ingestion_models
 import modules.activities.activity_ingestion.schema as ingestion_schema
 
 
-@pytest.fixture
-def factory():
-    session_factory = create_sqlite_session_factory()
+@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.postgres)])
+def factory(request):
+    """The same assertions against SQLite and, when configured, PostgreSQL.
+
+    SQLite shares one connection across sessions, so it can only show that a
+    change was committed. PostgreSQL gives each session its own connection and
+    transaction, which is what the production job runner has.
+    """
+    if request.param == "sqlite":
+        session_factory = create_sqlite_session_factory()
+        try:
+            yield session_factory
+        finally:
+            session_factory.kw["bind"].dispose()
+        return
+
+    if postgres_test_url() is None:
+        pytest.skip(f"{POSTGRES_TEST_URL_ENV} is not set")
+    session_factory = create_postgres_session_factory()
     try:
         yield session_factory
     finally:
-        session_factory.kw["bind"].dispose()
+        drop_postgres_schema(session_factory)
 
 
 def _add_job(factory, **overrides) -> None:
@@ -42,6 +65,7 @@ def _add_job(factory, **overrides) -> None:
         "updated_at": now,
     }
     values.update(overrides)
+    ensure_user(factory, values["user_id"])
     with factory() as db:
         db.add(ingestion_models.ActivityIngestionJob(**values))
         db.commit()

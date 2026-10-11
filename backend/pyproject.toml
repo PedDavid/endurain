@@ -138,6 +138,9 @@ python_functions = ["test_*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--tb=short --strict-markers --cov --cov-report=term-missing"
+markers = [
+    "postgres: needs a disposable PostgreSQL database (TEST_DATABASE_URL); skipped when it is unset",
+]
 filterwarnings = [
     "ignore::DeprecationWarning:slowapi.*",
 ]

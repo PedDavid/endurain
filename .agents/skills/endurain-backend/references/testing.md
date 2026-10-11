@@ -16,3 +16,23 @@ uv run pytest tests/<area> --cov=app/<area> --cov-report=term-missing
 ```
 
 Architecture tests: `tests/architecture/`, `tests/test_logging_rule.py`; role vocabulary in `tests/_helpers/module_roles.py`.
+
+## Real-database tests
+
+Mocks cannot show whether a change was committed, and SQLite shares one connection across sessions, so neither can show what another session sees or what a failed flush does. Use a real database for those.
+
+| Question | Use |
+| --- | --- |
+| Does this query filter correctly? | `create_sqlite_session()` |
+| Did the job/service commit, so a fresh session sees it? | `create_sqlite_session_factory()` and read back through a new session |
+| Isolation between sessions, a failed flush, unique indexes, FKs | `tests/postgres/` (`@pytest.mark.postgres`, fixture `pg_factory`) |
+
+- `postgres` tests need `TEST_DATABASE_URL` naming a **disposable** database (its name must contain `test`; the schema is dropped and recreated). Unset, they are skipped, so the default run needs no database.
+- Persistence tests may insert rows (the "never instantiate models" rule is for unit tests); PostgreSQL enforces FKs, so create the user first with `ensure_user`.
+- A test that must hold on both backends parametrizes its factory fixture over `sqlite` and `postgres` (see `test_job_state_persistence.py`).
+
+```bash
+docker run -d --rm --name endurain-test-pg -e POSTGRES_USER=endurain -e POSTGRES_PASSWORD=test \
+  -e POSTGRES_DB=endurain_test -p 55432:5432 postgres:18
+TEST_DATABASE_URL=postgresql+psycopg://endurain:test@localhost:55432/endurain_test uv run pytest -m postgres
+```
