@@ -7,7 +7,13 @@ from modules.followers.constants import FollowStatus
 
 
 class FollowRelationship(BaseModel):
-    """Serialized representation of a follow relationship."""
+    """Serialized representation of a follow relationship.
+
+    Attributes:
+        follower_id: The user who follows (the requester).
+        followee_id: The user being followed.
+        status: Whether the request is pending or accepted.
+    """
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
@@ -26,6 +32,9 @@ class FollowRequestAccept(BaseModel):
     the payload rather than implied by the route. Unknown fields are rejected
     (``extra="forbid"``) rather than silently ignored, matching every other
     request-body schema in the activities/followers template modules.
+
+    Attributes:
+        status: The target status; only ``accepted`` is valid.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -35,6 +44,17 @@ class FollowRequestAccept(BaseModel):
     @field_validator("status")
     @classmethod
     def _only_accept(cls, value: FollowStatus) -> FollowStatus:
+        """Reject any status other than ``accepted``.
+
+        Args:
+            value: The requested status.
+
+        Returns:
+            The status, unchanged.
+
+        Raises:
+            ValueError: If the status is not ``accepted``.
+        """
         if value is not FollowStatus.ACCEPTED:
             raise ValueError("a follow request can only be accepted; DELETE it to decline")
         return value

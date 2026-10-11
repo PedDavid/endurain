@@ -22,12 +22,32 @@ _FOLLOWEE_CACHE_KEY = "followers.accepted_followee_ids"
 
 
 def _invalidate_followee_cache(db: Session) -> None:
-    """Drop the session's memoized followee lists after a write to the graph."""
+    """Drop the session's memoized followee lists after a write to the graph.
+
+    Args:
+        db: Database session whose cache is cleared.
+
+    Returns:
+        None.
+
+    Raises:
+        None.
+    """
     db.info.pop(_FOLLOWEE_CACHE_KEY, None)
 
 
 def _transform_follower(follower: followers_models.Follower) -> followers_schema.FollowRelationship:
-    """Convert a Follower ORM row into its serialized DTO."""
+    """Convert a Follower ORM row into its serialized DTO.
+
+    Args:
+        follower: The ORM row to convert.
+
+    Returns:
+        The follow relationship DTO.
+
+    Raises:
+        ValidationError: If the row does not satisfy the DTO.
+    """
     return followers_schema.FollowRelationship.model_validate(follower)
 
 
@@ -55,7 +75,7 @@ def get_all_followers_by_user_id(
         accepted_only: Exclude pending follow requests when True.
 
     Returns:
-        List of Follower records (empty list if none).
+        The follow relationships on this page (empty list if none).
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -90,7 +110,7 @@ def get_all_following_by_user_id(
         accepted_only: Exclude pending follow requests when True.
 
     Returns:
-        List of Follower records (empty list if none).
+        The follow relationships on this page (empty list if none).
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -120,6 +140,9 @@ def get_pending_requests_for_user_id(
 
     Returns:
         The pending requests (empty list if none).
+
+    Raises:
+        ProcessingError: If a database error occurs.
     """
     stmt = (
         select(followers_models.Follower)
@@ -144,6 +167,9 @@ def count_pending_requests_for_user_id(user_id: int, db: Session) -> int:
 
     Returns:
         The number of pending requests.
+
+    Raises:
+        ProcessingError: If a database error occurs.
     """
     stmt = select(func.count(followers_models.Follower.id)).where(
         followers_models.Follower.followee_id == user_id,
@@ -163,7 +189,7 @@ def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool
         accepted_only: If True, count only accepted relationships.
 
     Returns:
-        Number of follower records.
+        Number of follow relationships.
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -189,7 +215,7 @@ def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool
         accepted_only: If True, count only accepted relationships.
 
     Returns:
-        Number of follow records.
+        Number of follow relationships.
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -217,7 +243,7 @@ def get_follower_for_user_id_and_target_user_id(
         db: Database session.
 
     Returns:
-        Follower record if found, otherwise None.
+        The follow relationship if found, otherwise None.
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -294,15 +320,9 @@ def create_follower(
         The newly created Follower relationship as a DTO.
 
     Raises:
-        InvalidInputError: If attempting to follow self.
         ConflictError: If the relationship already exists.
         ProcessingError: On other database errors.
     """
-    # Prevent self-follow which would otherwise pollute counts and
-    # notifications.
-    if user_id == target_user_id:
-        raise core_exceptions.InvalidInputError("Cannot follow yourself")
-
     # Pre-check to return a clean 409 instead of a 500 from a unique
     # constraint violation.
     existing = get_follower_for_user_id_and_target_user_id(user_id, target_user_id, db)

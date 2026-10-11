@@ -262,13 +262,6 @@ class TestCreateFollower:
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
-    def test_self_follow(self, mock_db):
-        import modules.followers.crud as crud
-
-        with pytest.raises(core_exceptions.InvalidInputError) as e:
-            crud.create_follower(user_id=1, target_user_id=1, db=mock_db)
-        assert e.value.status_code == 400
-
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
     def test_already_exists(self, mock_get_follow, mock_db):
         import modules.followers.crud as crud

@@ -8,7 +8,14 @@ from modules.followers.constants import FollowStatus
 
 
 class Follower(Base, TimestampMixin):
-    """Follow relationship between two users."""
+    """Follow relationship between two users.
+
+    Attributes:
+        id: Surrogate primary key.
+        follower_id: The user who follows (the requester).
+        followee_id: The user being followed.
+        status: ``pending`` until the followee accepts, then ``accepted``.
+    """
 
     __tablename__ = "followers"
     __table_args__ = (UniqueConstraint("follower_id", "followee_id", name="uq_followers_follower_followee"),)

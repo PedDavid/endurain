@@ -66,6 +66,21 @@ class TestFollowUser:
         mock_crud.create_follower.assert_called_once_with(1, 2, db, commit=False)
         mock_pub.publish_follower_requested.assert_called_once_with(1, 2, db, db.commit)
 
+    @patch("modules.followers.service.followers_event_publishers")
+    @patch("modules.followers.service.followers_crud")
+    def test_self_follow_is_refused(self, mock_crud, mock_pub):
+        import core.exceptions as core_exceptions
+        from modules.followers.service import follow_user
+
+        db = MagicMock()
+
+        with pytest.raises(core_exceptions.InvalidInputError) as e:
+            follow_user(1, 1, db)
+
+        assert e.value.status_code == 400
+        mock_crud.create_follower.assert_not_called()
+        mock_pub.publish_follower_requested.assert_not_called()
+
 
 class TestAcceptFollowRequest:
     @patch("modules.followers.service.followers_event_publishers")

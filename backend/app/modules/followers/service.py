@@ -51,7 +51,19 @@ def _requester_may_view_network(target_user_id: int, requester_user_id: int, db:
 
 
 def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Session) -> None:
-    """Raise :class:`PermissionDeniedError` unless the requester may view the target's network."""
+    """Raise :class:`PermissionDeniedError` unless the requester may view the target's network.
+
+    Args:
+        target_user_id: The user whose network is being listed.
+        requester_user_id: The authenticated user making the request.
+        db: Database session.
+
+    Returns:
+        None.
+
+    Raises:
+        PermissionDeniedError: When the requester may not view this network.
+    """
     if not _requester_may_view_network(target_user_id, requester_user_id, db):
         logger.warning(
             "Denied access to a user's follower network",
@@ -273,7 +285,16 @@ def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> fol
 
     Returns:
         The newly created follow relationship as a DTO.
+
+    Raises:
+        InvalidInputError: If the requester targets themselves.
+        ConflictError: If the relationship already exists.
     """
+    if requester_user_id == target_user_id:
+        # Prevent self-follow, which would otherwise pollute counts and
+        # notifications.
+        raise core_exceptions.InvalidInputError("Cannot follow yourself")
+
     follower = followers_crud.create_follower(requester_user_id, target_user_id, db, commit=False)
     followers_event_publishers.publish_follower_requested(requester_user_id, target_user_id, db, db.commit)
     logger.debug(
@@ -297,6 +318,9 @@ def accept_follow_request(
 
     Returns:
         The accepted relationship, read back from the committed row.
+
+    Raises:
+        NotFoundError: When no pending request from that user exists.
     """
     relationship = followers_crud.accept_follower(accepter_user_id, requester_user_id, db, commit=False)
     followers_event_publishers.publish_follower_accepted(accepter_user_id, requester_user_id, db, db.commit)
