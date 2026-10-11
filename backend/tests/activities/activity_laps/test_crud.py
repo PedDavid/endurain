@@ -17,20 +17,22 @@ class TestCreateActivityLaps:
         laps = [{"lap_number": 1, "lap_time": 3600.0}]
         crud.create_activity_laps(laps, 1, mock_db)
         mock_db.add_all.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_empty(self, mock_db):
         import modules.activities.activity_laps.crud as crud
 
         crud.create_activity_laps([], 1, mock_db)
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     @patch("modules.activities.activity_laps.crud.activity_laps_models.ActivityLaps")
     def test_db_error(self, mock_laps_model, mock_db):
         import modules.activities.activity_laps.crud as crud
 
         mock_laps_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         laps = [{"lap_number": 1}]
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.create_activity_laps(laps, 1, mock_db)

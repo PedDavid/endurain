@@ -45,30 +45,22 @@ def _stub_first(mock_db, row):
 
 class TestCreateUploadJob:
     @patch("modules.activities.activity_ingestion.crud.activity_ingestion_models.ActivityIngestionJob")
-    def test_commits_by_default(self, model, mock_db):
+    def test_stages_without_committing(self, model, mock_db):
+        """Lets the row and its outbox event land in one transaction."""
         model.return_value = _row()
         result = ingestion_jobs_crud.create_ingestion_job(
             "job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx"
         )
         mock_db.add.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
         assert result.id == "job-1"
         assert result.status == activity_ingestion_schema.IngestionJobStatus.PENDING
 
     @patch("modules.activities.activity_ingestion.crud.activity_ingestion_models.ActivityIngestionJob")
-    def test_flushes_when_the_caller_owns_the_commit(self, model, mock_db):
-        """Lets the row and its outbox event land in one transaction."""
-        model.return_value = _row()
-        ingestion_jobs_crud.create_ingestion_job(
-            "job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx", commit=False
-        )
-        mock_db.flush.assert_called_once()
-        mock_db.commit.assert_not_called()
-
-    @patch("modules.activities.activity_ingestion.crud.activity_ingestion_models.ActivityIngestionJob")
     def test_db_error(self, model, mock_db):
         model.return_value = _row()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as err:
             ingestion_jobs_crud.create_ingestion_job(
                 "job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx"
@@ -137,7 +129,8 @@ class TestTerminalTransitions:
         # Cleared so a retry after success is a no-op rather than a re-import.
         assert row.staged_key is None
         assert row.completed_at is not None
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_mark_failed_records_only_the_sanitized_code(self, mock_db):
         row = _row(status="processing")
@@ -166,7 +159,8 @@ class TestDeleteJobsBefore:
         setup_mock_execute(mock_db, return_scalars_all=[_row(), _row(id="job-2")])
         assert ingestion_jobs_crud.delete_jobs_before(_NOW, mock_db) == 2
         assert mock_db.delete.call_count == 2
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_returns_zero_when_nothing_is_stale(self, mock_db):
         setup_mock_execute(mock_db, return_scalars_all=[])

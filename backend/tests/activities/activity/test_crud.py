@@ -423,7 +423,7 @@ class TestEditActivity:
             id: int = 1
             name: str = "U"
 
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.edit_activity(user_id=1, activity_id=1, activity_attributes=A(), db=mock_db)
         assert e.value.status_code == 500
@@ -444,7 +444,6 @@ class TestEditActivity:
                 activity_id=1,
                 activity_attributes=schema.ActivityEdit(name="Updated"),
                 db=mock_db,
-                commit=False,
             )
 
         mock_db.rollback.assert_not_called()
@@ -458,15 +457,7 @@ class TestDelete:
         r.rowcount = 1
         mock_db.execute.return_value = r
         crud.delete_activity(activity_id=1, user_id=7, db=mock_db)
-        mock_db.commit.assert_called_once()
-
-    def test_success_no_commit_stages_only(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        r = MagicMock()
-        r.rowcount = 1
-        mock_db.execute.return_value = r
-        crud.delete_activity(activity_id=1, user_id=7, db=mock_db, commit=False)
+        mock_db.execute.assert_called_once()
         mock_db.commit.assert_not_called()
 
     def test_not_found(self, mock_db):
@@ -490,6 +481,8 @@ class TestDelete:
             crud.delete_activity(activity_id=1, user_id=999, db=mock_db)
         assert e.value.status_code == 404
         mock_db.commit.assert_not_called()
+        # Nothing was staged, so there is nothing to roll back.
+        mock_db.rollback.assert_not_called()
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -584,13 +577,13 @@ class TestBulkSetGear:
         assert crud.bulk_set_activities_gear_id(user_id=1, gear_assignments={}, db=mock_db) == []
 
     def test_stages_without_committing(self, mock_db):
-        """commit=False leaves the update in the caller's transaction so events can join it."""
+        """The update stays in the caller's transaction so events can join it."""
         import modules.activities.activity.crud as crud
 
         r = MagicMock()
         r.all.return_value = [(1,)]
         mock_db.execute.return_value = r
-        crud.bulk_set_activities_gear_id(user_id=1, gear_assignments={1: 5}, db=mock_db, commit=False)
+        crud.bulk_set_activities_gear_id(user_id=1, gear_assignments={1: 5}, db=mock_db)
         mock_db.commit.assert_not_called()
 
     def test_db_error(self, mock_db):
@@ -1421,7 +1414,8 @@ class TestSetActivityThumbnailPath:
         setup_mock_execute(mock_db, return_one_or_none=a)
         crud.set_activity_thumbnail_path(activity_id=1, thumbnail_path="/path/to/thumb.png", db=mock_db)
         assert a.map_thumbnail_path == "/path/to/thumb.png"
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_not_found(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1446,13 +1440,14 @@ class TestClearAllActivityThumbnailPaths:
 
         crud.clear_all_activity_thumbnail_paths(db=mock_db)
         mock_db.execute.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        crud.clear_all_activity_thumbnail_paths(db=mock_db)
+        with pytest.raises(core_exceptions.ProcessingError):
+            crud.clear_all_activity_thumbnail_paths(db=mock_db)
         mock_db.rollback.assert_called_once()
 
 
@@ -1530,7 +1525,8 @@ class TestUpdateActivityLocation:
         result = crud.update_activity_location(1, "Lisbon", "Belem", "Portugal", db=mock_db)
         assert result is True
         assert (a.city, a.town, a.country) == ("Lisbon", "Belem", "Portugal")
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_not_found(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1580,7 +1576,7 @@ class TestEditUserActivitiesVisibility:
         mock_db.execute.return_value = r
         result = crud.edit_user_activities_visibility(user_id=1, visibility=0, db=mock_db)
         assert result == [1, 2, 3]
-        mock_db.commit.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_no_rows(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1590,16 +1586,6 @@ class TestEditUserActivitiesVisibility:
         mock_db.execute.return_value = r
         result = crud.edit_user_activities_visibility(user_id=1, visibility=0, db=mock_db)
         assert result == []
-
-    def test_stages_without_committing(self, mock_db):
-        """commit=False leaves the update in the caller's transaction so events can join it."""
-        import modules.activities.activity.crud as crud
-
-        r = MagicMock()
-        r.all.return_value = [(1,)]
-        mock_db.execute.return_value = r
-        crud.edit_user_activities_visibility(user_id=1, visibility=0, db=mock_db, commit=False)
-        mock_db.commit.assert_not_called()
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1620,7 +1606,7 @@ class TestDeleteAllStravaActivitiesForUser:
         mock_db.execute.return_value = r
         result = crud.delete_all_strava_activities_for_user(user_id=1, db=mock_db)
         assert result == [11, 12]
-        mock_db.commit.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_no_deletions(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1630,16 +1616,6 @@ class TestDeleteAllStravaActivitiesForUser:
         mock_db.execute.return_value = r
         result = crud.delete_all_strava_activities_for_user(user_id=1, db=mock_db)
         assert result == []
-
-    def test_no_commit_stages_only(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        r = MagicMock()
-        r.all.return_value = [(11,)]
-        mock_db.execute.return_value = r
-        result = crud.delete_all_strava_activities_for_user(user_id=1, db=mock_db, commit=False)
-        assert result == [11]
-        mock_db.commit.assert_not_called()
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -1660,16 +1636,6 @@ class TestDeleteAllActivitiesForUser:
         mock_db.execute.return_value = r
         result = crud.delete_all_activities_for_user(user_id=1, db=mock_db)
         assert result == [1, 2, 3]
-        mock_db.commit.assert_called_once()
-
-    def test_no_commit_stages_only(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        r = MagicMock()
-        r.all.return_value = [(1,)]
-        mock_db.execute.return_value = r
-        result = crud.delete_all_activities_for_user(user_id=1, db=mock_db, commit=False)
-        assert result == [1]
         mock_db.commit.assert_not_called()
 
     def test_db_error(self, mock_db):

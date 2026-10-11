@@ -51,10 +51,9 @@ def create_ingestion_job(
     staged_key: str | None = None,
     idempotency_key: str | None = None,
     request_fingerprint: str | None = None,
-    commit: bool = True,
 ) -> activity_ingestion_schema.ActivityIngestionJob:
     """
-    Record an accepted ingestion request in the pending state.
+    Stage an accepted ingestion request in the pending state (not committed).
 
     Args:
         job_id: Caller-generated job identifier (UUIDv4 string).
@@ -68,8 +67,6 @@ def create_ingestion_job(
             and kind.
         request_fingerprint: SHA-256 of the uploaded bytes, stored so a reused
             key carrying different content can be rejected.
-        commit: Whether to commit; False lets the caller publish an event in the
-            same transaction.
 
     Returns:
         The created ingestion job.
@@ -92,10 +89,7 @@ def create_ingestion_job(
         updated_at=now,
     )
     db.add(new_job)
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()
     return _to_read_schema(new_job)
 
 
@@ -225,7 +219,7 @@ def get_job_owner(job_id: str, db: Session) -> int | None:
 @core_decorators.handle_db_errors
 def mark_processing(job_id: str, db: Session) -> None:
     """
-    Move a job to the processing state.
+    Stage a move of a job to the processing state (not committed).
 
     Args:
         job_id: The job identifier.
@@ -242,13 +236,13 @@ def mark_processing(job_id: str, db: Session) -> None:
         return
     orm_job.status = activity_ingestion_schema.IngestionJobStatus.PROCESSING.value
     orm_job.updated_at = datetime.now(UTC)
-    db.commit()
+    db.flush()
 
 
 @core_decorators.handle_db_errors
 def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     """
-    Move a job to the completed state and record what it created.
+    Stage a move of a job to the completed state and record what it created.
 
     Args:
         job_id: The job identifier.
@@ -271,7 +265,7 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     orm_job.staged_key = None
     orm_job.updated_at = now
     orm_job.completed_at = now
-    db.commit()
+    db.flush()
 
 
 @core_decorators.handle_db_errors
@@ -281,7 +275,7 @@ def mark_failed(
     db: Session,
 ) -> None:
     """
-    Move a job to the failed state with a sanitized reason.
+    Stage a move of a job to the failed state with a sanitized reason.
 
     Args:
         job_id: The job identifier.
@@ -303,13 +297,13 @@ def mark_failed(
     orm_job.staged_key = None
     orm_job.updated_at = now
     orm_job.completed_at = now
-    db.commit()
+    db.flush()
 
 
 @core_decorators.handle_db_errors
 def delete_jobs_before(cutoff: datetime, db: Session) -> int:
     """
-    Delete terminal ingestion jobs older than a cutoff.
+    Stage the deletion of terminal ingestion jobs older than a cutoff.
 
     Args:
         cutoff: Jobs that reached a terminal state before this are removed.
@@ -328,5 +322,5 @@ def delete_jobs_before(cutoff: datetime, db: Session) -> int:
     stale = list(db.scalars(stmt).all())
     for orm_job in stale:
         db.delete(orm_job)
-    db.commit()
+    db.flush()
     return len(stale)

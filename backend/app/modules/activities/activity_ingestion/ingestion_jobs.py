@@ -127,7 +127,6 @@ def accept_upload(
             staged_key=staged_key,
             idempotency_key=idempotency_key,
             request_fingerprint=received.fingerprint,
-            commit=False,
         )
         if core_config.settings.JOBS_ENABLED:
             # Staged in the transactional outbox on this session and committed
@@ -270,7 +269,6 @@ def accept_refresh(
         token_user_id,
         activity_ingestion_schema.IngestionJobKind.REFRESH,
         db,
-        commit=False,
     )
     if core_config.settings.JOBS_ENABLED:
         platform_publisher.publish_committing(
@@ -318,6 +316,7 @@ def run_refresh_job(job_id: str) -> None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
         ingestion_jobs_crud.mark_processing(job_id, db)
+        db.commit()
 
     with core_database.SessionLocal() as db:
         try:
@@ -331,6 +330,7 @@ def run_refresh_job(job_id: str) -> None:
 
         activity_ids = [activity.id for activity in activities if activity.id is not None]
         ingestion_jobs_crud.mark_completed(job_id, activity_ids, db)
+        db.commit()
         logger.info(
             "Refresh job synced provider activities",
             extra=core_logger.context(user_id=owner, job_id=job_id, activity_count=len(activity_ids)),
@@ -372,6 +372,7 @@ def run_upload_job(job_id: str) -> None:
             return
         user_id, staged_key = work_item
         ingestion_jobs_crud.mark_processing(job_id, db)
+        db.commit()
 
     storage = platform_runtime.get_active_platform().storage
     with core_database.SessionLocal() as db:
@@ -407,12 +408,14 @@ def run_upload_job(job_id: str) -> None:
                 activity_ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND,
                 db,
             )
+            db.commit()
             logger.info(
                 "Upload job produced no activities",
                 extra=core_logger.context(user_id=user_id, job_id=job_id),
             )
             return
         ingestion_jobs_crud.mark_completed(job_id, activity_ids, db)
+        db.commit()
         logger.info(
             "Upload job imported activities",
             extra=core_logger.context(user_id=user_id, job_id=job_id, activity_count=len(activity_ids)),
@@ -443,6 +446,7 @@ def fail_ingestion_job(
                 work_item = ingestion_jobs_crud.get_job_work_item(job_id, db)
                 staged_key = work_item[1] if work_item else None
             ingestion_jobs_crud.mark_failed(job_id, error_code, db)
+            db.commit()
     except Exception as err:
         # Never mask the original failure with a bookkeeping one.
         logger.error(
@@ -493,6 +497,7 @@ def prune_expired_ingestion_jobs() -> None:
         cutoff = platform.clock.now() - timedelta(days=retention_days)
         with core_database.SessionLocal() as db:
             deleted = ingestion_jobs_crud.delete_jobs_before(cutoff, db)
+            db.commit()
 
     if deleted:
         logger.info(

@@ -75,7 +75,8 @@ class TestCreateExerciseTitle:
         mock_model_cls.return_value = mock_instance
         crud.create_activity_exercise_titles(titles, mock_db)
         mock_db.add_all.assert_called_once_with([mock_instance])
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     @patch("modules.activities.activity_exercise_titles.crud.tuple_")
     @patch("modules.activities.activity_exercise_titles.crud.select")
@@ -89,7 +90,7 @@ class TestCreateExerciseTitle:
         ]
         mock_db.execute.return_value.all.return_value = []
         mock_model_cls.return_value = MagicMock()
-        mock_db.commit.side_effect = IntegrityError("stmt", "params", "orig")
+        mock_db.flush.side_effect = IntegrityError("stmt", "params", "orig")
         with pytest.raises(core_exceptions.ConflictError) as e:
             crud.create_activity_exercise_titles(titles, mock_db)
         assert e.value.status_code == 409

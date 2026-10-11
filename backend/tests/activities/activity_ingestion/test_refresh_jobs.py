@@ -24,7 +24,7 @@ class TestAcceptRefresh:
         assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
         # Row and event land in one transaction, so a crash between them cannot
         # leave a job nobody will run.
-        assert create.call_args.kwargs["commit"] is False
+        assert "commit" not in create.call_args.kwargs
         assert publish.call_args.kwargs["commit"] == db.commit
         assert publish.call_args.args[1] == {"job_id": create.call_args.args[0]}
         submit.assert_not_called()

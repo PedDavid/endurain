@@ -213,7 +213,7 @@ def create_activity_media(
     content_hash: str | None = None,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """
-    Create a new activity media record.
+    Stage a new activity media record (flushed, not committed).
 
     Args:
         activity_id: Activity ID the media belongs to.
@@ -239,11 +239,10 @@ def create_activity_media(
             content_hash=content_hash,
         )
         db.add(db_activity_media)
-        db.commit()
+        db.flush()
         db.refresh(db_activity_media)
         return _to_record(db_activity_media)
     except IntegrityError as integrity_error:
-        db.rollback()
         raise core_exceptions.ConflictError(
             "Duplicate entry error. Check if path/file name or content are unique."
         ) from integrity_error
@@ -256,7 +255,7 @@ def create_activity_medias(
     db: Session,
 ) -> None:
     """
-    Persist a batch of activity media records for a single activity.
+    Stage a batch of activity media records for a single activity.
 
     Args:
         activity_media: The media records to persist.
@@ -283,7 +282,7 @@ def create_activity_medias(
         return
 
     db.add_all(media)
-    db.commit()
+    db.flush()
 
 
 @core_decorators.handle_db_errors
@@ -314,7 +313,7 @@ def edit_activity_media_media_path(
         raise core_exceptions.NotFoundError("Activity media not found")
 
     db_activity_media.media_path = media_path
-    db.commit()
+    db.flush()
     db.refresh(db_activity_media)
     return _to_record(db_activity_media)
 
@@ -322,7 +321,7 @@ def edit_activity_media_media_path(
 @core_decorators.handle_db_errors
 def delete_activity_media(activity_media_id: int, db: Session) -> None:
     """
-    Delete an activity media record.
+    Stage the deletion of an activity media record.
 
     Permission and file cleanup are the caller's concern; see
     :func:`modules.activities.activity_media.service.delete_activity_media`.
@@ -347,4 +346,4 @@ def delete_activity_media(activity_media_id: int, db: Session) -> None:
         raise core_exceptions.NotFoundError("Activity media not found")
 
     db.delete(activity_media)
-    db.commit()
+    db.flush()

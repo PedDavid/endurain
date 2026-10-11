@@ -132,6 +132,7 @@ class TestStoreActivitiesFromFile:
         source_file = tmp_path / "empty.fit"
         source_file.write_bytes(b"\x00")
         contributor = MagicMock(key="exercise_titles")
+        db = MagicMock()
 
         with (
             patch.object(pipeline.users_integration_service, "get_user"),
@@ -155,14 +156,16 @@ class TestStoreActivitiesFromFile:
                 str(source_file),
                 ".fit",
                 "empty.fit",
-                "db",
+                db,
                 source=sources.UploadSource(),
                 storage=MagicMock(),
             )
 
         assert result == []
         get_contributor.assert_called_once_with("exercise_titles")
-        contributor.persist.assert_called_once_with([{"exercise_name": "Press"}], "db")
+        contributor.persist.assert_called_once_with([{"exercise_name": "Press"}], db)
+        # File-scoped reference data is committed ahead of the activity unit.
+        db.commit.assert_called_once()
 
     def test_unknown_file_component_fails_closed(self, tmp_path):
         source_file = tmp_path / "unknown.fit"

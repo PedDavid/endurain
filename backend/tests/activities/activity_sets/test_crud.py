@@ -20,13 +20,15 @@ class TestCreateActivitySets:
         ]
         crud.create_activity_sets(sets, 1, mock_db)
         mock_db.add_all.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_empty(self, mock_db):
         import modules.activities.activity_sets.crud as crud
 
         crud.create_activity_sets([], 1, mock_db)
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     @patch("modules.activities.activity_sets.crud.activity_sets_models.ActivitySets")
     def test_db_error(self, mock_sets_model, mock_db):
@@ -34,7 +36,7 @@ class TestCreateActivitySets:
         from modules.activities.activity_sets.schema import ActivitySetsCreate
 
         mock_sets_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         sets = [
             ActivitySetsCreate(activity_id=1, duration=300.0, set_type="interval", start_time="2024-01-15T08:00:00")
         ]

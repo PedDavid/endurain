@@ -91,9 +91,8 @@ def create_activity_exercise_titles(
 
     try:
         db.add_all(new_entries)
-        db.commit()
+        db.flush()
     except IntegrityError as integrity_error:
-        db.rollback()
         logger.warning(
             "Activity exercise title insert conflicted on (exercise_name, exercise_category)",
             exc_info=integrity_error,

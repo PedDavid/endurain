@@ -250,12 +250,16 @@ def restore_activity(
     thumbnail, HR-zone, and geocoding backfills — the reconciliation nets that
     exist for exactly this case.
 
+    The row is staged and flushed, not committed: the importer restores the
+    activity's components against the returned id and commits the whole activity
+    as one unit.
+
     Args:
         activity: The activity to persist.
         db: Database session.
 
     Returns:
-        The created activity.
+        The staged activity, with its generated id.
     """
     return activities_crud.create_activity(activity, db)
 
@@ -328,20 +332,20 @@ def list_user_activity_scoring_contexts(
 
 
 # Derived-artifact maintenance. The thumbnail and geocoding subsystems reach the
-# activity row through these. Each is a system-level operation with no requester
-# to authorize — the derived work runs detached from any request — so there is no
-# decision for ``service`` to make and these go straight to CRUD rather than
-# through a middle layer that only forwarded its arguments.
+# activity row through these. Reads are system-level operations with no requester
+# to authorize and go straight to CRUD. Writes go through ``service``: staging a
+# row and committing it is the arrangement of a write, which a surface does not
+# own.
 
 
 def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
     """Record or clear an activity's stored thumbnail key."""
-    activities_crud.set_activity_thumbnail_path(activity_id, key, db)
+    activity_service.set_thumbnail_key(activity_id, key, db)
 
 
 def clear_all_thumbnail_keys(db: Session) -> None:
     """Clear every stored activity thumbnail key."""
-    activities_crud.clear_all_activity_thumbnail_paths(db)
+    activity_service.clear_all_thumbnail_keys(db)
 
 
 def list_activities_with_thumbnail(
@@ -378,7 +382,7 @@ def set_activity_location(
     db: Session,
 ) -> bool:
     """Persist a reverse-geocoded activity location."""
-    return activities_crud.update_activity_location(activity_id, city, town, country, db)
+    return activity_service.set_activity_location(activity_id, city, town, country, db)
 
 
 def delete_all_strava_activities(user_id: int, db: Session) -> int:

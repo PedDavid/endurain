@@ -17,6 +17,7 @@ directly, which made every one of them a second owner of the activities table.
 import calendar
 from datetime import UTC, date, datetime, time, timedelta
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -519,7 +520,7 @@ def edit_activity(
 ) -> activities_schema.Activity:
     """Apply partial updates to one of the user's activities.
 
-    The update is staged (``commit=False``) and the publisher owns the single
+    The update is staged and the publisher owns the single
     commit, so when durable jobs are enabled the ``activity.updated`` outbox row
     is written in the *same* transaction as the change — a consumer can never see
     a row that changed without the fact that it did.
@@ -534,7 +535,7 @@ def edit_activity(
     # Only the fields the client actually sent; the CRUD applies the same set.
     changed_fields = [field for field in activity_attributes.model_dump(exclude_unset=True) if field != "id"]
     try:
-        updated = activities_crud.edit_activity(user_id, activity_id, activity_attributes, db, commit=False)
+        updated = activities_crud.edit_activity(user_id, activity_id, activity_attributes, db)
     except StaleDataError as err:
         # The row changed between the precondition check and the flush, so the
         # check alone would have let this write through.
@@ -586,7 +587,7 @@ def bulk_edit_activities(
     if body.visibility is None:
         raise core_exceptions.InvalidInputError("No supported field to update was provided")
 
-    updated_ids = activities_crud.edit_user_activities_visibility(user_id, body.visibility, db, commit=False)
+    updated_ids = activities_crud.edit_user_activities_visibility(user_id, body.visibility, db)
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
@@ -605,7 +606,7 @@ def bulk_edit_activities(
 def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
     """Delete one of the user's activities and publish ``activity.deleted``.
 
-    The delete is staged (``commit=False``) and the publisher owns the single
+    The delete is staged and the publisher owns the single
     commit, so when durable jobs are enabled the outbox row is written in the
     *same* transaction as the delete. A crash can no longer leave the row deleted
     but the cleanup event unpublished, which would orphan the thumbnail and
@@ -624,7 +625,7 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
     Returns:
         None.
     """
-    activities_crud.delete_activity(activity_id, user_id, db, commit=False)
+    activities_crud.delete_activity(activity_id, user_id, db)
     activity_event_publishers.publish_activity_deleted(activity_id, user_id, db, commit=db.commit)
     logger.info(
         "Deleted an activity",
@@ -655,7 +656,7 @@ def bulk_set_activities_gear(
     Returns:
         The number of activities updated.
     """
-    updated_ids = activities_crud.bulk_set_activities_gear_id(user_id, gear_assignments, db, commit=False)
+    updated_ids = activities_crud.bulk_set_activities_gear_id(user_id, gear_assignments, db)
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
@@ -687,7 +688,7 @@ def delete_all_strava_activities(user_id: int, db: Session, *, source: str) -> i
     Returns:
         The number of activities deleted.
     """
-    deleted_ids = activities_crud.delete_all_strava_activities_for_user(user_id, db, commit=False)
+    deleted_ids = activities_crud.delete_all_strava_activities_for_user(user_id, db)
     activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, db.commit, source=source)
     # Irreversible and triggered from another module, so the count is recorded
     # here rather than left to the caller.
@@ -715,7 +716,7 @@ def delete_all_activities_for_user(user_id: int, db: Session, *, source: str) ->
     Returns:
         The number of activities deleted.
     """
-    deleted_ids = activities_crud.delete_all_activities_for_user(user_id, db, commit=False)
+    deleted_ids = activities_crud.delete_all_activities_for_user(user_id, db)
     activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, db.commit, source=source)
     logger.info(
         "Deleted all activities for user",
@@ -736,3 +737,77 @@ def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
         True when the activity exists and belongs to the user.
     """
     return activities_crud.get_activity_by_id_from_user_id(activity_id, user_id, db) is not None
+
+
+def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
+    """Record or clear an activity's stored thumbnail key and commit.
+
+    A system-level write with no requester to authorize, so the only decision
+    here is the transaction boundary.
+
+    Args:
+        activity_id: The activity whose thumbnail key changes.
+        key: The new storage key, or None to clear it.
+        db: Database session.
+
+    Returns:
+        None.
+
+    Raises:
+        ProcessingError: On database error.
+    """
+    activities_crud.set_activity_thumbnail_path(activity_id, key, db)
+    db.commit()
+
+
+def clear_all_thumbnail_keys(db: Session) -> None:
+    """Clear every stored activity thumbnail key and commit, best effort.
+
+    A failure is logged and swallowed, as before: the caller is a maintenance
+    pass that re-derives thumbnails and can simply run again.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        None.
+    """
+    try:
+        activities_crud.clear_all_activity_thumbnail_paths(db)
+        db.commit()
+    except (core_exceptions.ProcessingError, SQLAlchemyError) as err:
+        db.rollback()
+        logger.error(
+            "Failed to clear the stored activity thumbnail keys",
+            exc_info=err,
+            extra=core_logger.context(error=type(err).__name__),
+        )
+
+
+def set_activity_location(
+    activity_id: int,
+    city: str | None,
+    town: str | None,
+    country: str | None,
+    db: Session,
+) -> bool:
+    """Persist a reverse-geocoded activity location and commit.
+
+    Args:
+        activity_id: The activity to update.
+        city: Resolved city, or None.
+        town: Resolved town, or None.
+        country: Resolved country, or None.
+        db: Database session.
+
+    Returns:
+        True when the activity existed and was updated, False when it was not
+        found.
+
+    Raises:
+        ProcessingError: On database error.
+    """
+    updated = activities_crud.update_activity_location(activity_id, city, town, country, db)
+    if updated:
+        db.commit()
+    return updated

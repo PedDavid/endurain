@@ -31,7 +31,8 @@ class TestCreateActivityStreams:
         ]
         crud.create_activity_streams(s, mock_activity, mock_db)
         mock_db.add_all.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_empty(self, mock_db):
         import modules.activities.activity_streams.crud as crud
@@ -65,7 +66,7 @@ class TestCreateActivityStreams:
 
         mock_activity = MagicMock(user_id=1, id=1)
         mock_streams_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         s = [ActivityStreamsCreate(activity_id=1, stream_type=1, stream_waypoints=[], strava_activity_stream_id=None)]
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.create_activity_streams(s, mock_activity, mock_db)

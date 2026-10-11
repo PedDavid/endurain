@@ -23,20 +23,22 @@ class TestCreateActivityWorkoutSteps:
         ]
         crud.create_activity_workout_steps(steps, 1, mock_db)
         mock_db.add_all.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_empty(self, mock_db):
         import modules.activities.activity_workout_steps.crud as crud
 
         crud.create_activity_workout_steps([], 1, mock_db)
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     @patch("modules.activities.activity_workout_steps.crud.activity_workout_steps_models.ActivityWorkoutSteps")
     def test_db_error(self, mock_steps_model, mock_db):
         import modules.activities.activity_workout_steps.crud as crud
 
         mock_steps_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         steps = [
             MagicMock(
                 activity_id=1,

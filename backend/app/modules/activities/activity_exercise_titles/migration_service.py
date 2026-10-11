@@ -1,5 +1,23 @@
 """Version-pinned exercise-title operations exposed only to data migrations."""
 
-import modules.activities.activity_exercise_titles.crud as exercise_titles_crud
+from sqlalchemy.orm import Session
 
-create_activity_exercise_titles = exercise_titles_crud.create_activity_exercise_titles
+import modules.activities.activity_exercise_titles.crud as exercise_titles_crud
+import modules.activities.activity_exercise_titles.schema as exercise_titles_schema
+
+
+def create_activity_exercise_titles(
+    activity_exercise_titles: list[exercise_titles_schema.ActivityExerciseTitles],
+    db: Session,
+) -> None:
+    """Create exercise titles and commit them, as migrations did.
+
+    Args:
+        activity_exercise_titles: The titles to store.
+        db: Database session.
+
+    Returns:
+        None.
+    """
+    exercise_titles_crud.create_activity_exercise_titles(activity_exercise_titles, db)
+    db.commit()

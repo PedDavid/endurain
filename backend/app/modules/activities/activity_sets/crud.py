@@ -124,11 +124,9 @@ def create_activity_sets(
     activity_sets: list[activity_sets_schema.ActivitySetsCreate | list],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """
-    Bulk create activity sets for an activity.
+    Stage activity sets for an activity (flushed, not committed).
 
     Args:
         activity_sets: List of Pydantic schemas or
@@ -173,11 +171,7 @@ def create_activity_sets(
         sets.append(db_activity_set)
 
     db.add_all(sets)
-    # commit=False keeps the sets in the caller's open transaction (atomic ingestion).
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()
 
 
 def _extract_value(

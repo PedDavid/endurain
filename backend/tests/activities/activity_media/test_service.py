@@ -205,6 +205,46 @@ class TestStoreActivityMedia:
         stored_key = storage.save.call_args.args[1]
         storage.delete.assert_called_once_with("activity_media", stored_key)
 
+    @patch(f"{_SVC}.activity_media_crud")
+    def test_a_lost_race_rolls_back_before_looking_up_the_winner(self, mock_media_crud):
+        """A failed flush leaves the session unusable until it is rolled back, so
+        the winner lookup has to come after the rollback."""
+        from modules.activities.activity_media.contracts import ActivityMediaRecord
+        from modules.activities.activity_media.service import store_activity_media_bytes
+
+        events: list[str] = []
+        db = MagicMock()
+        db.rollback.side_effect = lambda: events.append("rollback")
+        winner = ActivityMediaRecord(id=4, activity_id=1, media_path="1_winner.jpg", media_type=1)
+
+        def lookup(*_args, **_kwargs):
+            events.append("lookup")
+            return None if events.count("lookup") == 1 else winner
+
+        mock_media_crud.get_activity_media_by_content_hash.side_effect = lookup
+        mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
+
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", db, MagicMock())
+
+        assert result.id == 4
+        assert events == ["lookup", "rollback", "lookup"]
+        db.commit.assert_not_called()
+
+    @patch(f"{_SVC}.activity_media_crud")
+    def test_a_successful_store_commits(self, mock_media_crud):
+        from modules.activities.activity_media.contracts import ActivityMediaRecord
+        from modules.activities.activity_media.service import store_activity_media_bytes
+
+        db = MagicMock()
+        mock_media_crud.get_activity_media_by_content_hash.return_value = None
+        mock_media_crud.create_activity_media.return_value = ActivityMediaRecord(
+            id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
+        )
+
+        store_activity_media_bytes(1, "photo.jpg", b"bytes", db, MagicMock())
+
+        db.commit.assert_called_once()
+
 
 class TestStoreActivityMediaBytes:
     """The server-side ingestion counterpart (Strava bulk-export sidecar photos)."""

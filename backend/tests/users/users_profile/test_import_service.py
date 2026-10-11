@@ -754,6 +754,8 @@ class TestImportServiceActivityComponents:
         load_json.assert_called_once_with(zipf, contributor.archive_path, check_memory=False)
         contributor.restore.assert_called_once_with(records, mock_db)
         assert service.counts["activity_exercise_titles"] == 2
+        # Restore only stages the rows; the importer owns the commit.
+        mock_db.commit.assert_called_once()
 
 
 class TestImportServiceFromZip:
@@ -1251,6 +1253,9 @@ class TestImportServiceActivitiesDataBatched:
 
         assert mapping == {1: 10}
         assert service.counts["activities"] == 1
+        # The restore functions only stage; the importer commits each activity
+        # together with its components.
+        mock_db.commit.assert_called_once()
 
     async def test_collect_and_import_activities_batched_no_original_id(self) -> None:
         mock_db = MagicMock(spec=Session)

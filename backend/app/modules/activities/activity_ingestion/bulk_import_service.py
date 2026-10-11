@@ -197,7 +197,6 @@ def start_bulk_import(user_id: int, db: Session) -> list[activity_ingestion_sche
                     activity_ingestion_schema.IngestionJobKind.BULK_IMPORT,
                     db,
                     filename=os.path.basename(file_path),
-                    commit=False,
                 ),
                 file_path,
             )

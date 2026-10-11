@@ -327,12 +327,14 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
                 {stream.stream_id: _zones_for(stream, max_heart_rate) for stream in batch},
                 db,
             )
+            db.commit()
             last_activity_id = contexts[-1].activity_id
         logger.info(
             "Recomputed HR zone percentages for a user",
             extra=core_logger.context(user_id=user_id),
         )
     except Exception as err:
+        db.rollback()
         logger.error(
             "Failed to recompute HR zone percentages for user",
             exc_info=err,
@@ -367,6 +369,7 @@ def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None
         return
     stream = _with_context(record, context)
     activity_streams_crud.set_zone_percentages({stream.stream_id: _zones_for(stream, max_heart_rate)}, db)
+    db.commit()
 
 
 def backfill_missing_hr_zones(
@@ -409,6 +412,7 @@ def backfill_missing_hr_zones(
             if zones is not None:
                 zones_by_stream_id[stream.stream_id] = zones
         activity_streams_crud.set_zone_percentages(zones_by_stream_id, db)
+        db.commit()
         updated += len(zones_by_stream_id)
         last_id = records[-1].stream_id
     return updated

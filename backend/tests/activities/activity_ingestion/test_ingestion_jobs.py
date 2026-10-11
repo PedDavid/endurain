@@ -41,7 +41,7 @@ class TestAcceptUpload:
         assert result == "job-view"
         # The row is staged, not committed, so it lands in the same transaction
         # as the outbox event.
-        assert create.call_args.kwargs["commit"] is False
+        assert "commit" not in create.call_args.kwargs
         publish.assert_called_once()
         assert publish.call_args.kwargs["commit"] == db.commit
         # The payload carries only the job id: the key and owner are columns.

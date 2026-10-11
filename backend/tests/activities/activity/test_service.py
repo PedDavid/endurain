@@ -249,7 +249,7 @@ class TestEditPublishesUpdated:
         db = MagicMock()
         service.edit_activity(5, 1, activities_schema.ActivityEdit(name="Run"), db)
 
-        mock_crud.edit_activity.assert_called_once_with(1, 5, ANY, db, commit=False)
+        mock_crud.edit_activity.assert_called_once_with(1, 5, ANY, db)
         mock_publishers.publish_activity_updated.assert_called_once_with(5, 1, ["name"], db=db, commit=db.commit)
 
     @patch("modules.activities.activity.service.activity_event_publishers")
@@ -316,8 +316,8 @@ class TestCrossModuleWrites:
         updated = service.bulk_set_activities_gear(3, {7: 10, 8: 10}, db, source="api:test")
 
         assert updated == 2
-        # Staged (commit=False) so the updates and their events are atomic.
-        mock_crud.bulk_set_activities_gear_id.assert_called_once_with(3, {7: 10, 8: 10}, db, commit=False)
+        # Only staged, so the updates and their events are atomic.
+        mock_crud.bulk_set_activities_gear_id.assert_called_once_with(3, {7: 10, 8: 10}, db)
         mock_publishers.publish_activities_updated.assert_called_once_with(
             [7, 8], 3, ["gear_id"], db, db.commit, source="api:test"
         )
@@ -333,7 +333,7 @@ class TestCrossModuleWrites:
         deleted = service.delete_all_strava_activities(3, db, source="api:test")
 
         assert deleted == 5
-        mock_crud.delete_all_strava_activities_for_user.assert_called_once_with(3, db, commit=False)
+        mock_crud.delete_all_strava_activities_for_user.assert_called_once_with(3, db)
         mock_publishers.publish_activities_deleted.assert_called_once_with(
             [11, 12, 13, 14, 15], 3, db, db.commit, source="api:test"
         )
@@ -350,5 +350,56 @@ class TestCrossModuleWrites:
         deleted = service.delete_all_activities_for_user(7, db, source="api:test")
 
         assert deleted == 2
-        mock_crud.delete_all_activities_for_user.assert_called_once_with(7, db, commit=False)
+        mock_crud.delete_all_activities_for_user.assert_called_once_with(7, db)
         mock_publishers.publish_activities_deleted.assert_called_once_with([1, 2], 7, db, db.commit, source="api:test")
+
+
+class TestDerivedArtifactWrites:
+    """The thumbnail and geocoding writes stage in CRUD and commit here."""
+
+    @patch("modules.activities.activity.service.activities_crud")
+    def test_set_thumbnail_key_commits_after_staging(self, mock_crud):
+        from modules.activities.activity.service import set_thumbnail_key
+
+        db = MagicMock()
+        set_thumbnail_key(7, "7.png", db)
+
+        mock_crud.set_activity_thumbnail_path.assert_called_once_with(7, "7.png", db)
+        db.commit.assert_called_once()
+
+    @patch("modules.activities.activity.service.activities_crud")
+    def test_clear_all_thumbnail_keys_commits(self, mock_crud):
+        from modules.activities.activity.service import clear_all_thumbnail_keys
+
+        db = MagicMock()
+        clear_all_thumbnail_keys(db)
+
+        mock_crud.clear_all_activity_thumbnail_paths.assert_called_once_with(db)
+        db.commit.assert_called_once()
+
+    @patch("modules.activities.activity.service.activities_crud")
+    def test_clear_all_thumbnail_keys_swallows_a_failure_and_rolls_back(self, mock_crud):
+        """A maintenance pass that re-derives thumbnails can simply run again."""
+        from modules.activities.activity.service import clear_all_thumbnail_keys
+
+        db = MagicMock()
+        mock_crud.clear_all_activity_thumbnail_paths.side_effect = core_exceptions.ProcessingError()
+
+        clear_all_thumbnail_keys(db)
+
+        db.rollback.assert_called_once()
+        db.commit.assert_not_called()
+
+    @patch("modules.activities.activity.service.activities_crud")
+    def test_set_activity_location_commits_only_when_a_row_changed(self, mock_crud):
+        from modules.activities.activity.service import set_activity_location
+
+        db = MagicMock()
+        mock_crud.update_activity_location.return_value = True
+        assert set_activity_location(7, "Lisbon", None, "Portugal", db) is True
+        db.commit.assert_called_once()
+
+        db.reset_mock()
+        mock_crud.update_activity_location.return_value = False
+        assert set_activity_location(999, "Lisbon", None, "Portugal", db) is False
+        db.commit.assert_not_called()

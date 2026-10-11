@@ -1203,15 +1203,14 @@ def create_activity(
     activity: activities_contracts.ActivityCore,
     db: Session,
     *,
-    commit: bool = True,
     dedup_key: str | None = None,
 ) -> activities_schema.Activity:
-    """Persist a new activity; duplicate start-times are marked hidden.
+    """Stage a new activity; duplicate start-times are marked hidden.
 
     Pure persistence: notifications and derived work (thumbnails, HR zones) are
     decoupled to ``activity.created`` subscribers. The caller publishes
-    the event after the activity's children are stored; this function only writes
-    the row and flags start-time duplicates as hidden.
+    the event after the activity's children are stored; this function only stages
+    the row (flushed, not committed) and flags start-time duplicates as hidden.
 
     Args:
         activity: Strict ``ActivityCore`` ingestion schema to persist.
@@ -1255,14 +1254,10 @@ def create_activity(
     new_activity.dedup_key = dedup_key
 
     db.add(new_activity)
-    # Persist the row so its generated id / created_at are available. On the
-    # ingestion path the caller drives a single commit for the whole unit of
-    # work (activity + children + outbox row), so we only flush here; other
-    # callers keep the default commit=True.
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    # Flush so the generated id / created_at are available. The caller owns the
+    # commit, so the whole unit of work (activity + children + outbox row) is
+    # one transaction.
+    db.flush()
     db.refresh(new_activity)
 
     # Build the read schema from the stored row. Returning a freshly serialized
@@ -1281,7 +1276,7 @@ def set_activity_thumbnail_path(
     thumbnail_path: str | None,
     db: Session,
 ) -> None:
-    """Set the map thumbnail path for an activity.
+    """Stage the map thumbnail path for an activity.
 
     Args:
         activity_id: Target activity ID.
@@ -1303,7 +1298,7 @@ def set_activity_thumbnail_path(
         )
         return
     db_activity.map_thumbnail_path = thumbnail_path
-    db.commit()
+    db.flush()
 
 
 @core_decorators.handle_db_errors
@@ -1314,7 +1309,7 @@ def update_activity_location(
     country: str | None,
     db: Session,
 ) -> bool:
-    """Persist a reverse-geocoded location on an activity.
+    """Stage a reverse-geocoded location on an activity.
 
     Written by the geocoding subscriber / backfill once the location for a GPS
     activity has been resolved (geocoding no longer runs inline in the parsers).
@@ -1344,7 +1339,7 @@ def update_activity_location(
     db_activity.city = city
     db_activity.town = town
     db_activity.country = country
-    db.commit()
+    db.flush()
     return True
 
 
@@ -1388,25 +1383,20 @@ def get_activities_missing_location(
         return []
 
 
+@core_decorators.handle_db_errors
 def clear_all_activity_thumbnail_paths(db: Session) -> None:
-    """Set ``map_thumbnail_path`` to NULL on every activity.
+    """Stage ``map_thumbnail_path`` = NULL on every activity.
 
     Args:
         db: Database session.
 
     Returns:
         None
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        db.execute(sa_update(activities_models.Activity).values(map_thumbnail_path=None))
-        db.commit()
-    except SQLAlchemyError as err:
-        db.rollback()
-        logger.error(
-            "Database error in clear_all_activity_thumbnail_paths",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
+    db.execute(sa_update(activities_models.Activity).values(map_thumbnail_path=None))
 
 
 def get_activities_with_thumbnail(
@@ -1546,9 +1536,8 @@ def edit_activity(
     activity_id: int,
     activity_attributes: activities_schema.ActivityEdit | activities_schema.Activity,
     db: Session,
-    commit: bool = True,
 ) -> activities_schema.Activity:
-    """Apply partial updates to a user's activity.
+    """Stage partial updates to a user's activity.
 
     Args:
         user_id: Owner user ID.
@@ -1556,9 +1545,6 @@ def edit_activity(
         activity_attributes: Pydantic model carrying the fields to update;
             only the fields explicitly set are applied.
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            update in the caller's unit of work so ``activity.updated`` can be
-            published atomically with it.
 
     Returns:
         The updated activity as a serialized schema.
@@ -1594,28 +1580,22 @@ def edit_activity(
     for key, value in activity_data.items():
         setattr(db_activity, key, value)
 
-    if commit:
-        db.commit()
-    else:
-        # The version bump lives in the ORM's UPDATE, so flush before reading it
-        # back — the caller serializes this row into its response and would
-        # otherwise hand out a stale ETag.
-        db.flush()
+    # The version bump lives in the ORM's UPDATE, so flush before reading it
+    # back — the caller serializes this row into its response and would
+    # otherwise hand out a stale ETag.
+    db.flush()
     db.refresh(db_activity)
     return activities_serializers.serialize_activity(db_activity)
 
 
 @core_decorators.handle_db_errors
-def edit_user_activities_visibility(user_id: int, visibility: int, db: Session, commit: bool = True) -> list[int]:
-    """Bulk-update the visibility for every activity of a user.
+def edit_user_activities_visibility(user_id: int, visibility: int, db: Session) -> list[int]:
+    """Stage a bulk visibility update for every activity of a user.
 
     Args:
         user_id: Owner user ID.
         visibility: New visibility value (0, 1, 2).
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            update in the caller's unit of work so one ``activity.updated`` per
-            changed row can be published atomically with it.
 
     Returns:
         The IDs of the updated activities, so the caller can publish one event
@@ -1632,10 +1612,7 @@ def edit_user_activities_visibility(user_id: int, visibility: int, db: Session, 
         .values(visibility=visibility, version=activities_models.Activity.version + 1)
         .returning(activities_models.Activity.id)
     )
-    updated_ids = [row_id for (row_id,) in db.execute(stmt).all()]
-    if commit:
-        db.commit()
-    return updated_ids
+    return [row_id for (row_id,) in db.execute(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -1643,9 +1620,8 @@ def bulk_set_activities_gear_id(
     user_id: int,
     gear_assignments: dict[int, int | None],
     db: Session,
-    commit: bool = True,
 ) -> list[int]:
-    """Bulk-update ``gear_id`` for many activities owned by a user.
+    """Stage a bulk ``gear_id`` update for many activities owned by a user.
 
     Assignments are grouped by target ``gear_id`` so the database
     only sees one ``UPDATE`` per distinct gear value, regardless
@@ -1658,8 +1634,6 @@ def bulk_set_activities_gear_id(
         gear_assignments: Mapping of ``activity_id`` -> ``gear_id``
             (use ``None`` to clear the gear assignment).
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            updates in the caller's unit of work.
 
     Returns:
         The IDs of the activities actually updated — a subset of the requested
@@ -1686,14 +1660,12 @@ def bulk_set_activities_gear_id(
             .returning(activities_models.Activity.id)
         )
         updated_ids.extend(row_id for (row_id,) in db.execute(stmt).all())
-    if commit:
-        db.commit()
     return updated_ids
 
 
 @core_decorators.handle_db_errors
-def delete_activity(activity_id: int, user_id: int, db: Session, commit: bool = True) -> None:
-    """Delete an activity owned by ``user_id``.
+def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
+    """Stage the deletion of an activity owned by ``user_id``.
 
     Ownership is part of the ``WHERE`` clause rather than a precondition the
     caller is trusted to have checked: a delete that does not match the owner
@@ -1706,10 +1678,6 @@ def delete_activity(activity_id: int, user_id: int, db: Session, commit: bool = 
         activity_id: Activity ID.
         user_id: ID of the user that must own the activity.
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            delete in the caller's unit of work so ``activity.deleted`` can be
-            published atomically with it (the durable outbox row joins the same
-            transaction via ``publish_committing``).
 
     Returns:
         None
@@ -1718,36 +1686,23 @@ def delete_activity(activity_id: int, user_id: int, db: Session, commit: bool = 
         NotFoundError: When the activity is missing or not owned by ``user_id``.
         ProcessingError: On database error.
     """
-    try:
-        stmt = sa_delete(activities_models.Activity).where(
-            activities_models.Activity.id == activity_id,
-            activities_models.Activity.user_id == user_id,
-        )
-        result = cast("CursorResult[Any]", db.execute(stmt))
-        if result.rowcount == 0:
-            raise core_exceptions.NotFoundError(f"Activity with id {activity_id} not found")
-        if commit:
-            db.commit()
-    except core_exceptions.NotFoundError:
-        # Kept rather than delegated: the 404 above is raised *after* the DELETE
-        # has been staged, and the decorator does not roll back for a domain
-        # error. Callers pass ``commit=False`` to stage the delete in their own
-        # unit of work, so without this the aborted delete would linger in their
-        # transaction.
-        db.rollback()
-        raise
+    stmt = sa_delete(activities_models.Activity).where(
+        activities_models.Activity.id == activity_id,
+        activities_models.Activity.user_id == user_id,
+    )
+    result = cast("CursorResult[Any]", db.execute(stmt))
+    if result.rowcount == 0:
+        # Nothing matched, so nothing was staged; the 404 needs no rollback.
+        raise core_exceptions.NotFoundError(f"Activity with id {activity_id} not found")
 
 
 @core_decorators.handle_db_errors
-def delete_all_strava_activities_for_user(user_id: int, db: Session, commit: bool = True) -> list[int]:
-    """Delete every Strava-synced activity owned by a user.
+def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int]:
+    """Stage the deletion of every Strava-synced activity owned by a user.
 
     Args:
         user_id: Owner user ID.
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            deletes in the caller's unit of work so one ``activity.deleted`` per
-            removed row can be published atomically with them.
 
     Returns:
         The IDs of the deleted activities, so the caller can publish the cleanup
@@ -1764,15 +1719,12 @@ def delete_all_strava_activities_for_user(user_id: int, db: Session, commit: boo
         )
         .returning(activities_models.Activity.id)
     )
-    deleted_ids = [row_id for (row_id,) in db.execute(stmt).all()]
-    if commit:
-        db.commit()
-    return deleted_ids
+    return [row_id for (row_id,) in db.execute(stmt).all()]
 
 
 @core_decorators.handle_db_errors
-def delete_all_activities_for_user(user_id: int, db: Session, commit: bool = True) -> list[int]:
-    """Delete every activity owned by a user.
+def delete_all_activities_for_user(user_id: int, db: Session) -> list[int]:
+    """Stage the deletion of every activity owned by a user.
 
     Used by account deletion, which previously relied on the database FK cascade
     from ``users``. The cascade removes the rows but tells nobody, so each
@@ -1783,8 +1735,6 @@ def delete_all_activities_for_user(user_id: int, db: Session, commit: bool = Tru
     Args:
         user_id: Owner user ID.
         db: Database session.
-        commit: When True (default) commit immediately. Pass False to stage the
-            deletes in the caller's unit of work.
 
     Returns:
         The IDs of the deleted activities.
@@ -1797,7 +1747,4 @@ def delete_all_activities_for_user(user_id: int, db: Session, commit: bool = Tru
         .where(activities_models.Activity.user_id == user_id)
         .returning(activities_models.Activity.id)
     )
-    deleted_ids = [row_id for (row_id,) in db.execute(stmt).all()]
-    if commit:
-        db.commit()
-    return deleted_ids
+    return [row_id for (row_id,) in db.execute(stmt).all()]

@@ -57,6 +57,7 @@ def _mark(job_id: str | None, transition: Callable[[str, Session], None]) -> Non
         return
     with core_database.SessionLocal() as db:
         transition(job_id, db)
+        db.commit()
 
 
 def publish_bulk_import_files(

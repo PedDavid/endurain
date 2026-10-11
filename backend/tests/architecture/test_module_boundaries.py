@@ -86,19 +86,11 @@ _TRANSACTION_CONTROL = frozenset({"commit", "rollback"})
 
 #: ``crud`` files that still end transactions themselves, as
 #: ``{path relative to modules/: reason}``. This is the debt register for
-#: ``test_crud_does_not_end_transactions``: an entry is removed when its writers
-#: are converted to stage-only, and the test fails on an entry that no longer
-#: offends so the list cannot outlive the debt.
-_CRUD_TRANSACTION_DEBT: dict[str, str] = {
-    "activities/activity/crud.py": "writers take commit=True and commit/rollback themselves",
-    "activities/activity_exercise_titles/crud.py": "writers commit/rollback themselves",
-    "activities/activity_ingestion/crud.py": "writers take commit=True and commit themselves",
-    "activities/activity_laps/crud.py": "writers take commit=True and commit themselves",
-    "activities/activity_media/crud.py": "writers commit/rollback themselves",
-    "activities/activity_sets/crud.py": "writers take commit=True and commit themselves",
-    "activities/activity_streams/crud.py": "writers commit themselves",
-    "activities/activity_workout_steps/crud.py": "writers commit themselves",
-}
+#: ``test_crud_does_not_end_transactions``. It is empty: every converted module
+#: stages and lets ``service`` commit. A module being converted lists its files
+#: here until its writers are stage-only; the test fails on an entry that no
+#: longer offends so the list cannot outlive the debt.
+_CRUD_TRANSACTION_DEBT: dict[str, str] = {}
 
 #: Cross-sub-package reaches that are part of the design, as
 #: ``(importer glob, imported glob): reason``. Globs are module paths relative

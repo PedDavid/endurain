@@ -19,7 +19,8 @@ class TestCreateActivityMedia:
 
         result = crud.create_activity_media(activity_id=1, media_key="1_abc123.jpg", db=mock_db)
         mock_db.add.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
         assert result.id == 1
         # CRUD hands back the storage key; resolving it to a URL is the service's job.
         assert result.media_path == "1_abc123.jpg"
@@ -47,7 +48,7 @@ class TestCreateActivityMedia:
         import modules.activities.activity_media.crud as crud
 
         mock_media_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.create_activity_media(activity_id=1, media_key="1_abc123.jpg", db=mock_db)
         assert e.value.status_code == 500
@@ -202,7 +203,7 @@ class TestCreateActivityMediaIntegrity:
         import modules.activities.activity_media.crud as crud
 
         mock_media_model.return_value = MagicMock()
-        mock_db.commit.side_effect = IntegrityError("stmt", "params", "orig")
+        mock_db.flush.side_effect = IntegrityError("stmt", "params", "orig")
         with pytest.raises(core_exceptions.ConflictError) as e:
             crud.create_activity_media(activity_id=1, media_key="1_abc123.jpg", db=mock_db)
         assert e.value.status_code == 409
@@ -218,7 +219,8 @@ class TestCreateActivityMedias:
         media_list = [ActivityMediaCreate(media_path="1_p.jpg", media_type=1)]
         crud.create_activity_medias(media_list, 1, mock_db)
         mock_db.add_all.assert_called_once()
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_empty(self, mock_db):
         import modules.activities.activity_media.crud as crud
@@ -232,7 +234,7 @@ class TestCreateActivityMedias:
         from modules.activities.activity_media.contracts import ActivityMediaCreate
 
         mock_media_model.return_value = MagicMock()
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         media_list = [ActivityMediaCreate(media_path="1_p.jpg", media_type=1)]
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.create_activity_medias(media_list, 1, mock_db)
@@ -249,7 +251,8 @@ class TestEditActivityMediaMediaPath:
         )
         mock_db.scalars.return_value.first.return_value = mock_media
         result = crud.edit_activity_media_media_path(1, "/new/path", mock_db)
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
         mock_db.refresh.assert_called_once_with(mock_media)
         assert result.media_path == "/new/path"
 
@@ -266,7 +269,7 @@ class TestEditActivityMediaMediaPath:
         import modules.activities.activity_media.models as m
 
         mock_db.scalars.return_value.first.return_value = MagicMock(spec=m.ActivityMedia)
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.edit_activity_media_media_path(1, "/new/path", mock_db)
         assert e.value.status_code == 500
@@ -281,7 +284,8 @@ class TestDeleteActivityMedia:
         mock_db.scalars.return_value.first.return_value = mock_media
         crud.delete_activity_media(1, mock_db)
         mock_db.delete.assert_called_once_with(mock_media)
-        mock_db.commit.assert_called_once()
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
 
     def test_not_found_media(self, mock_db):
         import modules.activities.activity_media.crud as crud
@@ -296,7 +300,7 @@ class TestDeleteActivityMedia:
         import modules.activities.activity_media.models as m
 
         mock_db.scalars.return_value.first.return_value = MagicMock(spec=m.ActivityMedia, id=1, activity_id=1)
-        mock_db.commit.side_effect = SQLAlchemyError("err")
+        mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.delete_activity_media(1, mock_db)
         assert e.value.status_code == 500

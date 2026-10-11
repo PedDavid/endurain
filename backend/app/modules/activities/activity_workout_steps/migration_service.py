@@ -1,5 +1,25 @@
 """Version-pinned workout-step operations exposed only to data migrations."""
 
-import modules.activities.activity_workout_steps.crud as workout_steps_crud
+from sqlalchemy.orm import Session
 
-create_activity_workout_steps = workout_steps_crud.create_activity_workout_steps
+import modules.activities.activity_workout_steps.crud as workout_steps_crud
+import modules.activities.activity_workout_steps.schema as workout_steps_schema
+
+
+def create_activity_workout_steps(
+    activity_workout_steps: list[workout_steps_schema.ActivityWorkoutSteps],
+    activity_id: int,
+    db: Session,
+) -> None:
+    """Create workout steps for an activity and commit them, as migrations did.
+
+    Args:
+        activity_workout_steps: Steps to store.
+        activity_id: The parent activity ID.
+        db: Database session.
+
+    Returns:
+        None.
+    """
+    workout_steps_crud.create_activity_workout_steps(activity_workout_steps, activity_id, db)
+    db.commit()

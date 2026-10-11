@@ -179,8 +179,13 @@ def _persist_media_bytes(
     storage.save(activity_media_signing.MEDIA_STORAGE_AREA, storage_key, data, _content_type_for(storage_key))
 
     try:
-        return activity_media_crud.create_activity_media(activity_id, storage_key, db, content_hash=content_hash)
+        record = activity_media_crud.create_activity_media(activity_id, storage_key, db, content_hash=content_hash)
+        db.commit()
+        return record
     except core_exceptions.ConflictError:
+        # The failed flush leaves the session unusable until it is rolled back,
+        # and the winner lookup below needs it.
+        db.rollback()
         # The pre-check above is read-then-write: a concurrent store of the same
         # bytes for this activity can race it. The unique (activity_id,
         # content_hash) index is what actually guarantees the no-op; losing that
@@ -410,6 +415,7 @@ def delete_activity_media(
     _require_owned_activity(media.activity_id, user_id, db)
 
     activity_media_crud.delete_activity_media(media_id, db)
+    db.commit()
 
     if media.media_path:
         # Best-effort: the row is the source of truth, and a stray blob is

@@ -115,11 +115,9 @@ def create_activity_workout_steps(
     activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutSteps],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """
-    Bulk create workout steps for an activity.
+    Stage workout steps for an activity (flushed, not committed).
 
     Args:
         activity_workout_steps: List of workout step
@@ -153,8 +151,4 @@ def create_activity_workout_steps(
     ]
 
     db.add_all(workout_steps)
-    # commit=False keeps the steps in the caller's open transaction (atomic ingestion).
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()

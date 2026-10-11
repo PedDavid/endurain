@@ -584,14 +584,23 @@ as its module is converted.
 
 ### Persistence ending transactions
 
-**Resolved for followers.** `followers.crud` writers stage with `flush()` and
-`service` owns commit and rollback. Every `activities` child `crud` still takes
-`commit=True` or commits and rolls back itself; they are listed in
-`_CRUD_TRANSACTION_DEBT` and are converted as a set, because their callers
-(`integration_service` surfaces, ingestion, bulk operations) rely on the
-`commit=True` default and each has to be audited for who now commits. The
-unconverted modules (`auth`, `users`, `gears`, ...) are outside the rule until
-they are converted.
+**Resolved for activities and followers.** Every `crud` writer stages with
+`flush()`; `service` (or the job, importer or `migration_service` that owns the
+unit of work) commits. The commit moved to where the unit of work is known:
+
+- `activity.service` owns the thumbnail, location and clear-all writes that the
+  thumbnail and geocoding subsystems reach through `integration_service`, so the
+  surface no longer commits.
+- `migration_service` wrappers keep each historical operation's commit, so a
+  version-pinned migration behaves as it did.
+- The profile importer commits each restored activity and its components as one
+  unit, instead of once per component.
+- A race on the unique media hash rolls back in `service` before looking up the
+  winner, because a failed flush leaves the session unusable until then.
+
+The unconverted modules (`auth`, `users`, `gears`, ...) are outside the rule until
+they are converted; `_CRUD_TRANSACTION_DEBT` is empty and is where a module being
+converted lists its files.
 
 ### Subscribers reaching past a module surface
 

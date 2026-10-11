@@ -49,6 +49,8 @@ class TestRecomputeHrZonesForUser:
 
         mock_compute.assert_called_once_with([{"hr": 100}], 200, 60.0)
         mock_crud.set_zone_percentages.assert_called_once_with({7: {"hr": hr_block}}, db)
+        # The CRUD only stages; the service commits each batch.
+        db.commit.assert_called_once()
 
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=None)
     @patch(f"{_SVC}.users_integration_service.get_user")

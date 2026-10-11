@@ -170,21 +170,13 @@ def backfill_zone_percentages_for_missing_hr_streams(
     computed_streams: list[dict[str, int | dict]],
     db: Session,
 ) -> None:
-    """Backfill zone_percentages for existing HR streams with pre-computed values."""
+    """Stage pre-computed zone_percentages for existing HR streams (not committed)."""
     for stream in computed_streams:
         db.query(activity_streams_models.ActivityStreams).filter(
             activity_streams_models.ActivityStreams.id == stream["stream_id"],
         ).update(
             {"zone_percentages": stream["zone_percentages"]},
             synchronize_session=False,
-        )
-    try:
-        db.commit()
-    except Exception as err:
-        logger.error(
-            "Failed to backfill zone percentages for HR streams",
-            exc_info=err,
-            extra=core_logger.context(console=True),
         )
 
 
@@ -275,7 +267,7 @@ def get_activity_hr_stream(
 @core_decorators.handle_db_errors
 def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session) -> None:
     """
-    Store the computed HR zone breakdown against each stream.
+    Stage the computed HR zone breakdown against each stream (not committed).
 
     Args:
         zones_by_stream_id: Stream id -> breakdown, or None to clear it.
@@ -295,7 +287,6 @@ def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session
             .where(activity_streams_models.ActivityStreams.id == stream_id)
             .values(zone_percentages=zones)
         )
-    db.commit()
 
 
 @core_decorators.handle_db_errors
@@ -303,11 +294,9 @@ def create_activity_streams(
     activity_streams: list[activity_streams_schema.ActivityStreamsCreate],
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """
-    Bulk create activity streams (waypoints only).
+    Stage activity streams (waypoints only; flushed, not committed).
 
     HR ``zone_percentages`` are no longer computed here: that work is decoupled to
     the ``activity.created`` subscriber so ingestion stays synchronous
@@ -339,9 +328,4 @@ def create_activity_streams(
 
     if streams:
         db.add_all(streams)
-        # commit=False leaves the streams in the caller's open transaction so the
-        # whole activity ingestion is one atomic unit of work.
-        if commit:
-            db.commit()
-        else:
-            db.flush()
+        db.flush()

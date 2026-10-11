@@ -191,6 +191,7 @@ def process_all_files_sync(
                 ),
             )
             ingestion_jobs_crud.mark_processing(job_id, db)
+            db.commit()
             activities = store_activity_file(
                 user_id,
                 file_path,
@@ -208,6 +209,7 @@ def process_all_files_sync(
                 ingestion_jobs_crud.mark_completed(
                     job_id, [activity.id for activity in activities if activity.id is not None], db
                 )
+            db.commit()
 
         logger.info(
             "Bulk import completed",

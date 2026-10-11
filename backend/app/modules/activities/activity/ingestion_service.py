@@ -110,7 +110,7 @@ def store_parsed_activity(
                 )
                 return existing
 
-        created_activity = activities_crud.create_activity(parsed.activity, db, commit=False, dedup_key=dedup_key)
+        created_activity = activities_crud.create_activity(parsed.activity, db, dedup_key=dedup_key)
 
         if created_activity is None or created_activity.id is None:
             logger.error(
@@ -133,7 +133,7 @@ def store_parsed_activity(
         # children land in one transaction. Unknown keys fail closed above rather
         # than silently dropping parsed data.
         for contributor, data in component_work:
-            contributor.persist(data, created_activity, db, commit=False)
+            contributor.persist(data, created_activity, db)
 
         logger.debug(
             "Stored parsed activity components",

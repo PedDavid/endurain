@@ -46,7 +46,7 @@ class TestStoreParsedActivity:
         assert result is created
         mock_crud.create_activity.assert_called_once()
         mock_registry.get_activity_ingestion_contributor.assert_called_once_with("streams")
-        contributor.persist.assert_called_once_with(component_data, created, db, commit=False)
+        contributor.persist.assert_called_once_with(component_data, created, db)
         mock_pub.publish_activity_created.assert_called_once()
         assert mock_pub.publish_activity_created.call_args.args[:2] == (7, 3)
 
@@ -83,7 +83,7 @@ class TestStoreParsedActivity:
         ingestion_service.store_parsed_activity(_parsed(components=components), db)
 
         for key, contributor in contributors.items():
-            contributor.persist.assert_called_once_with(components[key], created, db, commit=False)
+            contributor.persist.assert_called_once_with(components[key], created, db)
         assert mock_registry.get_activity_ingestion_contributor.call_count == 3
 
     @patch("modules.activities.activity.ingestion_service.activities_crud")
@@ -122,10 +122,11 @@ class TestStoreParsedActivity:
         parsed = _parsed(components={"streams": component_data})
         ingestion_service.store_parsed_activity(parsed, db)
 
-        # Activity + components are staged with commit=False so they land in ONE
-        # transaction; the publish seam owns the single commit (commit=db.commit).
-        assert mock_crud.create_activity.call_args.kwargs["commit"] is False
-        assert contributor.persist.call_args.kwargs["commit"] is False
+        # Activity + components are only staged, so they land in ONE transaction;
+        # the publish seam owns the single commit (commit=db.commit).
+        assert "commit" not in mock_crud.create_activity.call_args.kwargs
+        assert "commit" not in contributor.persist.call_args.kwargs
+        db.commit.assert_not_called()
         assert mock_pub.publish_activity_created.call_args.kwargs["commit"] is db.commit
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")

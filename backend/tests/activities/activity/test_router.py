@@ -425,9 +425,9 @@ class TestDelete:
             # requester through instead of pre-fetching (no read-then-delete gap).
             assert mock_del.call_args.args[0] == 1
             assert mock_del.call_args.args[1] == mock_pub.publish_activity_deleted.call_args.args[1]
-            # The delete is staged (commit=False) and the publish owns the single
-            # commit, so the row delete + activity.deleted outbox row are atomic.
-            assert mock_del.call_args.kwargs.get("commit") is False
+            # The delete is only staged and the publish owns the single commit,
+            # so the row delete + activity.deleted outbox row are atomic.
+            assert "commit" not in mock_del.call_args.kwargs
             mock_pub.publish_activity_deleted.assert_called_once()
             assert mock_pub.publish_activity_deleted.call_args.args[0] == 1
             assert mock_pub.publish_activity_deleted.call_args.kwargs.get("commit") is not None

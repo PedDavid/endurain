@@ -23,24 +23,20 @@ def _store_laps(
     laps: list[dict],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """Store parsed laps for an activity."""
-    activity_laps_crud.create_activity_laps(laps, activity_id, db, commit=commit)
+    activity_laps_crud.create_activity_laps(laps, activity_id, db)
 
 
 def _persist_ingestion_component(
     data: Any,
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool,
 ) -> None:
     """Persist parsed lap data through the generic ingestion contract."""
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store laps before the activity has an id")
-    _store_laps(data, activity.id, db, commit=commit)
+    _store_laps(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:

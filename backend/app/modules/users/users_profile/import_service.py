@@ -340,6 +340,8 @@ class ImportService:
             records = self._load_single_json(zipf, contributor.archive_path, check_memory=False)
             restored = contributor.restore(records, self.db)
             self.counts[contributor.count_key] += restored
+        # The restore functions stage; the importer owns the commit.
+        self.db.commit()
 
     def _read_zip_entry(
         self,
@@ -756,6 +758,9 @@ class ImportService:
                         new_activity,
                     )
 
+                # The activity and its components are one unit: the restore
+                # functions stage, and the importer commits them together.
+                self.db.commit()
                 self.counts["activities"] += 1
 
             # Clear batch data from memory

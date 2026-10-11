@@ -164,11 +164,9 @@ def create_activity_laps(
     activity_laps: list[dict],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """
-    Bulk create activity laps for an activity.
+    Stage activity laps for an activity (flushed, not committed).
 
     Args:
         activity_laps: List of lap dicts from
@@ -191,8 +189,4 @@ def create_activity_laps(
     ]
 
     db.add_all(laps)
-    # commit=False keeps the laps in the caller's open transaction (atomic ingestion).
-    if commit:
-        db.commit()
-    else:
-        db.flush()
+    db.flush()

@@ -146,13 +146,14 @@ class TestHttpExceptionsPassThrough:
 
         assert exc.value.status_code == 404
 
-    def test_delete_activity_404_still_rolls_back_the_staged_delete(self):
-        # The 404 is raised after the DELETE is staged, and callers pass
-        # commit=False; the rollback is kept explicitly for that reason.
+    def test_delete_activity_404_stages_nothing_and_does_not_end_the_transaction(self):
+        # A delete that matches no owned row affects zero rows, so there is
+        # nothing to undo; rolling back belongs to the transaction owner.
         db = MagicMock(spec=Session)
         db.execute.return_value = MagicMock(rowcount=0)
 
         with pytest.raises(core_exceptions.NotFoundError):
-            activities_crud.delete_activity(1, 2, db, commit=False)
+            activities_crud.delete_activity(1, 2, db)
 
-        db.rollback.assert_called_once()
+        db.rollback.assert_not_called()
+        db.commit.assert_not_called()

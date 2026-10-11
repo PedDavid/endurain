@@ -25,19 +25,15 @@ def _store_streams(
     streams: list[activity_streams_schema.ActivityStreamsCreate],
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """Store parsed streams for an activity."""
-    activity_streams_crud.create_activity_streams(streams, activity, db, commit=commit)
+    activity_streams_crud.create_activity_streams(streams, activity, db)
 
 
 def _persist_ingestion_component(
     data: Any,
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool,
 ) -> None:
     """Validate and persist parsed streams through the ingestion contract."""
     if activity.id is None:
@@ -51,7 +47,7 @@ def _persist_ingestion_component(
         )
         for stream in data
     ]
-    _store_streams(streams, activity, db, commit=commit)
+    _store_streams(streams, activity, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:

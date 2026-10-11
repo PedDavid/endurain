@@ -23,24 +23,20 @@ def _store_workout_steps(
     steps: list[workout_steps_schema.ActivityWorkoutSteps],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """Store parsed workout steps for an activity."""
-    workout_steps_crud.create_activity_workout_steps(steps, activity_id, db, commit=commit)
+    workout_steps_crud.create_activity_workout_steps(steps, activity_id, db)
 
 
 def _persist_ingestion_component(
     data: Any,
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool,
 ) -> None:
     """Persist parsed workout steps through the ingestion contract."""
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store workout steps before the activity has an id")
-    _store_workout_steps(data, activity.id, db, commit=commit)
+    _store_workout_steps(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:

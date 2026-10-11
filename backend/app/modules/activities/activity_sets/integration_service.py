@@ -24,24 +24,20 @@ def _store_sets(
     sets: Sequence[activity_sets_schema.ActivitySetsCreate | list],
     activity_id: int,
     db: Session,
-    *,
-    commit: bool = True,
 ) -> None:
     """Store parsed workout sets for an activity."""
-    activity_sets_crud.create_activity_sets(list(sets), activity_id, db, commit=commit)
+    activity_sets_crud.create_activity_sets(list(sets), activity_id, db)
 
 
 def _persist_ingestion_component(
     data: Any,
     activity: activity_schema.Activity,
     db: Session,
-    *,
-    commit: bool,
 ) -> None:
     """Persist parsed set data through the generic ingestion contract."""
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store sets before the activity has an id")
-    _store_sets(data, activity.id, db, commit=commit)
+    _store_sets(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:

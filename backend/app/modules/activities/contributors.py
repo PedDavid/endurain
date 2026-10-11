@@ -9,15 +9,17 @@ import modules.activities.activity.schema as activity_schema
 
 
 class PersistActivityComponent(Protocol):
-    """Persist one parsed component for a newly created activity."""
+    """Stage one parsed component for a newly created activity.
+
+    The caller owns the transaction: ingestion commits the activity, its
+    components and the outbox row together.
+    """
 
     def __call__(
         self,
         data: Any,
         activity: activity_schema.Activity,
         db: Session,
-        *,
-        commit: bool,
     ) -> None: ...
 
 
