@@ -33,6 +33,7 @@ Where this skill and a guide disagree, the guide wins.
 | Creating a module, deciding where code goes, wiring contributors | `references/modules.md` |
 | Storage, events, subscribers, durable jobs, reconciliation nets, scheduled work | `references/platform-jasil.md` |
 | Writing models, schemas, endpoints, docstrings, logging | `references/code-standards.md` |
+| Raising errors, endpoints, pagination, rate limits, API changes | `references/errors-and-api.md` |
 | Handling uploads, access control, secrets, outbound requests | `references/security.md` |
 | Writing or fixing tests | `references/testing.md` |
 
