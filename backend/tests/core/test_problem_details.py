@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 import core.exceptions as core_exceptions
 import core.problem_details as core_problem_details
@@ -39,6 +40,10 @@ def _client() -> TestClient:
     @app.get("/boom")
     def _boom():
         raise core_exceptions.ProcessingError()
+
+    @app.get("/commit-failed")
+    def _commit_failed():
+        raise SQLAlchemyError("INSERT INTO users (password) VALUES ('hunter2')")
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -175,3 +180,19 @@ class TestBuildProblemResponse:
         )
 
         assert b"errors" not in response.body
+
+
+class TestDatabaseErrorBoundary:
+    """A commit that fails in a service has no ``handle_db_errors`` around it."""
+
+    def test_an_unwrapped_database_error_is_the_same_opaque_500(self):
+        resp = _client().get("/commit-failed")
+
+        assert resp.status_code == 500
+        assert resp.headers["content-type"].startswith(core_problem_details.PROBLEM_CONTENT_TYPE)
+        body = resp.json()
+        assert body["type"] == "urn:endurain:error:internal-error"
+        assert body["status"] == 500
+
+    def test_the_statement_and_parameters_are_not_disclosed(self):
+        assert "hunter2" not in _client().get("/commit-failed").text

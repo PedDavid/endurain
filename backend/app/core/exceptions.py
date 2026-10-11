@@ -32,6 +32,7 @@ import http
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import core.logger as core_logger
@@ -240,6 +241,40 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
     )
 
 
+async def database_error_handler(request: Request, exc: SQLAlchemyError) -> JSONResponse:
+    """Render a database error that reached the boundary as an opaque 500.
+
+    The one place a database failure raised outside ``crud`` is translated. A
+    ``service`` owns the commit, so a failed commit is raised there rather than
+    inside a ``handle_db_errors``-wrapped persistence function; wrapping every
+    ``db.commit()`` in its own ``try`` would repeat this in each service.
+    The session has already been rolled back by ``core.database.get_db``.
+
+    Only the exception class goes in the log message: SQLAlchemy error strings
+    embed the SQL statement and its parameters (OWASP A09), so they are never
+    interpolated and never returned to the client.
+
+    Args:
+        request: The incoming request (used for log context and ``instance``).
+        exc: The database error raised by the application layer.
+
+    Returns:
+        The same problem document a :class:`ProcessingError` produces.
+    """
+    logger.error(
+        f"Database error on {request.method} {request.url.path}: {type(exc).__name__}",
+        exc_info=exc,
+        extra=core_logger.context(path=request.url.path, method=request.method, error=type(exc).__name__),
+    )
+    return build_problem_response(
+        request=request,
+        status_code=ProcessingError.status_code,
+        code=ProcessingError.code,
+        title=ProcessingError.title,
+        detail=ProcessingError.default_detail,
+    )
+
+
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Render a bare ``HTTPException`` as a problem document.
 
@@ -332,6 +367,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         None.
     """
     app.add_exception_handler(DomainError, domain_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(SQLAlchemyError, database_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]

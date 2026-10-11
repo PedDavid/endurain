@@ -265,6 +265,17 @@ Two choices in that table are deliberate:
   transaction owner (`core.database.get_db` on a request, the job or subscriber
   that opened the session elsewhere).
 
+A failed `commit()` is not translated in `service`. `service` does not wrap its
+commit in `try`/`except`, and it does not catch `SQLAlchemyError`. The error
+propagates, `core.database.get_db` rolls the session back, and
+`core.exceptions.database_error_handler` — registered once with the other
+handlers — renders the same opaque 500 problem document a `ProcessingError`
+produces. Translating at one boundary keeps the rule in one place instead of one
+`try` per service, and keeps the SQL statement and its parameters out of both the
+response and the log message (OWASP A09). A service catches a database error only
+to make a *domain* decision from it — mapping `IntegrityError` to `ConflictError`
+is the precedent — never to re-raise a generic one.
+
 `test_crud_does_not_end_transactions` enforces it: a `crud`-role file in a
 converted module may not call `commit` or `rollback`. Files that still do are
 listed in `_CRUD_TRANSACTION_DEBT`, and the test fails on an entry that no longer

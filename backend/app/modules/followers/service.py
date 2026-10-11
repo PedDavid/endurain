@@ -210,7 +210,7 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
     """
     followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING)
     db.commit()
-    logger.debug(
+    logger.info(
         "Follow request rejected",
         extra=core_logger.context(target_user_id=target_user_id, requester_user_id=requester_user_id),
     )
@@ -244,7 +244,7 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
         raise core_exceptions.PermissionDeniedError()
     followers_crud.delete_follower(follower_id, followee_id, db)
     db.commit()
-    logger.debug(
+    logger.info(
         "Deleted a follow relationship",
         extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
     )
@@ -297,7 +297,7 @@ def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> fol
 
     follower = followers_crud.create_follower(requester_user_id, target_user_id, db)
     followers_event_publishers.publish_follower_requested(requester_user_id, target_user_id, db, db.commit)
-    logger.debug(
+    logger.info(
         "Follow requested",
         extra=core_logger.context(requester_user_id=requester_user_id, target_user_id=target_user_id),
     )
@@ -324,7 +324,7 @@ def accept_follow_request(
     """
     relationship = followers_crud.accept_follower(accepter_user_id, requester_user_id, db)
     followers_event_publishers.publish_follower_accepted(accepter_user_id, requester_user_id, db, db.commit)
-    logger.debug(
+    logger.info(
         "Follow request accepted",
         extra=core_logger.context(accepter_user_id=accepter_user_id, requester_user_id=requester_user_id),
     )

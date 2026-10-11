@@ -24,7 +24,7 @@
 ## FastAPI
 - `response_model` on every endpoint; status 200 (GET), 201 (POST), 204 (DELETE).
 - Auth through `Depends()`.
-- Endpoint docstring says what, not how.
+- Endpoint docstring says what, not how. It is exempt from `Args`/`Returns`/`Raises`: FastAPI publishes it as the OpenAPI description and it is copied into `api.generated.ts`, so parameter names such as `_check_scopes` would become public API text.
 - Async file reads: `await file.read()`.
 
 ## Logging
