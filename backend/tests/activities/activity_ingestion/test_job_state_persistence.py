@@ -1,0 +1,198 @@
+"""Job-state changes survive the session that made them.
+
+The CRUD only stages a transition, and every job opens its own short-lived
+session. Closing a session without committing discards the change, which no
+mock-based test can see: the failure is a job row that silently stays
+``pending`` or ``processing`` forever. These run the real job functions against
+a real (SQLite) database and read the row back from a *fresh* session.
+"""
+
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+from tests._helpers.db import create_sqlite_session_factory
+
+import modules.activities.activity_ingestion.bulk_import_subscribers as bulk_import_subscribers
+import modules.activities.activity_ingestion.crud as ingestion_jobs_crud
+import modules.activities.activity_ingestion.ingestion_jobs as ingestion_jobs
+import modules.activities.activity_ingestion.models as ingestion_models
+import modules.activities.activity_ingestion.schema as ingestion_schema
+
+
+@pytest.fixture
+def factory():
+    session_factory = create_sqlite_session_factory()
+    try:
+        yield session_factory
+    finally:
+        session_factory.kw["bind"].dispose()
+
+
+def _add_job(factory, **overrides) -> None:
+    now = datetime.now(UTC)
+    values = {
+        "id": "job-1",
+        "user_id": 7,
+        "kind": "upload",
+        "status": "pending",
+        "staged_key": "abc.gpx",
+        "created_at": now,
+        "updated_at": now,
+    }
+    values.update(overrides)
+    with factory() as db:
+        db.add(ingestion_models.ActivityIngestionJob(**values))
+        db.commit()
+
+
+def _read_job(factory, job_id: str = "job-1"):
+    """Read through a new session so only committed state is visible."""
+    with factory() as db:
+        row = db.get(ingestion_models.ActivityIngestionJob, job_id)
+        if row is None:
+            return None
+        return SimpleNamespace(
+            status=row.status,
+            error_code=row.error_code,
+            activity_ids=list(row.activity_ids or []),
+            staged_key=row.staged_key,
+        )
+
+
+class TestUploadJob:
+    def test_a_successful_import_is_recorded_as_completed(self, factory):
+        _add_job(factory)
+        created = [SimpleNamespace(id=11), SimpleNamespace(id=12)]
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=created),
+        ):
+            ingestion_jobs.run_upload_job("job-1")
+
+        job = _read_job(factory)
+        assert job.status == "completed"
+        assert job.activity_ids == [11, 12]
+        # Cleared so a retry after success is a no-op rather than a re-import.
+        assert job.staged_key is None
+
+    def test_a_file_with_no_activities_is_recorded_as_failed(self, factory):
+        _add_job(factory)
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=[]),
+        ):
+            ingestion_jobs.run_upload_job("job-1")
+
+        job = _read_job(factory)
+        assert job.status == "failed"
+        assert job.error_code == ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND.value
+
+    def test_processing_is_visible_while_the_import_is_still_running(self, factory):
+        """``mark_processing`` commits before the (slow) import starts."""
+        _add_job(factory)
+        seen: list[str] = []
+
+        def _import(*_args, **_kwargs):
+            seen.append(_read_job(factory).status)
+            return [SimpleNamespace(id=1)]
+
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", side_effect=_import),
+        ):
+            ingestion_jobs.run_upload_job("job-1")
+
+        assert seen == ["processing"]
+
+    def test_a_terminal_failure_is_recorded(self, factory):
+        _add_job(factory, status="processing")
+        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
+            ingestion_jobs.fail_ingestion_job(
+                "job-1",
+                ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                staged_key="abc.gpx",
+            )
+
+        job = _read_job(factory)
+        assert job.status == "failed"
+        assert job.error_code == ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED.value
+
+
+class TestRefreshJob:
+    def test_a_refresh_is_recorded_as_completed(self, factory):
+        _add_job(factory, kind="refresh", staged_key=None)
+        synced = [SimpleNamespace(id=21)]
+
+        async def _sync(*_args, **_kwargs):
+            return synced
+
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers", side_effect=_sync),
+        ):
+            ingestion_jobs.run_refresh_job("job-1")
+
+        job = _read_job(factory)
+        assert job.status == "completed"
+        assert job.activity_ids == [21]
+
+
+class TestPrune:
+    def test_deleted_rows_stay_deleted(self, factory):
+        old = datetime.now(UTC) - timedelta(days=400)
+        _add_job(factory, id="old", status="completed", completed_at=old, staged_key=None)
+        _add_job(factory, id="fresh", status="pending")
+
+        platform = MagicMock()
+        platform.lock.try_acquire.return_value.__enter__.return_value = True
+        platform.clock.now.return_value = datetime.now(UTC)
+        with (
+            patch.object(ingestion_jobs.core_config.settings, "JOBS_RETENTION_DAYS", 90),
+            patch.object(ingestion_jobs.platform_runtime, "get_active_platform", return_value=platform),
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+        ):
+            ingestion_jobs.prune_expired_ingestion_jobs()
+
+        assert _read_job(factory, "old") is None
+        assert _read_job(factory, "fresh") is not None
+
+
+class TestBulkImportHandle:
+    def test_a_transition_made_through_mark_is_committed(self, factory):
+        _add_job(factory, kind="bulk_import")
+        with patch.object(bulk_import_subscribers.core_database, "SessionLocal", factory):
+            bulk_import_subscribers._mark("job-1", ingestion_jobs_crud.mark_processing)
+
+        assert _read_job(factory).status == "processing"
+
+    def test_a_missing_handle_is_a_no_op(self, factory):
+        with patch.object(bulk_import_subscribers.core_database, "SessionLocal", factory):
+            bulk_import_subscribers._mark(None, ingestion_jobs_crud.mark_processing)
+
+
+class TestSynchronousBulkImport:
+    def test_each_file_outcome_is_committed(self, factory):
+        """The fallback executor reuses one session across files, so each file's
+        transition has to be committed before the next one starts."""
+        import modules.activities.activity_ingestion.bulk_entry as bulk_entry
+
+        _add_job(factory, id="job-a", kind="bulk_import", staged_key=None)
+        _add_job(factory, id="job-b", kind="bulk_import", staged_key=None)
+        db = factory()
+
+        with (
+            patch.object(bulk_entry.core_database, "get_db", return_value=iter([db])),
+            patch.object(
+                bulk_entry,
+                "store_activity_file",
+                side_effect=[[SimpleNamespace(id=31)], None],
+            ),
+        ):
+            bulk_entry.process_all_files_sync(7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00")
+
+        first, second = _read_job(factory, "job-a"), _read_job(factory, "job-b")
+        assert (first.status, first.activity_ids) == ("completed", [31])
+        assert second.status == "failed"
+        assert second.error_code == ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED.value
