@@ -396,14 +396,14 @@ def delete_follower(
     db: Session,
     *,
     status: FollowStatus | None = None,
+    commit: bool = True,
 ) -> None:
     """
     Delete a follow relationship between two users.
 
-    Commits directly, unlike :func:`create_follower` and :func:`accept_follower`,
-    which take a ``commit`` flag so the service can stage them alongside an
-    outbox row. Deleting publishes no event, so there is nothing to be atomic
-    with.
+    Takes the same ``commit`` flag as :func:`create_follower` and
+    :func:`accept_follower` so the service can stage the delete and own the
+    transaction boundary.
 
     Args:
         user_id: ID of the follower user.
@@ -411,6 +411,8 @@ def delete_follower(
         db: Database session.
         status: When given, only delete the row if it is in this state. Declining
             a request must not double as removing an accepted follower.
+        commit: Commit immediately when true; otherwise flush for a caller-owned
+            transaction.
 
     Returns:
         None.
@@ -432,5 +434,8 @@ def delete_follower(
         db.rollback()
         raise core_exceptions.NotFoundError("Follower record not found")
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     _invalidate_followee_cache(db)

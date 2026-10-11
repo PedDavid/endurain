@@ -368,6 +368,16 @@ class TestDeleteFollower:
         crud.delete_follower(user_id=1, target_user_id=2, db=mock_db)
         mock_db.commit.assert_called_once()
 
+    def test_commit_false_flushes(self, mock_db):
+        import modules.followers.crud as crud
+
+        r = MagicMock()
+        r.rowcount = 1
+        mock_db.execute.return_value = r
+        crud.delete_follower(user_id=1, target_user_id=2, db=mock_db, commit=False)
+        mock_db.flush.assert_called_once()
+        mock_db.commit.assert_not_called()
+
     def test_not_found(self, mock_db):
         import modules.followers.crud as crud
 

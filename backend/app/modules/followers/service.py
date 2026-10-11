@@ -196,7 +196,8 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING)
+    followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING, commit=False)
+    db.commit()
     logger.debug(
         "Follow request rejected",
         extra=core_logger.context(target_user_id=target_user_id, requester_user_id=requester_user_id),
@@ -229,7 +230,8 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
             extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
         )
         raise core_exceptions.PermissionDeniedError()
-    followers_crud.delete_follower(follower_id, followee_id, db)
+    followers_crud.delete_follower(follower_id, followee_id, db, commit=False)
+    db.commit()
     logger.debug(
         "Deleted a follow relationship",
         extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),

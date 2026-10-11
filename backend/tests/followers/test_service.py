@@ -88,7 +88,8 @@ class TestDeleteRelationship:
         with patch("modules.followers.service.followers_crud") as crud:
             delete_relationship(2, 1, 1, db)
 
-        crud.delete_follower.assert_called_once_with(1, 2, db)
+        crud.delete_follower.assert_called_once_with(1, 2, db, commit=False)
+        db.commit.assert_called_once()
 
     def test_removing_a_follower_deletes_the_same_row(self):
         """Same row, opposite caller — the reason these are one operation."""
@@ -98,7 +99,7 @@ class TestDeleteRelationship:
         with patch("modules.followers.service.followers_crud") as crud:
             delete_relationship(1, 2, 1, db)
 
-        crud.delete_follower.assert_called_once_with(2, 1, db)
+        crud.delete_follower.assert_called_once_with(2, 1, db, commit=False)
 
     def test_a_third_party_is_refused(self):
         import core.exceptions as core_exceptions
@@ -124,7 +125,8 @@ class TestRejectFollowRequest:
         with patch("modules.followers.service.followers_crud") as crud:
             reject_follow_request(1, 2, db)
 
-        crud.delete_follower.assert_called_once_with(2, 1, db, status=FollowStatus.PENDING)
+        crud.delete_follower.assert_called_once_with(2, 1, db, status=FollowStatus.PENDING, commit=False)
+        db.commit.assert_called_once()
 
 
 class TestListAcceptedFolloweeIds:
