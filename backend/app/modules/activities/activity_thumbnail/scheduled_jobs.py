@@ -22,12 +22,3 @@ def schedule_missing_thumbnail_generation() -> None:
         job_id="endurain_generate_missing_thumbnails_oneshot",
         description="missing thumbnail generation",
     )
-
-
-def schedule_thumbnail_regeneration() -> None:
-    """Queue a delete-and-regenerate pass over every thumbnail."""
-    core_scheduler.run_once(
-        thumbnail_integration.regenerate_all_thumbnails,
-        job_id="endurain_regenerate_all_thumbnails",
-        description="thumbnail regeneration",
-    )

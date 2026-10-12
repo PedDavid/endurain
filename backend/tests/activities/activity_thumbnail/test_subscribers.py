@@ -217,3 +217,32 @@ class TestDurableThumbnailHandlers:
         assert registry.get(THUMBNAIL_CLEANUP_SUBSCRIBER_ID) is cleanup_activity_thumbnail_for_event
         assert registry.subscribers_for("activity.created") == (THUMBNAIL_GENERATE_SUBSCRIBER_ID,)
         assert registry.subscribers_for("activity.deleted") == (THUMBNAIL_CLEANUP_SUBSCRIBER_ID,)
+
+
+class TestTileSettingsRegeneration:
+    @staticmethod
+    def _event(payload):
+        return new_event("server_settings.tile_settings_changed", payload, source="test")
+
+    @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")
+    def test_queues_regeneration_when_requested(self, mock_run_once):
+        from modules.activities.activity_thumbnail import integration_service
+        from modules.activities.activity_thumbnail.subscribers import regenerate_thumbnails_for_tile_settings_event
+
+        regenerate_thumbnails_for_tile_settings_event(
+            self._event({"changed_fields": ["tile_url"], "regenerate_thumbnails": True})
+        )
+
+        mock_run_once.assert_called_once()
+        assert mock_run_once.call_args.args[0] is integration_service.regenerate_all_thumbnails
+        assert mock_run_once.call_args.kwargs["job_id"] == "endurain_regenerate_all_thumbnails"
+
+    @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")
+    def test_skips_when_not_requested(self, mock_run_once):
+        from modules.activities.activity_thumbnail.subscribers import regenerate_thumbnails_for_tile_settings_event
+
+        regenerate_thumbnails_for_tile_settings_event(
+            self._event({"changed_fields": ["x"], "regenerate_thumbnails": False})
+        )
+
+        mock_run_once.assert_not_called()

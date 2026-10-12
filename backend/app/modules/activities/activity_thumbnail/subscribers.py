@@ -24,10 +24,11 @@ from jasil.subscribers import best_effort
 
 import core.database as core_database
 import core.logger as core_logger
+import core.scheduler as core_scheduler
 import modules.activities.activity.events as activity_events
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.integration_service as activity_streams_service
-import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_jobs
+import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
 import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 import modules.server_settings.events as server_settings_events
 
@@ -122,6 +123,15 @@ def cleanup_activity_thumbnail_for_event(event: Event) -> None:
 on_activity_deleted_cleanup_thumbnail = best_effort(cleanup_activity_thumbnail_for_event)
 
 
+def _schedule_thumbnail_regeneration() -> None:
+    """Queue a delete-and-regenerate pass over every thumbnail."""
+    core_scheduler.run_once(
+        activity_thumbnail_integration.regenerate_all_thumbnails,
+        job_id="endurain_regenerate_all_thumbnails",
+        description="thumbnail regeneration",
+    )
+
+
 def regenerate_thumbnails_for_tile_settings_event(event: Event) -> None:
     """Queue thumbnail regeneration when changed settings request it."""
     payload = platform_event_versioning.parse_payload(server_settings_events.TileSettingsChangedPayload, event)
@@ -131,7 +141,7 @@ def regenerate_thumbnails_for_tile_settings_event(event: Event) -> None:
             extra=core_logger.context(changed_fields=payload.changed_fields),
         )
         return
-    activity_thumbnail_jobs.schedule_thumbnail_regeneration()
+    _schedule_thumbnail_regeneration()
     logger.debug(
         "Queued thumbnail regeneration for tile settings change",
         extra=core_logger.context(changed_fields=payload.changed_fields),
