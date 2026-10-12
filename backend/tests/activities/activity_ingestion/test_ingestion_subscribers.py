@@ -8,8 +8,8 @@ from jasil.jobs.registry import JobHandlerRegistry
 from pydantic import ValidationError
 
 import modules.activities.activity_ingestion.events as ingestion_events
-import modules.activities.activity_ingestion.ingestion_subscribers as ingestion_subscribers
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.subscribers as ingestion_subscribers
 
 
 def _event(payload: dict, retry_count: int = 1) -> Event:
@@ -24,11 +24,18 @@ def _event(payload: dict, retry_count: int = 1) -> Event:
     )
 
 
+@pytest.fixture(autouse=True)
+def platform():
+    """Resolve the provider from a stand-in so no runtime has to be active."""
+    with patch.object(ingestion_subscribers.platform_runtime, "get_active_platform") as get:
+        yield get.return_value
+
+
 class TestProcessUploadedFileForEvent:
-    def test_runs_the_upload_job(self):
-        with patch.object(ingestion_subscribers.ingestion_jobs, "run_upload_job") as run:
+    def test_runs_the_upload_job(self, platform):
+        with patch.object(ingestion_subscribers.ingestion_service, "run_upload_job") as run:
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}))
-        run.assert_called_once_with("job-1")
+        run.assert_called_once_with("job-1", platform.storage)
 
     def test_raises_on_a_malformed_payload(self):
         """A bad payload must surface via retry/dead-letter, not silently complete."""
@@ -38,8 +45,10 @@ class TestProcessUploadedFileForEvent:
     def test_a_retryable_failure_leaves_the_job_alone(self):
         with (
             patch.object(ingestion_subscribers.core_config.settings, "JOBS_MAX_ATTEMPTS", 5),
-            patch.object(ingestion_subscribers.ingestion_jobs, "run_upload_job", side_effect=RuntimeError("db blip")),
-            patch.object(ingestion_subscribers.ingestion_jobs, "fail_ingestion_job") as fail,
+            patch.object(
+                ingestion_subscribers.ingestion_service, "run_upload_job", side_effect=RuntimeError("db blip")
+            ),
+            patch.object(ingestion_subscribers.ingestion_service, "fail_ingestion_job") as fail,
             pytest.raises(RuntimeError),
         ):
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}, retry_count=1))
@@ -48,25 +57,27 @@ class TestProcessUploadedFileForEvent:
         # because of a transient error.
         fail.assert_not_called()
 
-    def test_the_final_attempt_gives_the_uploader_a_terminal_status(self):
+    def test_the_final_attempt_gives_the_uploader_a_terminal_status(self, platform):
         with (
             patch.object(ingestion_subscribers.core_config.settings, "JOBS_MAX_ATTEMPTS", 5),
             patch.object(
-                ingestion_subscribers.ingestion_jobs, "run_upload_job", side_effect=RuntimeError("still broken")
+                ingestion_subscribers.ingestion_service, "run_upload_job", side_effect=RuntimeError("still broken")
             ),
-            patch.object(ingestion_subscribers.ingestion_jobs, "fail_ingestion_job") as fail,
+            patch.object(ingestion_subscribers.ingestion_service, "fail_ingestion_job") as fail,
             pytest.raises(RuntimeError),
         ):
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}, retry_count=5))
 
         # Otherwise a dead-lettered upload would sit at "processing" forever.
-        fail.assert_called_once_with("job-1", activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED)
+        fail.assert_called_once_with(
+            "job-1", activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, platform.storage
+        )
 
 
 class TestRegisterUploadDurableHandlers:
     def test_registers_the_handler(self):
         registry = JobHandlerRegistry()
-        ingestion_subscribers.register_ingestion_durable_handlers(registry)
+        ingestion_subscribers.register_durable_handlers(registry)
         assert tuple(registry.subscribers_for(ingestion_events.ACTIVITY_FILE_UPLOADED)) == (
             ingestion_subscribers.UPLOADED_FILE_SUBSCRIBER_ID,
         )

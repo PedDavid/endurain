@@ -7,8 +7,10 @@ from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 from pydantic import ValidationError
 
-import modules.activities.activity_ingestion.bulk_import_subscribers as bulk_import_subscribers
+import modules.activities.activity_ingestion.event_publishers as ingestion_event_publishers
 import modules.activities.activity_ingestion.events as ingestion_events
+import modules.activities.activity_ingestion.service as ingestion_service
+import modules.activities.activity_ingestion.subscribers as bulk_import_subscribers
 
 
 def _event(payload: dict, retry_count: int = 1, schema_version: int | None = None) -> Event:
@@ -44,10 +46,10 @@ class TestPublishBulkImportFile:
         rejected by its own version check."""
         db = MagicMock()
         with (
-            patch.object(bulk_import_subscribers.platform_publisher, "publish_many_committing") as publish,
-            patch.object(bulk_import_subscribers.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing") as publish,
+            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
         ):
-            bulk_import_subscribers.publish_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db)
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
 
         assert publish.call_args.kwargs["schema_version"] == (ingestion_events.BulkImportFilePayload.SCHEMA_VERSION)
 
@@ -71,11 +73,11 @@ class TestPublishBulkImportFile:
         """
         db = MagicMock()
         with (
-            patch.object(bulk_import_subscribers.platform_publisher, "publish_many_committing") as publish,
-            patch.object(bulk_import_subscribers.staging, "stage_file", side_effect=["k1", "k2"]) as stage,
+            patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing") as publish,
+            patch.object(ingestion_service.staging, "stage_file", side_effect=["k1", "k2"]) as stage,
         ):
-            bulk_import_subscribers.publish_bulk_import_files(
-                [("job-1", "/tmp/x.gpx"), ("job-2", "/tmp/y.fit")], 3, "2026-07-21", db
+            ingestion_service._enqueue_bulk_import_files(
+                [("job-1", "/tmp/x.gpx"), ("job-2", "/tmp/y.fit")], 3, "2026-07-21", db, "storage"
             )
 
         assert stage.call_count == 2
@@ -105,12 +107,12 @@ class TestPublishBulkImportFile:
     def test_originals_are_consumed_only_after_the_jobs_commit(self):
         db = MagicMock()
         with (
-            patch.object(bulk_import_subscribers.platform_publisher, "publish_many_committing"),
-            patch.object(bulk_import_subscribers.staging, "stage_file", return_value="k1"),
-            patch.object(bulk_import_subscribers.staging, "settle") as settle,
-            patch.object(bulk_import_subscribers.staging, "unstage") as unstage,
+            patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing"),
+            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.staging, "settle") as settle,
+            patch.object(ingestion_service.staging, "unstage") as unstage,
         ):
-            bulk_import_subscribers.publish_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db)
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
 
         settle.assert_called_once_with([("k1", "/tmp/x.gpx")], 3)
         unstage.assert_not_called()
@@ -120,33 +122,33 @@ class TestPublishBulkImportFile:
         db = MagicMock()
         with (
             patch.object(
-                bulk_import_subscribers.platform_publisher,
+                ingestion_event_publishers.platform_publisher,
                 "publish_many_committing",
                 side_effect=RuntimeError("outbox down"),
             ),
-            patch.object(bulk_import_subscribers.staging, "stage_file", return_value="k1"),
-            patch.object(bulk_import_subscribers.staging, "settle") as settle,
-            patch.object(bulk_import_subscribers.staging, "unstage") as unstage,
+            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.staging, "settle") as settle,
+            patch.object(ingestion_service.staging, "unstage") as unstage,
             pytest.raises(RuntimeError),
         ):
-            bulk_import_subscribers.publish_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db)
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
 
         settle.assert_not_called()
-        unstage.assert_called_once_with(["k1"], ANY)
+        unstage.assert_called_once_with(["k1"], "storage")
 
     def test_staging_failure_propagates(self):
         """This event *is* the work: a swallowed failure would silently drop the import."""
         db = MagicMock()
         with (
-            patch.object(bulk_import_subscribers.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
             patch.object(
-                bulk_import_subscribers.platform_publisher,
+                ingestion_event_publishers.platform_publisher,
                 "publish_many_committing",
                 side_effect=RuntimeError("outbox down"),
             ),
             pytest.raises(RuntimeError),
         ):
-            bulk_import_subscribers.publish_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db)
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
 
 
 class TestProcessBulkImportFileForEvent:
@@ -160,7 +162,7 @@ class TestProcessBulkImportFileForEvent:
             patch.object(bulk_import_subscribers.staging, "discard") as discard,
             patch.object(bulk_import_subscribers.staging, "move_to_errors") as move,
             patch.object(bulk_import_subscribers.core_database, "SessionLocal"),
-            patch.object(bulk_import_subscribers, "ingestion_jobs_crud") as jobs,
+            patch.object(bulk_import_subscribers, "ingestion_service") as jobs,
             patch.object(bulk_import_subscribers.bulk_entry, "store_bulk_import_file", side_effect=store) as run,
         ):
             error = None
@@ -184,9 +186,9 @@ class TestProcessBulkImportFileForEvent:
         _run, _discard, _move, error, jobs = self._run(_event(_payload()), store=[[activity]])
 
         assert error is None
-        assert jobs.mark_processing.call_args.args[0] == "job-1"
-        assert jobs.mark_completed.call_args.args[:2] == ("job-1", [42])
-        jobs.mark_failed.assert_not_called()
+        assert jobs.mark_bulk_import_job_processing.call_args.args[0] == "job-1"
+        assert jobs.mark_bulk_import_job_completed.call_args.args[:2] == ("job-1", [42])
+        jobs.mark_bulk_import_job_failed.assert_not_called()
 
     def test_a_v2_event_without_a_handle_still_imports(self):
         """A backlog event staged before handles existed has no row to move."""
@@ -194,8 +196,9 @@ class TestProcessBulkImportFileForEvent:
 
         assert error is None
         discard.assert_called_once_with("3_abc.gpx", ANY)
-        jobs.mark_processing.assert_not_called()
-        jobs.mark_completed.assert_not_called()
+        # The service treats a ``None`` handle as a no-op.
+        assert jobs.mark_bulk_import_job_processing.call_args.args[0] is None
+        assert jobs.mark_bulk_import_job_completed.call_args.args[0] is None
 
     def test_a_missing_blob_is_a_no_op_not_a_failure(self):
         """A duplicate delivery after a successful import must not retry forever."""
@@ -213,7 +216,7 @@ class TestProcessBulkImportFileForEvent:
         move.assert_not_called()
         discard.assert_not_called()
         # Still retryable, so the owner is not told it failed.
-        jobs.mark_failed.assert_not_called()
+        jobs.mark_bulk_import_job_failed.assert_not_called()
 
     def test_moves_the_blob_to_the_error_area_on_the_last_attempt(self):
         with patch.object(bulk_import_subscribers.core_config.settings, "JOBS_MAX_ATTEMPTS", 3):
@@ -223,7 +226,7 @@ class TestProcessBulkImportFileForEvent:
 
         assert isinstance(error, RuntimeError)
         move.assert_called_once_with("3_abc.gpx", 3, "x.gpx", ANY)
-        assert jobs.mark_failed.call_args.args[0] == "job-1"
+        assert jobs.mark_bulk_import_job_failed.call_args.args[0] == "job-1"
 
     @pytest.mark.parametrize(
         "payload",
@@ -244,6 +247,6 @@ class TestProcessBulkImportFileForEvent:
 class TestRegistration:
     def test_registers_the_durable_handler(self):
         registry = JobHandlerRegistry()
-        bulk_import_subscribers.register_bulk_import_durable_handlers(registry)
+        bulk_import_subscribers.register_durable_handlers(registry)
 
         assert registry.get(bulk_import_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID) is not None

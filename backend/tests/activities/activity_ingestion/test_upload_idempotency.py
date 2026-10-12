@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_ingestion.ingestion_jobs as ingestion_jobs
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.service as ingestion_jobs
 import modules.activities.activity_ingestion.upload_entry as upload_entry
 
 _UPLOAD = activity_ingestion_schema.IngestionJobKind.UPLOAD
@@ -45,7 +45,7 @@ class TestReplay:
             patch.object(ingestion_jobs.upload_entry, "discard_received_upload") as discard,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
         ):
-            result = ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            result = ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
         assert result is original
         store.assert_not_called()
@@ -65,7 +65,7 @@ class TestReplay:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
         assert lookup.call_args.args == ("key-1", 7, _UPLOAD, db)
 
@@ -78,9 +78,9 @@ class TestReplay:
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.platform_publisher, "publish_committing"),
+            patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
         assert create.call_args.kwargs["idempotency_key"] == "key-1"
         assert create.call_args.kwargs["request_fingerprint"] == "fp-1"
@@ -101,7 +101,7 @@ class TestKeyReuseWithDifferentContent:
             patch.object(ingestion_jobs.upload_entry, "store_received_upload") as store,
             pytest.raises(core_exceptions.ConflictError),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
         store.assert_not_called()
         discard.assert_called_once()
@@ -127,7 +127,7 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job", side_effect=_integrity_error()),
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
         ):
-            result = ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            result = ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
         assert result is winner
         discard.assert_called_once_with("abc.gpx", ANY)
@@ -148,7 +148,7 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload"),
             pytest.raises(core_exceptions.ConflictError),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, idempotency_key="key-1")
+            ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
     def test_an_integrity_error_without_a_key_still_propagates(self):
         """Only a key collision is recoverable; anything else is a real failure."""
@@ -161,7 +161,7 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload"),
             pytest.raises(IntegrityError),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db)
+            ingestion_jobs.accept_upload(7, _file(), db, "storage")
 
 
 class TestWithoutAKey:
@@ -176,7 +176,7 @@ class TestWithoutAKey:
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db)
+            ingestion_jobs.accept_upload(7, _file(), db, "storage")
 
         lookup.assert_not_called()
         assert create.call_args.kwargs["idempotency_key"] is None
@@ -192,9 +192,9 @@ class TestRefreshIsUnaffected:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.platform_publisher, "publish_committing"),
+            patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
-            ingestion_jobs.accept_refresh(7, db)
+            ingestion_jobs.accept_refresh(7, db, "storage")
 
         assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
         assert "idempotency_key" not in create.call_args.kwargs

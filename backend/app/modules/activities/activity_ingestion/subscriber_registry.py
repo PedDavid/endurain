@@ -3,19 +3,17 @@
 from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 
-import modules.activities.activity_ingestion.bulk_import_subscribers as bulk_import_subscribers
-import modules.activities.activity_ingestion.ingestion_subscribers as ingestion_subscribers
+import modules.activities.activity_ingestion.subscribers as ingestion_subscribers
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
     """Register ingestion command handlers."""
-    bulk_import_subscribers.register_bulk_import_durable_handlers(registry)
-    ingestion_subscribers.register_ingestion_durable_handlers(registry)
+    ingestion_subscribers.register_durable_handlers(registry)
 
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        bulk_import_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID,
+        ingestion_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID,
         None,
         exempt_reason=(
             "Each bulk-import file is itself a retryable command that dead-letters "

@@ -40,8 +40,8 @@ import core.file_uploads as core_file_uploads
 import core.hashing as core_hashing
 import core.logger as core_logger
 import modules.activities.activity.schema as activities_schema
-import modules.activities.activity_ingestion.pipeline as pipeline
-import modules.activities.activity_ingestion.sources as ingestion_sources
+import modules.activities.activity_ingestion.contracts as ingestion_contracts
+import modules.activities.activity_ingestion.pipeline_service as pipeline
 
 logger = core_logger.get_logger(__name__)
 
@@ -243,7 +243,7 @@ def process_staged_upload(
             file_extension,
             file_base_name,
             db,
-            source=ingestion_sources.UploadSource(),
+            source=ingestion_contracts.UploadSource(),
             storage=storage,
         )
         discard_staged_upload(staged_key, storage)

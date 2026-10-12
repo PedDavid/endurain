@@ -73,7 +73,7 @@ forbidden_modules =
 # Garmin depend on activities — they parse a provider payload and hand it to the
 # ingestion seam — and activities used to depend on them right back:
 # ``activity_ingestion.refresh_entry`` imported both provider clients,
-# ``sources`` imported the Strava bulk-import helpers, and ``enrichment``
+# ``sources`` (now ``contracts``) imported the Strava bulk-import helpers, and ``enrichment``
 # imported Garmin to resolve synced gear. That cycle meant neither side could be
 # built, tested or extracted without the other.
 #
@@ -81,7 +81,7 @@ forbidden_modules =
 # plug into:
 #   * ``activity_ingestion.provider_registry`` — a provider registers a fetch
 #     callable at startup; the refresh path names no provider.
-#   * ``activity_ingestion.sources.BulkImportSource`` — a provider export
+#   * ``activity_ingestion.contracts.BulkImportSource`` — a provider export
 #     subclasses it (``modules.strava.bulk_import_source``) instead of the base
 #     class branching on ``strava_activities``.
 #   * ``GarminSource.gear_id`` — the provider resolves its own synced gear and
@@ -121,8 +121,8 @@ forbidden_modules =
 # The ingestion PIPELINE is provider-agnostic, the same way it is already
 # format-agnostic. It owns "validate -> parse -> enrich -> store -> retain" and nothing
 # about where a file came from: the export specifics (which duplicate listings to
-# skip, what metadata to apply, the sidecar photos) are answered by the sources object it
-# is handed. ``sources.py`` is deliberately NOT in scope here: defining the seam a
+# skip, what metadata to apply, the sidecar photos) are answered by the source object it
+# is handed. ``contracts.py`` is deliberately NOT in scope here: defining the seam a
 # provider export subclasses *is* its job.
 # Superseded in the provider dimension by ``activities-provider-agnostic`` above;
 # kept because it also forbids the pipeline reaching for the *parsers*, which is a
@@ -134,8 +134,8 @@ allow_indirect_imports = True
 source_modules =
     modules.activities.activity_ingestion.upload_entry
     modules.activities.activity_ingestion.bulk_entry
-    modules.activities.activity_ingestion.ingestion_jobs
-    modules.activities.activity_ingestion.sources
+    modules.activities.activity_ingestion.service
+    modules.activities.activity_ingestion.contracts
 forbidden_modules =
     modules.activities.activity_file_import
 

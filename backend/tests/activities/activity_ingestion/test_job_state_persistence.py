@@ -21,11 +21,9 @@ from tests._helpers.db import (
     postgres_test_url,
 )
 
-import modules.activities.activity_ingestion.bulk_import_subscribers as bulk_import_subscribers
-import modules.activities.activity_ingestion.crud as ingestion_jobs_crud
-import modules.activities.activity_ingestion.ingestion_jobs as ingestion_jobs
 import modules.activities.activity_ingestion.models as ingestion_models
 import modules.activities.activity_ingestion.schema as ingestion_schema
+import modules.activities.activity_ingestion.service as ingestion_jobs
 
 
 @pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.postgres)])
@@ -93,7 +91,7 @@ class TestUploadJob:
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=created),
         ):
-            ingestion_jobs.run_upload_job("job-1")
+            ingestion_jobs.run_upload_job("job-1", "storage")
 
         job = _read_job(factory)
         assert job.status == "completed"
@@ -107,7 +105,7 @@ class TestUploadJob:
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=[]),
         ):
-            ingestion_jobs.run_upload_job("job-1")
+            ingestion_jobs.run_upload_job("job-1", "storage")
 
         job = _read_job(factory)
         assert job.status == "failed"
@@ -126,7 +124,7 @@ class TestUploadJob:
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload", side_effect=_import),
         ):
-            ingestion_jobs.run_upload_job("job-1")
+            ingestion_jobs.run_upload_job("job-1", "storage")
 
         assert seen == ["processing"]
 
@@ -136,6 +134,7 @@ class TestUploadJob:
             ingestion_jobs.fail_ingestion_job(
                 "job-1",
                 ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                MagicMock(),
                 staged_key="abc.gpx",
             )
 
@@ -156,7 +155,7 @@ class TestRefreshJob:
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers", side_effect=_sync),
         ):
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         job = _read_job(factory)
         assert job.status == "completed"
@@ -174,47 +173,48 @@ class TestPrune:
         platform.clock.now.return_value = datetime.now(UTC)
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_RETENTION_DAYS", 90),
-            patch.object(ingestion_jobs.platform_runtime, "get_active_platform", return_value=platform),
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
         ):
-            ingestion_jobs.prune_expired_ingestion_jobs()
+            ingestion_jobs.prune_expired_ingestion_jobs(platform.lock, platform.clock)
 
         assert _read_job(factory, "old") is None
         assert _read_job(factory, "fresh") is not None
 
 
 class TestBulkImportHandle:
-    def test_a_transition_made_through_mark_is_committed(self, factory):
+    def test_a_transition_is_committed(self, factory):
         _add_job(factory, kind="bulk_import")
-        with patch.object(bulk_import_subscribers.core_database, "SessionLocal", factory):
-            bulk_import_subscribers._mark("job-1", ingestion_jobs_crud.mark_processing)
+        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
+            ingestion_jobs.mark_bulk_import_job_processing("job-1")
 
         assert _read_job(factory).status == "processing"
 
     def test_a_missing_handle_is_a_no_op(self, factory):
-        with patch.object(bulk_import_subscribers.core_database, "SessionLocal", factory):
-            bulk_import_subscribers._mark(None, ingestion_jobs_crud.mark_processing)
+        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
+            ingestion_jobs.mark_bulk_import_job_processing(None)
+            ingestion_jobs.mark_bulk_import_job_completed(None, [1])
+            ingestion_jobs.mark_bulk_import_job_failed(None)
 
 
 class TestSynchronousBulkImport:
     def test_each_file_outcome_is_committed(self, factory):
         """The fallback executor reuses one session across files, so each file's
         transition has to be committed before the next one starts."""
-        import modules.activities.activity_ingestion.bulk_entry as bulk_entry
-
         _add_job(factory, id="job-a", kind="bulk_import", staged_key=None)
         _add_job(factory, id="job-b", kind="bulk_import", staged_key=None)
         db = factory()
 
         with (
-            patch.object(bulk_entry.core_database, "get_db", return_value=iter([db])),
+            patch.object(ingestion_jobs.core_database, "get_db", return_value=iter([db])),
             patch.object(
-                bulk_entry,
+                ingestion_jobs.bulk_entry,
                 "store_activity_file",
                 side_effect=[[SimpleNamespace(id=31)], None],
             ),
         ):
-            bulk_entry.process_all_files_sync(7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00")
+            ingestion_jobs.process_all_files_sync(
+                7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"
+            )
 
         first, second = _read_job(factory, "job-a"), _read_job(factory, "job-b")
         assert (first.status, first.activity_ids) == ("completed", [31])

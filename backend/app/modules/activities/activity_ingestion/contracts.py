@@ -28,11 +28,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import core.config as core_config
-import core.logger as core_logger
 import modules.activities.activity.contracts as activities_contracts
 import modules.activities.activity.schema as activities_schema
-
-logger = core_logger.get_logger(__name__)
 
 
 def build_import_record(import_initiated_time: str, source_label: str = "Basic bulk import") -> dict[str, Any]:
@@ -71,23 +68,14 @@ def apply_bulk_import_metadata(
     Returns:
         None.
     """
-    applied = []
     if activity_metadata.get("name"):
         activity.name = activity_metadata["name"]
-        applied.append("name")
     if activity_metadata.get("description"):
         activity.description = activity_metadata["description"]
-        applied.append("description")
     if activity_metadata.get("gear_id"):
         activity.gear_id = activity_metadata["gear_id"]
-        applied.append("gear_id")
     if activity_metadata.get("import_dict"):
         activity.import_info = activity_metadata["import_dict"]
-        applied.append("import_info")
-    logger.debug(
-        "Applied bulk-import metadata to a parsed activity",
-        extra=core_logger.context(applied=applied),
-    )
 
 
 @dataclass(frozen=True)

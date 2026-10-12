@@ -11,6 +11,7 @@ core router fully parser- and provider-agnostic (enforced by the import-linter c
 from collections.abc import Callable
 from typing import Annotated
 
+import jasil.providers as platform_providers
 from fastapi import (
     APIRouter,
     Depends,
@@ -23,11 +24,11 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import core.dependencies as core_dependencies
 import core.logger as core_logger
 import core.rate_limit as core_rate_limit
-import modules.activities.activity_ingestion.bulk_import_service as bulk_import_service
-import modules.activities.activity_ingestion.ingestion_jobs as ingestion_jobs
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.service as ingestion_service
 import modules.auth.dependencies as auth_dependencies
 
 logger = core_logger.get_logger(__name__)
@@ -63,6 +64,10 @@ def create_activity_with_uploaded_file(
     db: Annotated[
         Session,
         Depends(core_database.get_db),
+    ],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
     ],
     idempotency_key: Annotated[
         str | None,
@@ -101,12 +106,13 @@ def create_activity_with_uploaded_file(
         file: The activity file to upload.
         _check_scopes: Scope validation dependency.
         db: Database session dependency.
+        storage: Blob-storage provider dependency.
         idempotency_key: Optional key identifying this request.
 
     Returns:
         The accepted upload job, in the pending state.
     """
-    return ingestion_jobs.accept_upload(token_user_id, file, db, idempotency_key=idempotency_key)
+    return ingestion_service.accept_upload(token_user_id, file, db, storage, idempotency_key=idempotency_key)
 
 
 @api_upload_router.get(
@@ -154,7 +160,7 @@ def get_activity_ingestion_job(
     Raises:
         NotFoundError: If no such job belongs to the caller.
     """
-    return ingestion_jobs.get_job(job_id, token_user_id, db)
+    return ingestion_service.get_job(job_id, token_user_id, db)
 
 
 @router.post(
@@ -171,6 +177,10 @@ def create_activity_with_bulk_import(
     ],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
     db: Annotated[Session, Depends(core_database.get_db)],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
 ) -> list[activity_ingestion_schema.ActivityIngestionJob]:
     """Queue every importable file in the caller's bulk-import directory.
 
@@ -188,6 +198,7 @@ def create_activity_with_bulk_import(
         token_user_id: Authenticated user ID.
         _check_scopes: Scope validation dependency.
         db: Database session dependency.
+        storage: Blob-storage provider dependency.
 
     Returns:
         The accepted jobs, one per queued file, in the pending state.
@@ -196,7 +207,7 @@ def create_activity_with_bulk_import(
         ProcessingError: If the directory cannot be read or the jobs cannot be
             queued.
     """
-    return bulk_import_service.start_bulk_import(token_user_id, db)
+    return ingestion_service.start_bulk_import(token_user_id, db, storage)
 
 
 @router.post(
@@ -216,6 +227,10 @@ def refresh_activities(
         Session,
         Depends(core_database.get_db),
     ],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
 ) -> activity_ingestion_schema.ActivityIngestionJob:
     """Queue a sync of the last 24h from the linked providers (Strava/Garmin).
 
@@ -234,8 +249,9 @@ def refresh_activities(
         token_user_id: Authenticated user ID.
         _check_scopes: Scope validation dependency.
         db: Database session dependency.
+        storage: Blob-storage provider dependency.
 
     Returns:
         The accepted refresh job, in the pending state.
     """
-    return ingestion_jobs.accept_refresh(token_user_id, db)
+    return ingestion_service.accept_refresh(token_user_id, db, storage)

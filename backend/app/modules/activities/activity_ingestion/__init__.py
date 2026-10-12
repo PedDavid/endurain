@@ -3,9 +3,9 @@
 This package owns *all* knowledge of source formats (``.gpx`` / ``.tcx`` / ``.fit`` /
 ``.gz``) and provider bulk-import glue (Strava). Its layers are:
 
-* :mod:`sources` — what a file came from (upload / Garmin / bulk import), and the
+* :mod:`contracts` — what a file came from (upload / Garmin / bulk import), and the
   metadata that source carries.
-* :mod:`pipeline` — the one shared path: validate, parse, enrich, store, retain.
+* :mod:`pipeline_service` — the one shared path: validate, parse, enrich, store, retain.
 * :mod:`upload_entry` / :mod:`bulk_entry` — the two entry points, which differ
   only in how the file arrives and what happens when it fails.
 * :mod:`enrichment` — re-attaches owner privacy defaults, gear and provider ids

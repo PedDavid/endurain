@@ -4,8 +4,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import core.config as core_config
-import modules.activities.activity_ingestion.bulk_import_service as bulk_import_service
-import modules.activities.activity_ingestion.sources as sources
+import modules.activities.activity_ingestion.contracts as sources
+import modules.activities.activity_ingestion.service as bulk_import_service
 import modules.strava.bulk_import_source as strava_bulk_import_source
 
 
@@ -102,10 +102,10 @@ class TestBulkImportScoping:
             patch.object(bulk_import_service.core_config, "bulk_import_dir_for", return_value=str(user_dir)) as resolve,
             patch.object(bulk_import_service, "_warn_about_unowned_files"),
             patch.object(bulk_import_service.core_config.settings, "JOBS_ENABLED", True),
-            patch.object(bulk_import_service.activity_bulk_import_subscribers, "publish_bulk_import_files"),
+            patch.object(bulk_import_service, "_enqueue_bulk_import_files"),
             patch.object(bulk_import_service.os, "listdir", return_value=[]),
         ):
-            bulk_import_service.start_bulk_import(3, db)
+            bulk_import_service.start_bulk_import(3, db, MagicMock())
 
         # Resolved from the token's user, never from client input.
         resolve.assert_called_once_with(3)
@@ -122,9 +122,9 @@ class TestBulkImportScoping:
             patch.object(bulk_import_service.core_config.settings, "JOBS_ENABLED", True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_jobs_crud, "create_ingestion_job"),
-            patch.object(bulk_import_service.activity_bulk_import_subscribers, "publish_bulk_import_files") as publish,
+            patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
         ):
-            bulk_import_service.start_bulk_import(3, db)
+            bulk_import_service.start_bulk_import(3, db, MagicMock())
 
         queued = [path for _job_id, path in publish.call_args.args[0]]
         assert queued == [os.path.join(str(user_dir), "ride.gpx")]

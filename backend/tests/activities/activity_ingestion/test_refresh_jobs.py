@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import modules.activities.activity_ingestion.ingestion_jobs as ingestion_jobs
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.service as ingestion_jobs
 
 
 class TestAcceptRefresh:
@@ -15,10 +15,10 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.platform_publisher, "publish_committing") as publish,
+            patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
-            result = ingestion_jobs.accept_refresh(7, db)
+            result = ingestion_jobs.accept_refresh(7, db, "storage")
 
         assert result == "job-view"
         assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
@@ -35,15 +35,15 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.platform_publisher, "publish_committing") as publish,
+            patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
-            ingestion_jobs.accept_refresh(7, db)
+            ingestion_jobs.accept_refresh(7, db, "storage")
 
         # Same client contract either way — only the executor differs.
         publish.assert_not_called()
         db.commit.assert_called_once()
-        submit.assert_called_once_with(create.call_args.args[0])
+        submit.assert_called_once_with(create.call_args.args[0], "storage")
 
     def test_a_refresh_job_carries_no_file_fields(self):
         db = MagicMock()
@@ -51,9 +51,9 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.platform_publisher, "publish_committing"),
+            patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
-            ingestion_jobs.accept_refresh(7, db)
+            ingestion_jobs.accept_refresh(7, db, "storage")
 
         assert "filename" not in create.call_args.kwargs
         assert "staged_key" not in create.call_args.kwargs
@@ -75,7 +75,7 @@ class TestRunRefreshJob:
                 return synced
 
             sync.side_effect = _fake
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         processing.assert_called_once()
         assert completed.call_args.args[1] == [11, 12]
@@ -96,7 +96,7 @@ class TestRunRefreshJob:
                 return []
 
             sync.side_effect = _fake
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         owner.assert_called_once()
 
@@ -107,7 +107,7 @@ class TestRunRefreshJob:
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         sync.assert_not_called()
 
@@ -128,7 +128,7 @@ class TestRunRefreshJob:
                 raise RuntimeError("strava is down")
 
             sync.side_effect = _fake
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         fail.assert_not_called()
 
@@ -148,7 +148,7 @@ class TestRunRefreshJob:
                 raise RuntimeError("strava is down")
 
             sync.side_effect = _fake
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         assert fail.call_args.args[1] == activity_ingestion_schema.IngestionJobErrorCode.PROVIDER_UNAVAILABLE
 
@@ -168,7 +168,7 @@ class TestRunRefreshJob:
                 return []
 
             sync.side_effect = _fake
-            ingestion_jobs.run_refresh_job("job-1")
+            ingestion_jobs.run_refresh_job("job-1", "storage")
 
         assert completed.call_args.args[1] == []
         failed.assert_not_called()

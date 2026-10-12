@@ -1,6 +1,6 @@
 """Persistence for activity ingestion jobs.
 
-Pure persistence: staging, parsing and executor choice live in ``ingestion_jobs``,
+Pure persistence: staging, parsing and executor choice live in ``service``,
 so this module never touches the filesystem and never publishes events.
 """
 
@@ -13,31 +13,9 @@ import core.decorators as core_decorators
 import core.logger as core_logger
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.serializers as activity_ingestion_serializers
 
 logger = core_logger.get_logger(__name__)
-
-
-def _to_read_schema(
-    orm_job: activity_ingestion_models.ActivityIngestionJob,
-) -> activity_ingestion_schema.ActivityIngestionJob:
-    """Convert an ORM ``ActivityIngestionJob`` row to its read schema.
-
-    The single ORM→schema boundary for this module so ORM instances never leave
-    ``crud``.
-    """
-    return activity_ingestion_schema.ActivityIngestionJob(
-        id=orm_job.id,
-        kind=activity_ingestion_schema.IngestionJobKind(orm_job.kind),
-        filename=orm_job.filename,
-        status=activity_ingestion_schema.IngestionJobStatus(orm_job.status),
-        error_code=(
-            activity_ingestion_schema.IngestionJobErrorCode(orm_job.error_code) if orm_job.error_code else None
-        ),
-        activity_ids=list(orm_job.activity_ids or []),
-        created_at=orm_job.created_at,
-        updated_at=orm_job.updated_at,
-        completed_at=orm_job.completed_at,
-    )
 
 
 @core_decorators.handle_db_errors
@@ -90,7 +68,7 @@ def create_ingestion_job(
     )
     db.add(new_job)
     db.flush()
-    return _to_read_schema(new_job)
+    return activity_ingestion_serializers.to_read_schema(new_job)
 
 
 @core_decorators.handle_db_errors
@@ -122,7 +100,7 @@ def get_ingestion_job(
         activity_ingestion_models.ActivityIngestionJob.user_id == user_id,
     )
     orm_job = db.scalars(stmt).first()
-    return _to_read_schema(orm_job) if orm_job else None
+    return activity_ingestion_serializers.to_read_schema(orm_job) if orm_job else None
 
 
 @core_decorators.handle_db_errors
@@ -189,7 +167,7 @@ def get_job_for_idempotency(
         activity_ingestion_models.ActivityIngestionJob.kind == kind.value,
     )
     orm_job = db.scalars(stmt).first()
-    return (_to_read_schema(orm_job), orm_job.request_fingerprint) if orm_job else None
+    return (activity_ingestion_serializers.to_read_schema(orm_job), orm_job.request_fingerprint) if orm_job else None
 
 
 @core_decorators.handle_db_errors

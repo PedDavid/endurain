@@ -11,8 +11,8 @@ import pytest
 
 import core.exceptions as core_exceptions
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity_ingestion.pipeline as pipeline
-import modules.activities.activity_ingestion.sources as sources
+import modules.activities.activity_ingestion.contracts as sources
+import modules.activities.activity_ingestion.pipeline_service as pipeline
 
 
 class TestParseFile:

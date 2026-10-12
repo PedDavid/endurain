@@ -37,8 +37,8 @@ import modules.activities.activity.integration_service as activities_integration
 import modules.activities.activity.schema as activities_schema
 import modules.activities.activity_file_import.integration_service as file_import_integration
 import modules.activities.activity_file_storage.integration_service as file_storage_integration
+import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.enrichment as enrichment
-import modules.activities.activity_ingestion.sources as ingestion_sources
 import modules.activities.contributor_registry as contributor_registry
 import modules.users.users.integration_service as users_integration_service
 
@@ -149,7 +149,7 @@ def store_activities_from_file(
     file_base_name: str,
     db: Session,
     *,
-    source: ingestion_sources.IngestionSource,
+    source: ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
     garmin_connect_activity_id: str | None = None,
 ) -> list[activities_schema.Activity] | None:
@@ -194,9 +194,9 @@ def store_activities_from_file(
     if user_privacy_settings is None:
         raise core_exceptions.NotFoundError("User privacy settings not found")
 
-    garmin_source = source if isinstance(source, ingestion_sources.GarminSource) else None
-    bulk_source = source if isinstance(source, ingestion_sources.BulkImportSource) else None
-    activity_name = source.activity_name if not isinstance(source, ingestion_sources.BulkImportSource) else None
+    garmin_source = source if isinstance(source, ingestion_contracts.GarminSource) else None
+    bulk_source = source if isinstance(source, ingestion_contracts.BulkImportSource) else None
+    activity_name = source.activity_name if not isinstance(source, ingestion_contracts.BulkImportSource) else None
 
     # CPU-bound + sync I/O parsing (gpxpy, geopy, timezonefinder). This runs
     # directly: every entry point reaches here on a worker thread (a sync route
@@ -295,7 +295,7 @@ def store_activities_from_file(
 
 
 def _finish_bulk_import_file(
-    source: ingestion_sources.BulkImportSource,
+    source: ingestion_contracts.BulkImportSource,
     created_activities: list[activities_schema.Activity],
     file_base_name: str,
     db: Session,
@@ -335,7 +335,7 @@ def validate_prepare_and_store_file(
     file_path: str,
     db: Session,
     *,
-    source: ingestion_sources.IngestionSource,
+    source: ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
 ) -> list[activities_schema.Activity] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
@@ -384,7 +384,7 @@ def validate_prepare_and_store_file(
     _, file_base_name = os.path.split(file_path)
 
     garmin_connect_activity_id = None
-    if isinstance(source, ingestion_sources.GarminSource):
+    if isinstance(source, ingestion_contracts.GarminSource):
         garmin_connect_activity_id = os.path.basename(file_path).split("_")[0]
 
     if file_extension == ".gz":

@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import modules.activities.activity_ingestion.bulk_entry as bulk_entry
-import modules.activities.activity_ingestion.sources as sources
+import modules.activities.activity_ingestion.contracts as sources
+import modules.activities.activity_ingestion.service as ingestion_service
 
 
 class TestStoreBulkImportFile:
@@ -18,10 +19,11 @@ class TestStoreBulkImportFile:
 
     def test_delegates_to_the_pipeline_as_a_bulk_import(self):
         with patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", return_value=["activity"]) as helper:
-            result = bulk_entry.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db")
+            result = bulk_entry.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db", "storage")
 
         assert result == ["activity"]
         assert helper.call_args.args == (3, "/tmp/x.gpx", "db")
+        assert helper.call_args.kwargs["storage"] == "storage"
         assert helper.call_args.kwargs["source"] == sources.BulkImportSource(
             import_initiated_time="2026-07-21T00:00:00", user_id=3
         )
@@ -31,7 +33,7 @@ class TestStoreBulkImportFile:
             patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")),
             pytest.raises(ValueError),
         ):
-            bulk_entry.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db")
+            bulk_entry.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db", "storage")
 
 
 class TestStoreActivityFile:
@@ -39,13 +41,13 @@ class TestStoreActivityFile:
 
     def test_returns_the_created_activities(self):
         with patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", return_value=["activity"]):
-            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", source=sources.GarminSource())
+            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource())
 
         assert result == ["activity"]
 
     def test_returns_none_on_failure(self):
         with patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")):
-            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", source=sources.GarminSource())
+            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource())
 
         assert result is None
 
@@ -56,7 +58,7 @@ class TestStoreActivityFile:
             patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")),
             patch.object(bulk_entry, "_move_failed_file_to_error_directory") as move,
         ):
-            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", source=sources.GarminSource())
+            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource())
 
         move.assert_not_called()
 
@@ -67,7 +69,7 @@ class TestStoreActivityFile:
             patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")),
             patch.object(bulk_entry, "_move_failed_file_to_error_directory") as move,
         ):
-            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", source=source)
+            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=source)
 
         move.assert_called_once_with(source, "/tmp/x.gpx")
 
@@ -97,11 +99,13 @@ class TestMoveFailedFileToErrorDirectory:
 class TestProcessAllFilesSync:
     def test_processes_every_file_with_the_same_import_time(self):
         with (
-            patch.object(bulk_entry.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(bulk_entry, "ingestion_jobs_crud"),
-            patch.object(bulk_entry, "store_activity_file") as store,
+            patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
+            patch.object(ingestion_service, "ingestion_jobs_crud"),
+            patch.object(ingestion_service.bulk_entry, "store_activity_file") as store,
         ):
-            bulk_entry.process_all_files_sync(7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00")
+            ingestion_service.process_all_files_sync(
+                7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"
+            )
 
         assert store.call_count == 2
         assert [call.args[1] for call in store.call_args_list] == ["/a.gpx", "/b.fit"]
@@ -113,11 +117,13 @@ class TestProcessAllFilesSync:
         """Nothing retries on this path, so the handle must end resolved either way."""
         created = MagicMock(id=11)
         with (
-            patch.object(bulk_entry.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(bulk_entry, "ingestion_jobs_crud") as jobs,
-            patch.object(bulk_entry, "store_activity_file", side_effect=[[created], None]),
+            patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
+            patch.object(ingestion_service, "ingestion_jobs_crud") as jobs,
+            patch.object(ingestion_service.bulk_entry, "store_activity_file", side_effect=[[created], None]),
         ):
-            bulk_entry.process_all_files_sync(7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00")
+            ingestion_service.process_all_files_sync(
+                7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"
+            )
 
         assert [call.args[0] for call in jobs.mark_processing.call_args_list] == ["job-a", "job-b"]
         assert jobs.mark_completed.call_args.args[:2] == ("job-a", [11])

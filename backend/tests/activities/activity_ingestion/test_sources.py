@@ -12,7 +12,7 @@ activities importing a provider.
 
 import core.config as core_config
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity_ingestion.sources as sources
+import modules.activities.activity_ingestion.contracts as sources
 
 
 def _activity() -> activities_contracts.ActivityCore:

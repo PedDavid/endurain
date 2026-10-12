@@ -11,8 +11,8 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_ingestion.bulk_import_service as bulk_import_service
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.service as bulk_import_service
 
 
 def _job(job_id, user_id, kind, db, *, filename=None, commit=True, **_kwargs):
@@ -38,10 +38,10 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_jobs_crud, "create_ingestion_job", side_effect=_job),
-            patch.object(bulk_import_service.activity_bulk_import_subscribers, "publish_bulk_import_files") as publish,
+            patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
         ):
-            result = bulk_import_service.start_bulk_import(3, db)
+            result = bulk_import_service.start_bulk_import(3, db, MagicMock())
 
         # One pollable handle per file, not one per batch: each file is retried,
         # dead-lettered and completed independently, so there is no shared
@@ -66,14 +66,14 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_jobs_crud, "create_ingestion_job", side_effect=_job),
             patch.object(
-                bulk_import_service.activity_bulk_import_subscribers,
-                "publish_bulk_import_files",
+                bulk_import_service,
+                "_enqueue_bulk_import_files",
                 side_effect=SQLAlchemyError("outbox down"),
             ),
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
             pytest.raises(core_exceptions.ProcessingError) as exc,
         ):
-            bulk_import_service.start_bulk_import(3, db)
+            bulk_import_service.start_bulk_import(3, db, MagicMock())
 
         assert exc.value.status_code == 500
 
@@ -86,10 +86,10 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_jobs_crud, "create_ingestion_job", side_effect=_job),
-            patch.object(bulk_import_service.activity_bulk_import_subscribers, "publish_bulk_import_files") as publish,
+            patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
         ):
-            result = bulk_import_service.start_bulk_import(3, db)
+            result = bulk_import_service.start_bulk_import(3, db, MagicMock())
 
         assert len(result) == 1
         publish.assert_not_called()
@@ -108,10 +108,10 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_jobs_crud, "create_ingestion_job", side_effect=_job),
-            patch.object(bulk_import_service.activity_bulk_import_subscribers, "publish_bulk_import_files") as publish,
+            patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
         ):
-            assert bulk_import_service.start_bulk_import(3, db) == []
+            assert bulk_import_service.start_bulk_import(3, db, MagicMock()) == []
 
         # Nothing valid to queue -> an empty batch is still published so the
         # request commits exactly once either way.
