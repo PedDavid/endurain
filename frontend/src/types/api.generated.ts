@@ -96,6 +96,7 @@ export interface paths {
          *         token_user_id: Authenticated user ID.
          *         _check_scopes: Scope validation dependency.
          *         db: Database session dependency.
+         *         storage: Blob-storage provider dependency.
          *
          *     Returns:
          *         The accepted jobs, one per queued file, in the pending state.
@@ -127,10 +128,7 @@ export interface paths {
          *         db: Database session.
          *
          *     Returns:
-         *         List of ActivityExerciseTitles or None when empty.
-         *
-         *     Raises:
-         *         HTTPException: If a database error occurs.
+         *         Every exercise title, empty when there are none.
          */
         get: operations["read_activities_exercise_titles_all_api_v1_activities_exercise_titles_all_get"];
         put?: never;
@@ -248,6 +246,7 @@ export interface paths {
          *         token_user_id: Authenticated user ID.
          *         _check_scopes: Scope validation dependency.
          *         db: Database session dependency.
+         *         storage: Blob-storage provider dependency.
          *
          *     Returns:
          *         The accepted refresh job, in the pending state.
@@ -334,6 +333,7 @@ export interface paths {
          *         file: The activity file to upload.
          *         _check_scopes: Scope validation dependency.
          *         db: Database session dependency.
+         *         storage: Blob-storage provider dependency.
          *         idempotency_key: Optional key identifying this request.
          *
          *     Returns:
@@ -486,7 +486,7 @@ export interface paths {
          * @description Upload an image file to associate with an activity.
          *
          *     The file is validated by magic number (not extension) and size limits via
-         *     the centralized image upload helper, stored through the platform
+         *     the centralized image upload helper before the ownership check, stored through the platform
          *     ``StorageProvider`` under a server-generated key, and registered in the
          *     database. The response carries a signed URL; the blob itself has no public
          *     path.
