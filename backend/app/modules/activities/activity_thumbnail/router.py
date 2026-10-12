@@ -12,13 +12,10 @@ fetch the blob — while the activity owner keeps their map.
 from typing import Annotated
 
 import jasil.providers as platform_providers
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 
 import core.dependencies as core_dependencies
-import core.logger as core_logger
-import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
-
-logger = core_logger.get_logger(__name__)
+import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 
 router = APIRouter()
 
@@ -46,25 +43,10 @@ def read_activity_thumbnail(
         The WebP thumbnail bytes.
 
     Raises:
-        HTTPException: 404 when the token is invalid/forged or no thumbnail
-            exists (a 404 — rather than 403 — avoids confirming the resource to
-            an unauthorized caller).
+        NotFoundError: When the token is invalid/forged or no thumbnail exists
+            (rendered as a 404).
     """
-    if not activity_thumbnail_signing.verify_thumbnail_token(activity_id, token):
-        # Security-relevant: either a forged token or one replayed against a
-        # different activity. Logged at warning so a probing pattern is visible.
-        logger.warning(
-            "Rejected a thumbnail request with an invalid signed token",
-            extra=core_logger.context(activity_id=activity_id),
-        )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thumbnail not found")
-
-    data = storage.get(
-        activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA,
-        activity_thumbnail_signing.thumbnail_key(activity_id),
-    )
-    if data is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thumbnail not found")
+    data = activity_thumbnail_service.read_activity_thumbnail(activity_id, token, storage)
 
     return Response(
         content=data,

@@ -4,7 +4,9 @@ The behavioural core of the subsystem. Rendering (:mod:`render`) produces bytes;
 this module persists/removes them through the platform ``StorageProvider`` and
 records the storage *key* on the activity. It also owns the scheduled reconciling
 backfill (guarded by the ``LockProvider`` so a single replica runs it) and the
-    full regeneration triggered when tile settings change.
+full regeneration triggered when tile settings change.
+
+Sessions are opened by the entry point (``integration_service``) and passed down.
 """
 
 from collections.abc import Callable, Iterator
@@ -12,7 +14,7 @@ from collections.abc import Callable, Iterator
 import jasil.providers as platform_providers
 from sqlalchemy.orm import Session
 
-import core.database as core_database
+import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.contracts as activities_contracts
@@ -147,6 +149,40 @@ def generate_and_store_thumbnail(
     return key
 
 
+def read_activity_thumbnail(activity_id: int, token: str, storage: platform_providers.StorageProvider) -> bytes:
+    """Return an activity's thumbnail bytes when the signed token is valid.
+
+    Args:
+        activity_id: The activity whose thumbnail to read.
+        token: The signed access token minted at serialization time.
+        storage: The blob-storage provider.
+
+    Returns:
+        The stored WebP thumbnail bytes.
+
+    Raises:
+        NotFoundError: When the token is invalid/forged or no thumbnail exists
+            (404 rather than 403 avoids confirming the resource to an
+            unauthorized caller).
+    """
+    if not activity_thumbnail_signing.verify_thumbnail_token(activity_id, token):
+        # Security-relevant: either a forged token or one replayed against a
+        # different activity. Logged at warning so a probing pattern is visible.
+        logger.warning(
+            "Rejected a thumbnail request with an invalid signed token",
+            extra=core_logger.context(activity_id=activity_id),
+        )
+        raise core_exceptions.NotFoundError("Thumbnail not found")
+
+    data = storage.get(
+        activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA,
+        activity_thumbnail_signing.thumbnail_key(activity_id),
+    )
+    if data is None:
+        raise core_exceptions.NotFoundError("Thumbnail not found")
+    return data
+
+
 def delete_activity_thumbnail(activity_id: int, storage: platform_providers.StorageProvider) -> None:
     """Delete an activity's stored thumbnail blob.
 
@@ -169,6 +205,7 @@ def delete_activity_thumbnail(activity_id: int, storage: platform_providers.Stor
 def delete_and_regenerate_all_activity_thumbnails(
     storage: platform_providers.StorageProvider,
     lock: platform_providers.LockProvider,
+    db: Session,
 ) -> None:
     """
     Delete all existing thumbnails and regenerate from scratch.
@@ -181,6 +218,7 @@ def delete_and_regenerate_all_activity_thumbnails(
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
+        db: Database session.
 
     Returns:
         None
@@ -191,43 +229,44 @@ def delete_and_regenerate_all_activity_thumbnails(
     logger.info("Thumbnail regeneration: deleting all existing thumbnails")
 
     deleted = 0
-    with core_database.SessionLocal() as db:
-        for activity in _iter_activities_with_thumbnail(db):
-            key = activity.map_thumbnail_path
-            if key is None:
-                continue
-            try:
-                storage.delete(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key)
-                deleted += 1
-            except Exception as err:
-                logger.warning(
-                    "Thumbnail regeneration: could not delete the existing thumbnail",
-                    extra=core_logger.context(activity_id=activity.id, reason=str(err)),
-                )
-        # Clear DB references so generate_missing picks them all up.
-        activities_service.clear_all_thumbnail_keys(db)
+    for activity in _iter_activities_with_thumbnail(db):
+        key = activity.map_thumbnail_path
+        if key is None:
+            continue
+        try:
+            storage.delete(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key)
+            deleted += 1
+        except Exception as err:
+            logger.warning(
+                "Thumbnail regeneration: could not delete the existing thumbnail",
+                extra=core_logger.context(activity_id=activity.id, reason=str(err)),
+            )
+    # Clear DB references so generate_missing picks them all up.
+    activities_service.clear_all_thumbnail_keys(db)
 
     logger.info("Thumbnail regeneration: deleted thumbnails", extra=core_logger.context(deleted=deleted))
 
     # Regenerate all thumbnails
-    generate_missing_activity_thumbnails(storage, lock)
+    generate_missing_activity_thumbnails(storage, lock, db)
 
 
 def generate_missing_activity_thumbnails(
     storage: platform_providers.StorageProvider,
     lock: platform_providers.LockProvider,
+    db: Session,
 ) -> None:
     """
     Generate thumbnails for activities that are missing one.
 
     Intended to be called periodically by the scheduler. Acquires the
-    coordination lock so only one replica runs the pass, then opens its
-    own database session, reconciles stale references, and renders and
-    stores a thumbnail for each activity whose map_thumbnail_path is NULL.
+    coordination lock so only one replica runs the pass, then reconciles
+    stale references and renders and stores a thumbnail for each activity
+    whose map_thumbnail_path is NULL.
 
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
+        db: Database session.
 
     Returns:
         None
@@ -239,73 +278,73 @@ def generate_missing_activity_thumbnails(
         if not acquired:
             logger.debug("Thumbnail scheduler: another replica holds the backfill lock; skipping")
             return
-        _run_missing_thumbnail_generation(storage)
+        _run_missing_thumbnail_generation(storage, db)
 
 
-def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvider) -> None:
+def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvider, db: Session) -> None:
     """Reconcile stale references and render any missing thumbnails.
 
     Args:
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         None
     """
-    with core_database.SessionLocal() as db:
-        # Reconcile: clear DB references whose stored blob no longer exists so
-        # they are regenerated below.
-        for activity in _iter_activities_with_thumbnail(db):
-            key = activity.map_thumbnail_path
-            if key is not None and not storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
-                activities_service.set_thumbnail_key(activity.id, None, db)
-                logger.info(
-                    "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
-                    extra=core_logger.context(activity_id=activity.id),
-                )
-
-        generated = 0
-        candidates = 0
-        tile_settings: tuple[str, str, str | None] | None = None
-        for page in _iter_activities_without_thumbnail(db):
-            candidates += len(page)
-            # Resolved on the first page rather than up front: it reads server
-            # settings and decrypts the tile API key, which is wasted work on the
-            # usual pass where nothing is missing.
-            if tile_settings is None:
-                tile_settings = resolve_tile_settings(db)
-            tile_url, background_color, api_key = tile_settings
-
-            # Batch-load MAP-stream waypoints through the streams service (the ORM
-            # stays confined to that package) as an {activity_id: waypoints} mapping.
-            waypoints_by_activity_id = activity_streams_service.get_gps_waypoints_for_activities(
-                [activity.id for activity in page],
-                db,
+    # Reconcile: clear DB references whose stored blob no longer exists so
+    # they are regenerated below.
+    for activity in _iter_activities_with_thumbnail(db):
+        key = activity.map_thumbnail_path
+        if key is not None and not storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
+            activities_service.set_thumbnail_key(activity.id, None, db)
+            logger.info(
+                "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
+                extra=core_logger.context(activity_id=activity.id),
             )
 
-            for activity in page:
-                waypoints = waypoints_by_activity_id.get(activity.id)
+    generated = 0
+    candidates = 0
+    tile_settings: tuple[str, str, str | None] | None = None
+    for page in _iter_activities_without_thumbnail(db):
+        candidates += len(page)
+        # Resolved on the first page rather than up front: it reads server
+        # settings and decrypts the tile API key, which is wasted work on the
+        # usual pass where nothing is missing.
+        if tile_settings is None:
+            tile_settings = resolve_tile_settings(db)
+        tile_url, background_color, api_key = tile_settings
 
-                if not waypoints:
-                    continue
-
-                key = generate_and_store_thumbnail(
-                    activity.id,
-                    waypoints,
-                    storage,
-                    db,
-                    tile_url=tile_url,
-                    background_color=background_color,
-                    api_key=api_key,
-                )
-
-                if key is not None:
-                    generated += 1
-
-        if not candidates:
-            logger.debug("Thumbnail scheduler: no activities without thumbnail found")
-            return
-
-        logger.info(
-            "Thumbnail scheduler pass complete",
-            extra=core_logger.context(generated=generated, candidates=candidates),
+        # Batch-load MAP-stream waypoints through the streams service (the ORM
+        # stays confined to that package) as an {activity_id: waypoints} mapping.
+        waypoints_by_activity_id = activity_streams_service.get_gps_waypoints_for_activities(
+            [activity.id for activity in page],
+            db,
         )
+
+        for activity in page:
+            waypoints = waypoints_by_activity_id.get(activity.id)
+
+            if not waypoints:
+                continue
+
+            key = generate_and_store_thumbnail(
+                activity.id,
+                waypoints,
+                storage,
+                db,
+                tile_url=tile_url,
+                background_color=background_color,
+                api_key=api_key,
+            )
+
+            if key is not None:
+                generated += 1
+
+    if not candidates:
+        logger.debug("Thumbnail scheduler: no activities without thumbnail found")
+        return
+
+    logger.info(
+        "Thumbnail scheduler pass complete",
+        extra=core_logger.context(generated=generated, candidates=candidates),
+    )

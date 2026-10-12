@@ -6,7 +6,7 @@ import pytest
 
 
 class TestReadActivityThumbnailUnit:
-    @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
+    @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_serves_webp_bytes_for_valid_token(self, mock_signing):
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
 
@@ -25,35 +25,30 @@ class TestReadActivityThumbnailUnit:
         storage.get.assert_called_once_with("activity_thumbnails", "1.webp")
         mock_signing.verify_thumbnail_token.assert_called_once_with(1, "tok")
 
-    @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
+    @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_404_for_invalid_token_without_touching_storage(self, mock_signing):
-        from fastapi import HTTPException
-
+        import core.exceptions as core_exceptions
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = False
         storage = MagicMock()
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(core_exceptions.NotFoundError):
             read_activity_thumbnail(1, "bad", storage)
 
-        assert exc.value.status_code == 404
         storage.get.assert_not_called()
 
-    @patch("modules.activities.activity_thumbnail.router.activity_thumbnail_signing")
+    @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_404_when_blob_missing(self, mock_signing):
-        from fastapi import HTTPException
-
+        import core.exceptions as core_exceptions
         from modules.activities.activity_thumbnail.router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = True
         storage = MagicMock()
         storage.get.return_value = None
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(core_exceptions.NotFoundError):
             read_activity_thumbnail(1, "tok", storage)
-
-        assert exc.value.status_code == 404
 
 
 class TestReadActivityThumbnailEndToEnd:
@@ -62,9 +57,11 @@ class TestReadActivityThumbnailEndToEnd:
         from fastapi.testclient import TestClient
 
         import core.dependencies as core_dependencies
+        import core.exceptions as core_exceptions
         import modules.activities.activity_thumbnail.router as thumb_router
 
         app = FastAPI()
+        core_exceptions.register_exception_handlers(app)
         app.include_router(thumb_router.router)
         app.dependency_overrides[core_dependencies.get_storage] = lambda: storage
         return TestClient(app)
