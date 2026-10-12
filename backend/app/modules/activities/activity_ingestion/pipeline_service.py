@@ -38,7 +38,7 @@ import modules.activities.activity.schema as activities_schema
 import modules.activities.activity_file_import.integration_service as file_import_integration
 import modules.activities.activity_file_storage.integration_service as file_storage_integration
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.enrichment as enrichment
+import modules.activities.activity_ingestion.enrichment_service as enrichment_service
 import modules.activities.contributor_registry as contributor_registry
 import modules.users.users.integration_service as users_integration_service
 
@@ -254,7 +254,7 @@ def store_activities_from_file(
     for parsed in parsed_file.activities:
         # Re-attach owner privacy defaults, gear, and Garmin ids before the
         # bulk-import metadata can override the gear.
-        enrichment.enrich_parsed_activity(
+        enrichment_service.enrich_parsed_activity(
             parsed.activity,
             user_id=token_user_id,
             user_privacy_settings=user_privacy_settings,

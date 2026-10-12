@@ -8,7 +8,7 @@ Streams mask differently from the other child resources: there is no single
 ``hide_streams`` flag, because each stream *type* is gated by its own parent flag
 (``hide_hr``, ``hide_power``, ``hide_cadence``, ...). So instead of the boolean
 gate the siblings use, this module resolves the parent activity through
-:mod:`modules.activities.activity.child_access` and hands it to
+:mod:`modules.activities.activity.child_access_service` and hands it to
 :mod:`~modules.activities.activity_streams.serializers`, which decides per stream.
 
 They are also the one child resource whose page is not cut in SQL, deliberately.

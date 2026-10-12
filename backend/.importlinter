@@ -73,7 +73,7 @@ forbidden_modules =
 # Garmin depend on activities — they parse a provider payload and hand it to the
 # ingestion seam — and activities used to depend on them right back:
 # ``activity_ingestion.refresh_entry`` imported both provider clients,
-# ``sources`` (now ``contracts``) imported the Strava bulk-import helpers, and ``enrichment``
+# ``sources`` (now ``contracts``) imported the Strava bulk-import helpers, and ``enrichment_service``
 # imported Garmin to resolve synced gear. That cycle meant neither side could be
 # built, tested or extracted without the other.
 #
@@ -150,7 +150,7 @@ forbidden_modules =
 #
 # Those values are now resolved by the layer above and passed in: ``followee_ids``
 # on the visibility filter, the policy check in ``activity.service`` /
-# ``activity.child_access``, and the HR-zone loop in ``activity_streams.service``.
+# ``activity.child_access_service``, and the HR-zone loop in ``activity_streams.service``.
 # Schemas stay allowed — a shape is not a question.
 [importlinter:contract:activities-persistence-asks-nothing]
 name = Activities persistence must not call another module
@@ -459,7 +459,7 @@ forbidden_modules =
     fastapi
 
 # The child sub-resources (laps, sets, streams, workout steps, exercise titles) decide
-# access in their SERVICE, through the shared activity/child_access gate — never in
+# access in their SERVICE, through the shared activity/child_access_service gate — never in
 # their crud. Each crud used to answer "may this caller read these rows?" itself,
 # inline above its SELECT: four copies of one access-control rule, living in the layer
 # a reviewer looking for authorization would not think to open. This contract is what
@@ -477,7 +477,7 @@ source_modules =
     modules.activities.activity_workout_steps.crud
 forbidden_modules =
     modules.activities.activity.crud
-    modules.activities.activity.child_access
+    modules.activities.activity.child_access_service
 
 # One level up, the same rule for the SERVICES. Laps, sets and workout steps are
 # one read three times over — check the gate, page the rows, count them, wrap
@@ -487,7 +487,7 @@ forbidden_modules =
 # hand the read to the root activity integration surface, which publishes the
 # shared ``ChildCollection`` operation without exposing its implementation file.
 # Forbidding the gate is what keeps that true: a service that cannot call
-# ``child_access`` cannot quietly grow a fourth copy of the read around it.
+# ``child_access_service`` cannot quietly grow a fourth copy of the read around it.
 # ``activity_streams.service`` is deliberately absent — its masking is per stream
 # *type* rather than one flag, so it resolves the parent and applies its own
 # filter, which is a different read rather than a copy of this one.
@@ -500,7 +500,7 @@ source_modules =
     modules.activities.activity_sets.service
     modules.activities.activity_workout_steps.service
 forbidden_modules =
-    modules.activities.activity.child_access
+    modules.activities.activity.child_access_service
     modules.activities.activity.crud
 
 # An ``integration_service`` is a face, not a layer. It presents a narrow, curated

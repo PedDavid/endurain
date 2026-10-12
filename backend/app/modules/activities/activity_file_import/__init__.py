@@ -4,7 +4,7 @@
 database, no privacy settings, no gear lookup, no provider client, no HTTP —
 which is what makes a parser testable with bytes alone. The domain context a
 parsed activity needs (owner privacy defaults, gear, provider ids) is re-attached
-afterwards by ``activity_ingestion.enrichment``, and the
+afterwards by ``activity_ingestion.enrichment_service``, and the
 ``activity-file-import-purity`` import-linter contract keeps it that way.
 
 Importing this package does not pull in a parser: reach for the submodule you

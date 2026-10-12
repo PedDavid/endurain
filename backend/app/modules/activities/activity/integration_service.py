@@ -30,7 +30,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 import core.pagination as core_pagination
-import modules.activities.activity.child_access as activity_child_access
+import modules.activities.activity.child_access_service as activity_child_access
 import modules.activities.activity.child_collection as activity_child_collection
 import modules.activities.activity.contracts as activities_contracts
 import modules.activities.activity.crud as activities_crud

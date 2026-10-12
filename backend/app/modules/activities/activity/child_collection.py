@@ -1,7 +1,7 @@
 """One paginated read of an activity's child collection, defined once.
 
 Laps, sets and workout steps are the same read three times over: check the shared
-:mod:`~modules.activities.activity.child_access` gate, page the rows, count them,
+:mod:`~modules.activities.activity.child_access_service` gate, page the rows, count them,
 and wrap the two in the page envelope — with "refused" and "there are none"
 deliberately answering the same way, so the endpoint cannot be used to probe
 which activities exist.
@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.child_access as activity_child_access
+import modules.activities.activity.child_access_service as activity_child_access
 
 logger = core_logger.get_logger(__name__)
 

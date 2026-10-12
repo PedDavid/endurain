@@ -118,7 +118,7 @@ def test_global_profile_contributor_restores_valid_titles_once() -> None:
     original_records = deepcopy(records)
     db = MagicMock()
 
-    with patch.object(exercise_titles_integration, "_store_exercise_titles") as store:
+    with patch.object(exercise_titles_integration.exercise_titles_crud, "create_activity_exercise_titles") as store:
         restored = exercise_titles_integration.profile_global_contributor().restore(records, db)
 
     assert restored == 1

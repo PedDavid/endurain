@@ -602,7 +602,7 @@ point and the source types. Providers import one module; `bulk_entry` and
 **Resolved for activities.** No `crud`, `query`, `serializers` or `utils` file in
 the module asks another bounded context a question. The values those queries need
 are resolved by the layer above and passed in: `followee_ids` on the visibility
-filter, the shareable-links policy in `activity.service` / `activity.child_access`,
+filter, the shareable-links policy in `activity.service` / `activity.child_access_service`,
 and the max-heart-rate lookup in `activity_streams.service`. Enforced by the
 `activities-persistence-asks-nothing` contract.
 
