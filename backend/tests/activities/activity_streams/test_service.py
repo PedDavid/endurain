@@ -21,7 +21,7 @@ def _stream(stream_type: int):
 
 class TestListActivityStreams:
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_owner_gets_every_stream_unfiltered(self, mock_gate, mock_crud):
         from modules.activities.activity_streams import service
 
@@ -34,7 +34,7 @@ class TestListActivityStreams:
         assert (page.items, page.total) == (streams, 2)
 
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_the_total_counts_only_what_the_page_could_hold(self, mock_gate, mock_crud):
         """The window is cut in Python, after the mask, so the total matches it."""
         from modules.activities.activity_streams import service
@@ -48,7 +48,7 @@ class TestListActivityStreams:
 
     @patch("modules.activities.activity_streams.service.activity_streams_serializers")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_non_owner_gets_the_masked_set(self, mock_gate, mock_crud, mock_serializers):
         from modules.activities.activity_streams import service
 
@@ -65,7 +65,7 @@ class TestListActivityStreams:
         )
 
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_invisible_activity_never_touches_persistence(self, mock_gate, mock_crud):
         from modules.activities.activity_streams import service
 
@@ -80,7 +80,7 @@ class TestListActivityStreams:
 class TestGetActivityStream:
     @patch("modules.activities.activity_streams.service.activity_streams_serializers")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_hidden_stream_is_none_for_a_non_owner(self, mock_gate, mock_crud, mock_serializers):
         from modules.activities.activity_streams import service
 
@@ -92,7 +92,7 @@ class TestGetActivityStream:
 
     @patch("modules.activities.activity_streams.service.activity_streams_serializers")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_owner_sees_a_hidden_stream(self, mock_gate, mock_crud, mock_serializers):
         from modules.activities.activity_streams import service
 
@@ -104,7 +104,7 @@ class TestGetActivityStream:
         assert service.get_activity_stream(5, 1, 1, MagicMock()) is stream
 
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_missing_stream_is_none(self, mock_gate, mock_crud):
         from modules.activities.activity_streams import service
 
@@ -117,7 +117,7 @@ class TestGetActivityStream:
 class TestPublicStreams:
     @patch("modules.activities.activity_streams.service.activity_streams_serializers")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_public_list_is_always_masked(self, mock_gate, mock_crud, mock_serializers):
         """An anonymous caller is never the owner, so the mask always applies."""
         from modules.activities.activity_streams import service
@@ -133,7 +133,7 @@ class TestPublicStreams:
         mock_serializers.filter_visible_streams.assert_called_once()
 
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_non_public_activity_never_touches_persistence(self, mock_gate, mock_crud):
         from modules.activities.activity_streams import service
 
@@ -148,7 +148,7 @@ class TestPublicStreams:
 
     @patch("modules.activities.activity_streams.service.activity_streams_serializers")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
-    @patch("modules.activities.activity_streams.service.activity_child_access")
+    @patch("modules.activities.activity_streams.service.activity_integration")
     def test_public_hidden_stream_is_none(self, mock_gate, mock_crud, mock_serializers):
         from modules.activities.activity_streams import service
 

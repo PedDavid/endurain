@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 
 import core.logger as core_logger
 import core.pagination as core_pagination
-import modules.activities.activity.integration_service as activity_child_access
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.hr_zones as activity_streams_hr_zones
@@ -86,7 +86,7 @@ def list_activity_streams(
         The page envelope. An empty page when the activity is not visible to the
         caller or has none.
     """
-    activity = activity_child_access.resolve_readable_parent(activity_id, requester_user_id, db)
+    activity = activity_integration.resolve_readable_parent(activity_id, requester_user_id, db)
     if activity is None:
         logger.debug(
             "Refused a streams read; answering with an empty page",
@@ -119,7 +119,7 @@ def get_activity_stream(
         The stream, or ``None`` when the activity is not visible, has no such
         stream, or the stream is hidden from this caller.
     """
-    activity = activity_child_access.resolve_readable_parent(activity_id, requester_user_id, db)
+    activity = activity_integration.resolve_readable_parent(activity_id, requester_user_id, db)
     if activity is None:
         return None
 
@@ -153,7 +153,7 @@ def list_public_activity_streams(
     Returns:
         The page envelope, empty when the activity is not publicly shareable.
     """
-    activity = activity_child_access.resolve_public_parent(activity_id, db)
+    activity = activity_integration.resolve_public_parent(activity_id, db)
     if activity is None:
         logger.debug(
             "Refused a public streams read; answering with an empty page",
@@ -185,7 +185,7 @@ def get_public_activity_stream(
         The stream, or ``None`` when the activity is not publicly shareable, has
         no such stream, or the stream is hidden.
     """
-    activity = activity_child_access.resolve_public_parent(activity_id, db)
+    activity = activity_integration.resolve_public_parent(activity_id, db)
     if activity is None:
         return None
 
@@ -266,7 +266,7 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     max_heart_rate = _max_heart_rate_of(user_id, db)
     last_activity_id = 0
     while True:
-        contexts = activity_child_access.list_user_activity_scoring_contexts(
+        contexts = activity_integration.list_user_activity_scoring_contexts(
             user_id,
             db,
             after_id=last_activity_id,
@@ -308,7 +308,7 @@ def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None
     Returns:
         None.
     """
-    context = activity_child_access.get_activity_scoring_context(activity_id, db)
+    context = activity_integration.get_activity_scoring_context(activity_id, db)
     if context is None or context.owner_id != user_id:
         return
     max_heart_rate = _max_heart_rate_of(context.owner_id, db)
@@ -346,7 +346,7 @@ def backfill_missing_hr_zones(
         records = activity_streams_crud.list_hr_streams_missing_zones(db, after_id=last_id, batch_size=batch_size)
         if not records:
             break
-        contexts = activity_child_access.get_activity_scoring_contexts(
+        contexts = activity_integration.get_activity_scoring_contexts(
             [record.activity_id for record in records],
             db,
         )
