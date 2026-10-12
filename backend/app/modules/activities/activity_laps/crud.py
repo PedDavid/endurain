@@ -7,62 +7,9 @@ import core.decorators as core_decorators
 import core.logger as core_logger
 import modules.activities.activity_laps.models as activity_laps_models
 import modules.activities.activity_laps.schema as activity_laps_schema
+import modules.activities.activity_laps.serializers as activity_laps_serializers
 
 logger = core_logger.get_logger(__name__)
-
-_LAP_COLUMNS: tuple[str, ...] = (
-    "start_time",
-    "start_position_lat",
-    "start_position_long",
-    "end_position_lat",
-    "end_position_long",
-    "total_elapsed_time",
-    "total_timer_time",
-    "total_distance",
-    "total_cycles",
-    "total_calories",
-    "avg_heart_rate",
-    "max_heart_rate",
-    "avg_cadence",
-    "max_cadence",
-    "avg_power",
-    "max_power",
-    "total_ascent",
-    "total_descent",
-    "intensity",
-    "lap_trigger",
-    "sport",
-    "sub_sport",
-    "normalized_power",
-    "total_work",
-    "avg_vertical_oscillation",
-    "avg_stance_time",
-    "avg_fractional_cadence",
-    "max_fractional_cadence",
-    "enhanced_avg_pace",
-    "enhanced_avg_speed",
-    "enhanced_max_pace",
-    "enhanced_max_speed",
-    "enhanced_min_altitude",
-    "enhanced_max_altitude",
-    "avg_vertical_ratio",
-    "avg_step_length",
-)
-
-
-def _to_read_schema(
-    orm_lap: activity_laps_models.ActivityLaps,
-) -> activity_laps_schema.ActivityLapsRead:
-    """
-    Convert an ORM row to its Read schema.
-
-    Args:
-        orm_lap: The ORM model instance.
-
-    Returns:
-        A ActivityLapsRead schema instance.
-    """
-    return activity_laps_schema.ActivityLapsRead.model_validate(orm_lap)
 
 
 @core_decorators.handle_db_errors
@@ -102,7 +49,7 @@ def get_activity_laps(
     )
     activity_laps = db.scalars(stmt).all()
 
-    return [_to_read_schema(lap) for lap in activity_laps]
+    return [activity_laps_serializers.to_read_schema(lap) for lap in activity_laps]
 
 
 @core_decorators.handle_db_errors
@@ -156,7 +103,7 @@ def get_activities_laps(
     stmt = select(activity_laps_models.ActivityLaps).where(
         activity_laps_models.ActivityLaps.activity_id.in_(activity_ids)
     )
-    return [_to_read_schema(row) for row in db.scalars(stmt).all()]
+    return [activity_laps_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -180,13 +127,7 @@ def create_activity_laps(
     Raises:
         ProcessingError: If database error occurs.
     """
-    laps = [
-        activity_laps_models.ActivityLaps(
-            activity_id=activity_id,
-            **{key: lap.get(key) for key in _LAP_COLUMNS},
-        )
-        for lap in activity_laps
-    ]
+    laps = [activity_laps_serializers.to_orm(lap, activity_id) for lap in activity_laps]
 
     db.add_all(laps)
     db.flush()

@@ -1,4 +1,4 @@
-"""Public persistence operations for activity laps."""
+"""Contributor surface for activity laps."""
 
 from typing import Any
 

@@ -42,7 +42,7 @@ class TestCreateActivityLaps:
 class TestGetActivityLaps:
     """Persistence only — the access decision lives in ``activity_laps.service``."""
 
-    @patch("modules.activities.activity_laps.crud._to_read_schema")
+    @patch("modules.activities.activity_laps.serializers.to_read_schema")
     def test_success(self, mock_to_read, mock_db):
         import modules.activities.activity_laps.crud as crud
         import modules.activities.activity_laps.models as m
@@ -70,7 +70,7 @@ class TestGetActivityLaps:
 class TestGetActivitiesLaps:
     """The batch read no longer joins the parent: it is handed scoped ids."""
 
-    @patch("modules.activities.activity_laps.crud._to_read_schema")
+    @patch("modules.activities.activity_laps.serializers.to_read_schema")
     def test_success(self, mock_to_read, mock_db):
         import modules.activities.activity_laps.crud as crud
         import modules.activities.activity_laps.models as m
@@ -100,16 +100,3 @@ class TestGetActivitiesLaps:
         with pytest.raises(core_exceptions.ProcessingError) as e:
             crud.get_activities_laps(activity_ids=[1], db=mock_db)
         assert e.value.status_code == 500
-
-
-class TestToReadSchema:
-    @patch("modules.activities.activity_laps.crud.activity_laps_schema.ActivityLapsRead.model_validate")
-    def test_success(self, mock_validate):
-        import modules.activities.activity_laps.crud as crud
-
-        mock_schema = MagicMock()
-        mock_validate.return_value = mock_schema
-        orm_lap = MagicMock()
-        result = crud._to_read_schema(orm_lap)
-        mock_validate.assert_called_once_with(orm_lap)
-        assert result == mock_schema
