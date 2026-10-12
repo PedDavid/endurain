@@ -4,8 +4,8 @@ Mirrors the thumbnail / HR-zone subscriber pattern: a durable
 ``*_for_event`` core that **raises** so the durable-job runner can retry and
 eventually dead-letter, and an ``on_*`` bus subscriber that **swallows** so a
 geocoding failure never breaks activity import. The scheduled backfill
-(:func:`run_missing_location_backfill`) is the reconciliation net for any activity
-the create-path handler misses (delivery dropped on the best-effort bus, provider
+(``integration_service.run_missing_location_backfill``) is the reconciliation net
+for any activity the create-path handler misses (delivery dropped on the best-effort bus, provider
 temporarily down, etc.).
 """
 
@@ -91,25 +91,3 @@ def register_geocoding_durable_handlers(registry: JobHandlerRegistry) -> None:
         GEOCODING_SUBSCRIBER_ID,
         geocode_activity_for_event,
     )
-
-
-def run_missing_location_backfill() -> None:
-    """Scheduled reconciliation net: geocode GPS activities missing a location.
-
-    Intended to be called periodically by the scheduler. Acquires the coordination
-    lock so only one replica runs the pass, then opens its own database session and
-    resolves any GPS activities the create-path handler missed.
-
-    Returns:
-        None.
-
-    Raises:
-        None — the service backfill logs and continues per activity.
-    """
-    platform = platform_runtime.get_active_platform()
-    with platform.lock.try_acquire("location_backfill") as acquired:
-        if not acquired:
-            logger.debug("Geocoding scheduler: another replica holds the backfill lock; skipping")
-            return
-        with core_database.SessionLocal() as db:
-            activity_geocoding_service.backfill_missing_activity_locations(db, platform.geocoding)
