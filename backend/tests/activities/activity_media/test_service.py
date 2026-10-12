@@ -85,23 +85,19 @@ class TestListActivityMedia:
 
 class TestStoreActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_saves_blob_and_creates_record(self, mock_activities_service, mock_uploads, mock_media_crud):
+    def test_saves_blob_and_creates_record(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
-        mock_uploads.read_validated_upload_sync.return_value = b"bytes"
         storage = MagicMock()
         mock_media_crud.get_activity_media_by_content_hash.return_value = None
         mock_media_crud.create_activity_media.return_value = ActivityMediaRecord(
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        result = store_activity_media(
-            1, 2, MagicMock(filename="ride.jpg", content_type="text/html"), MagicMock(), storage
-        )
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
 
         assert result.id == 9
         assert "/activities/1/media/9/file?t=" in result.url
@@ -118,71 +114,60 @@ class TestStoreActivityMedia:
         assert mock_media_crud.create_activity_media.call_args.kwargs["content_hash"]
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
     def test_returns_existing_record_without_storing_when_content_matches(
-        self, mock_activities_service, mock_uploads, mock_media_crud
+        self, mock_activities_service, mock_media_crud
     ):
         """A retried upload of the exact same photo must not create a second row."""
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
-        mock_uploads.read_validated_upload_sync.return_value = b"bytes"
         storage = MagicMock()
         existing = ActivityMediaRecord(id=4, activity_id=1, media_path="1_existing.jpg", media_type=1)
         mock_media_crud.get_activity_media_by_content_hash.return_value = existing
 
-        result = store_activity_media(
-            1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage
-        )
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
 
         assert result.id == 4
         storage.save.assert_not_called()
         mock_media_crud.create_activity_media.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_rejects_activity_owned_by_another_user(self, mock_activities_service, mock_uploads, mock_media_crud):
+    def test_rejects_activity_owned_by_another_user(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = False
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
             storage = MagicMock()
-            store_activity_media(1, 2, MagicMock(filename="ride.jpg"), MagicMock(), storage)
+            store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
 
         assert exc.value.status_code == 404
-        # Nothing is read or stored for an activity the caller does not own.
-        mock_uploads.read_validated_upload_sync.assert_not_called()
+        # Nothing is stored for an activity the caller does not own.
         storage.save.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_removes_blob_when_record_creation_fails(self, mock_activities_service, mock_uploads, mock_media_crud):
+    def test_removes_blob_when_record_creation_fails(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
-        mock_uploads.read_validated_upload_sync.return_value = b"bytes"
         storage = MagicMock()
         mock_media_crud.get_activity_media_by_content_hash.return_value = None
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
         with pytest.raises(core_exceptions.ConflictError):
-            store_activity_media(1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage)
+            store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
 
         # A failed upload leaves no orphaned blob.
         stored_key = storage.save.call_args.args[1]
         storage.delete.assert_called_once_with("activity_media", stored_key)
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.core_file_uploads")
     @patch(f"{_SVC}.activities_service")
-    def test_race_lost_to_a_concurrent_store_returns_the_winner(
-        self, mock_activities_service, mock_uploads, mock_media_crud
-    ):
+    def test_race_lost_to_a_concurrent_store_returns_the_winner(self, mock_activities_service, mock_media_crud):
         """The pre-check is read-then-write; losing the race to the unique index
         must return the winner rather than surfacing a conflict for what the
         caller experiences as a successful store."""
@@ -190,16 +175,13 @@ class TestStoreActivityMedia:
         from modules.activities.activity_media.service import store_activity_media
 
         mock_activities_service.owns_activity.return_value = True
-        mock_uploads.read_validated_upload_sync.return_value = b"bytes"
         storage = MagicMock()
         winner = ActivityMediaRecord(id=4, activity_id=1, media_path="1_winner.jpg", media_type=1)
         # Miss on the pre-check, then find the winner once the insert conflicts.
         mock_media_crud.get_activity_media_by_content_hash.side_effect = [None, winner]
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
-        result = store_activity_media(
-            1, 2, MagicMock(filename="ride.jpg", content_type="image/jpeg"), MagicMock(), storage
-        )
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
 
         assert result.id == 4
         stored_key = storage.save.call_args.args[1]

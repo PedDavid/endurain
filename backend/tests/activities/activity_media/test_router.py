@@ -47,8 +47,9 @@ class TestReadActivityMedia:
 
 
 class TestUploadActivityMedia:
+    @patch("modules.activities.activity_media.router.core_file_uploads")
     @patch("modules.activities.activity_media.router.activity_media_service.store_activity_media")
-    def test_upload_propagates_service_rejection(self, mock_store, mock_db):
+    def test_upload_propagates_service_rejection(self, mock_store, mock_uploads, mock_db):
         from fastapi import HTTPException
 
         client = TestClient(_build_app(mock_db))
@@ -62,8 +63,9 @@ class TestUploadActivityMedia:
 
         assert response.status_code == 404
 
+    @patch("modules.activities.activity_media.router.core_file_uploads")
     @patch("modules.activities.activity_media.router.activity_media_service.store_activity_media")
-    def test_upload_success(self, mock_store, mock_db):
+    def test_upload_success(self, mock_store, mock_uploads, mock_db):
         from modules.activities.activity_media.schema import ActivityMedia
 
         client = TestClient(_build_app(mock_db))

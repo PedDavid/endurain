@@ -18,11 +18,9 @@ import uuid
 from pathlib import PurePosixPath
 
 import jasil.providers as platform_providers
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
-import core.file_uploads as core_file_uploads
 import core.hashing as core_hashing
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activities_service
@@ -105,7 +103,7 @@ def _build_storage_key(activity_id: int, original_name: str | None) -> str:
 
     Args:
         activity_id: ID of the activity the media belongs to.
-        original_name: Original ``UploadFile.filename`` value.
+        original_name: Original upload filename.
 
     Returns:
         A key of the form ``"{activity_id}_{uuid}{ext}"``. The ``{activity_id}_``
@@ -331,21 +329,23 @@ def read_activity_media_blob(
 def store_activity_media(
     activity_id: int,
     user_id: int,
-    file: UploadFile,
+    original_filename: str | None,
+    data: bytes,
     db: Session,
     storage: platform_providers.StorageProvider,
 ) -> activity_media_schema.ActivityMedia:
     """Persist an uploaded image and register it against an activity.
 
-    The upload is magic-number and size validated before any bytes are stored,
-    then written through the storage provider under a server-generated key. If
-    the database row cannot be created the blob is removed again, so a failed
-    upload leaves nothing behind.
+    The caller has already validated the bytes (magic number and size). They are
+    written through the storage provider under a server-generated key. If the
+    database row cannot be created the blob is removed again, so a failed upload
+    leaves nothing behind.
 
     Args:
         activity_id: The activity to attach the media to.
         user_id: The authenticated user, who must own the activity.
-        file: The uploaded image.
+        original_filename: The uploaded filename, used only for its extension.
+        data: The validated image bytes.
         db: Database session.
         storage: The blob-storage provider.
 
@@ -361,11 +361,7 @@ def store_activity_media(
     """
     _require_owned_activity(activity_id, user_id, db)
 
-    # SafeUploads validates magic number and size before anything is stored.
-    # Callers run on a worker thread (the route is synchronous), so the blocking
-    # read never touches the event loop.
-    data = core_file_uploads.read_validated_upload_sync(file, kind=core_file_uploads.UploadKind.IMAGE)
-    created = _persist_media_bytes(activity_id, file.filename, data, db, storage)
+    created = _persist_media_bytes(activity_id, original_filename, data, db, storage)
 
     logger.info(
         "Stored activity media",

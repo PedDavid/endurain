@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.dependencies as core_dependencies
+import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_media.dependencies as activities_media_dependencies
 import modules.activities.activity_media.schema as activity_media_schema
@@ -89,7 +90,7 @@ def upload_media(
     Upload an image file to associate with an activity.
 
     The file is validated by magic number (not extension) and size limits via
-    the centralized image upload helper, stored through the platform
+    the centralized image upload helper before the ownership check, stored through the platform
     ``StorageProvider`` under a server-generated key, and registered in the
     database. The response carries a signed URL; the blob itself has no public
     path.
@@ -115,7 +116,10 @@ def upload_media(
         UnsupportedMediaTypeError: If the extension is rejected.
         ConflictError: If a media with the same path already exists.
     """
-    return activity_media_service.store_activity_media(activity_id, token_user_id, file, db, storage)
+    # The route is synchronous and runs on a worker thread, so the blocking read
+    # never touches the event loop.
+    data = core_file_uploads.read_validated_upload_sync(file, kind=core_file_uploads.UploadKind.IMAGE)
+    return activity_media_service.store_activity_media(activity_id, token_user_id, file.filename, data, db, storage)
 
 
 @router.delete(
