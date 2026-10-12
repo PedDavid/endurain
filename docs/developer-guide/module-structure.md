@@ -248,7 +248,7 @@ the layer that arranges it, not to the single statement a `crud` function runs.
 | --- | --- | --- |
 | `crud` | `add` / `execute`, then `flush()` so constraint violations and row counts surface at the call; `refresh` after the flush when it needs server defaults | `commit()`, `rollback()`, a `commit` parameter |
 | `service` | Stages through `crud`, publishes through `event_publishers` (passing `db.commit` so row and outbox event commit together), or calls `db.commit()` itself when no event is involved | — |
-| `integration_service` | Calls its own `service` for any write | Commit, roll back, publish |
+| `integration_service` | Calls its own `service` for any write that decides, publishes or commits; stages through its own `crud` only for a [decision-free write](#decision-free-surface-writes) | Commit, roll back, publish |
 | entry point (`get_db`, a job, a subscriber) | Rolls back what its caller left open | — |
 
 Two choices in that table are deliberate:
@@ -265,6 +265,19 @@ Two choices in that table are deliberate:
   back by `@handle_db_errors` for database errors, and otherwise by the
   transaction owner (`core.database.get_db` on a request, the job or subscriber
   that opened the session elsewhere).
+
+### Decision-free surface writes
+
+An `integration_service` function may stage through its own `crud` only when the
+write makes no decision: no access check, no invariant beyond payload shape, no
+event and no commit. The contributor `persist` and `restore` callbacks are the
+case this exists for. The caller (ingestion in `activity`, the profile importer)
+owns the unit of work, so a `service` function between them could only forward
+and stage, which is a layer that adds nothing.
+
+The moment such a write needs an ownership check, a business rule, an event or a
+commit, it moves to `service`. The surface never grows a second write path beside
+it.
 
 A failed `commit()` is not translated in `service`. `service` does not wrap its
 commit in `try`/`except`, and it does not catch `SQLAlchemyError`. The error

@@ -1,6 +1,5 @@
 """Public record and blob operations for activity media."""
 
-import re
 from typing import Any
 
 import jasil.providers as platform_providers
@@ -12,12 +11,9 @@ import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.crud as activity_media_crud
 import modules.activities.activity_media.service as activity_media_service
-import modules.activities.activity_media.signing as activity_media_signing
 import modules.activities.contributors as activity_contributors
 
 logger = core_logger.get_logger(__name__)
-
-_MEDIA_KEY_PATTERN = re.compile(r"(?P<activity_id>\d+)_(?P<suffix>[^/\\]+)")
 
 
 def _list_media_for_activities(
@@ -55,8 +51,8 @@ def _restore_profile_records(
         old_key = data.get("media_path")
         if not old_key:
             continue
-        match = _MEDIA_KEY_PATTERN.fullmatch(str(old_key))
-        if match is None:
+        media_path = activity_media_service.rekey_media_path(str(old_key), new_activity.id)
+        if media_path is None:
             logger.warning(
                 "Skipping activity media with invalid key",
                 extra=core_logger.context(media_path=old_key),
@@ -64,7 +60,7 @@ def _restore_profile_records(
             continue
         media.append(
             activity_media_contracts.ActivityMediaCreate(
-                media_path=f"{new_activity.id}_{match.group('suffix')}",
+                media_path=media_path,
                 media_type=data.get("media_type", 1),
             )
         )
@@ -106,32 +102,7 @@ def list_media_blobs(
     storage: platform_providers.StorageProvider,
 ) -> list[tuple[str, bytes]]:
     """Return every readable media blob attached to an activity."""
-    try:
-        keys = storage.list_keys(activity_media_signing.MEDIA_STORAGE_AREA, f"{activity_id}_")
-    except Exception as err:
-        logger.warning(
-            "Could not list an activity's media blobs",
-            exc_info=err,
-            extra=core_logger.context(activity_id=activity_id),
-        )
-        return []
-
-    blobs: list[tuple[str, bytes]] = []
-    for key in keys:
-        try:
-            data = storage.get(activity_media_signing.MEDIA_STORAGE_AREA, key)
-        except Exception as err:
-            logger.warning(
-                "Could not read a media blob; skipping it",
-                exc_info=err,
-                extra=core_logger.context(storage_key=key),
-            )
-            continue
-        if data is None:
-            logger.warning("Media blob is missing behind its key", extra=core_logger.context(storage_key=key))
-            continue
-        blobs.append((key, data))
-    return blobs
+    return activity_media_service.list_media_blobs(activity_id, storage)
 
 
 def store_media_blob(
@@ -142,6 +113,4 @@ def store_media_blob(
     storage: platform_providers.StorageProvider,
 ) -> str:
     """Restore one exported media blob and return its storage key."""
-    key = f"{activity_id}_{suffix}{extension}"
-    storage.save(activity_media_signing.MEDIA_STORAGE_AREA, key, data)
-    return key
+    return activity_media_service.store_media_blob(activity_id, suffix, extension, data, storage)

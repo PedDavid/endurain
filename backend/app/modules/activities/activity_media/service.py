@@ -13,6 +13,7 @@ storage and are reachable only through the token-gated route, instead of being
 pinned to one node's disk and served from a public static path.
 """
 
+import re
 import uuid
 from pathlib import PurePosixPath
 
@@ -36,6 +37,37 @@ logger = core_logger.get_logger(__name__)
 # also magic-number validated by safeuploads; this only bounds the extension we
 # are willing to record in a storage key.
 _ALLOWED_MEDIA_EXTENSIONS: frozenset[str] = frozenset({".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"})
+
+# A stored key is ``{activity_id}_{suffix}``; ``suffix`` is a flat file name.
+_MEDIA_KEY_PATTERN = re.compile(r"(?P<activity_id>\d+)_(?P<suffix>[^/\\]+)")
+
+
+def _key_prefix(activity_id: int) -> str:
+    """Return the prefix shared by every storage key of one activity.
+
+    ``activity_id`` is an int, so the prefix carries no metacharacters. The
+    trailing underscore keeps activity 42 from matching activity 421's keys.
+
+    Args:
+        activity_id: ID of the activity the media belongs to.
+
+    Returns:
+        The key prefix, ``"{activity_id}_"``.
+    """
+    return f"{activity_id}_"
+
+
+def _media_key(activity_id: int, suffix: str) -> str:
+    """Return the storage key for ``suffix`` under an activity.
+
+    Args:
+        activity_id: ID of the activity the media belongs to.
+        suffix: The flat file name following the activity prefix.
+
+    Returns:
+        The storage key, ``"{activity_id}_{suffix}"``.
+    """
+    return f"{_key_prefix(activity_id)}{suffix}"
 
 
 def _require_owned_activity(activity_id: int, user_id: int, db: Session) -> None:
@@ -93,7 +125,7 @@ def _build_storage_key(activity_id: int, original_name: str | None) -> str:
         )
         raise core_exceptions.UnsupportedMediaTypeError("Unsupported media file type")
 
-    return f"{activity_id}_{uuid.uuid4().hex}{extension}"
+    return _media_key(activity_id, f"{uuid.uuid4().hex}{extension}")
 
 
 def _content_type_for(storage_key: str) -> str:
@@ -453,12 +485,8 @@ def delete_media_files_for_activity(activity_id: int, storage: platform_provider
     Returns:
         The number of blobs removed.
     """
-    # ``activity_id`` is an int, so the prefix carries no metacharacters. The
-    # trailing underscore keeps activity 42 from matching activity 421's keys.
-    prefix = f"{activity_id}_"
-
     removed = 0
-    for key in storage.list_keys(activity_media_signing.MEDIA_STORAGE_AREA, prefix):
+    for key in storage.list_keys(activity_media_signing.MEDIA_STORAGE_AREA, _key_prefix(activity_id)):
         try:
             storage.delete(activity_media_signing.MEDIA_STORAGE_AREA, key)
             removed += 1
@@ -474,3 +502,86 @@ def delete_media_files_for_activity(activity_id: int, storage: platform_provider
             extra=core_logger.context(activity_id=activity_id, removed=removed),
         )
     return removed
+
+
+def list_media_blobs(activity_id: int, storage: platform_providers.StorageProvider) -> list[tuple[str, bytes]]:
+    """Return every readable media blob attached to an activity.
+
+    Best-effort for the profile export: a storage failure listing the keys yields
+    an empty result, and a blob that cannot be read is skipped, so one bad object
+    never aborts the whole export.
+
+    Args:
+        activity_id: The activity whose blobs to read.
+        storage: The blob-storage provider.
+
+    Returns:
+        ``(storage_key, bytes)`` pairs for the blobs that could be read.
+    """
+    try:
+        keys = storage.list_keys(activity_media_signing.MEDIA_STORAGE_AREA, _key_prefix(activity_id))
+    except Exception as err:
+        logger.warning(
+            "Could not list an activity's media blobs",
+            exc_info=err,
+            extra=core_logger.context(activity_id=activity_id),
+        )
+        return []
+
+    blobs: list[tuple[str, bytes]] = []
+    for key in keys:
+        try:
+            data = storage.get(activity_media_signing.MEDIA_STORAGE_AREA, key)
+        except Exception as err:
+            logger.warning(
+                "Could not read a media blob; skipping it",
+                exc_info=err,
+                extra=core_logger.context(storage_key=key),
+            )
+            continue
+        if data is None:
+            logger.warning("Media blob is missing behind its key", extra=core_logger.context(storage_key=key))
+            continue
+        blobs.append((key, data))
+    return blobs
+
+
+def store_media_blob(
+    activity_id: int,
+    suffix: str,
+    extension: str,
+    data: bytes,
+    storage: platform_providers.StorageProvider,
+) -> str:
+    """Restore one exported media blob under an activity and return its key.
+
+    Args:
+        activity_id: The activity the blob now belongs to.
+        suffix: The exported file name without its extension.
+        extension: The exported file's extension, including the dot.
+        data: The already-validated image bytes.
+        storage: The blob-storage provider.
+
+    Returns:
+        The storage key the blob was saved under.
+    """
+    key = _media_key(activity_id, f"{suffix}{extension}")
+    storage.save(activity_media_signing.MEDIA_STORAGE_AREA, key, data)
+    return key
+
+
+def rekey_media_path(old_key: str, new_activity_id: int) -> str | None:
+    """Return an exported media key re-addressed to a restored activity.
+
+    Args:
+        old_key: The ``media_path`` recorded in a profile archive.
+        new_activity_id: The activity the record is being restored onto.
+
+    Returns:
+        The key under the new activity, or ``None`` when ``old_key`` is not a
+        flat ``{activity_id}_{suffix}`` key (the archive is untrusted).
+    """
+    match = _MEDIA_KEY_PATTERN.fullmatch(old_key)
+    if match is None:
+        return None
+    return _media_key(new_activity_id, match.group("suffix"))
