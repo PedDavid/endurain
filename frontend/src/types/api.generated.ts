@@ -502,6 +502,7 @@ export interface paths {
          *         _check_scopes: Scope validation dependency.
          *         token_user_id: Authenticated user ID.
          *         db: Database session.
+         *         storage: Blob-storage provider.
          *
          *     Returns:
          *         The newly created ActivityMedia record.
@@ -539,6 +540,7 @@ export interface paths {
          *         _check_scopes: Scope validation dependency.
          *         token_user_id: Authenticated user ID.
          *         db: Database session.
+         *         storage: Blob-storage provider.
          *
          *     Returns:
          *         None.
@@ -569,6 +571,7 @@ export interface paths {
          *         media_id: The media record to serve.
          *         token: The signed access token (``?t=``) minted at serialization time.
          *         db: Database session dependency.
+         *         storage: Blob-storage provider.
          *
          *     Returns:
          *         The image bytes.
@@ -703,14 +706,14 @@ export interface paths {
          *     Args:
          *         activity_id: The activity whose thumbnail to serve.
          *         token: The signed access token (``?t=``) minted at serialization time.
+         *         storage: Blob-storage provider.
          *
          *     Returns:
          *         The WebP thumbnail bytes.
          *
          *     Raises:
-         *         HTTPException: 404 when the token is invalid/forged or no thumbnail
-         *             exists (a 404 — rather than 403 — avoids confirming the resource to
-         *             an unauthorized caller).
+         *         NotFoundError: When the token is invalid/forged or no thumbnail exists
+         *             (rendered as a 404).
          */
         get: operations["read_activity_thumbnail_api_v1_activities__activity_id__thumbnail_get"];
         put?: never;
@@ -6296,6 +6299,11 @@ export interface components {
         /**
          * FollowRelationship
          * @description Serialized representation of a follow relationship.
+         *
+         *     Attributes:
+         *         follower_id: The user who follows (the requester).
+         *         followee_id: The user being followed.
+         *         status: Whether the request is pending or accepted.
          */
         FollowRelationship: {
             /** Followee Id */
@@ -6315,6 +6323,9 @@ export interface components {
          *     the payload rather than implied by the route. Unknown fields are rejected
          *     (``extra="forbid"``) rather than silently ignored, matching every other
          *     request-body schema in the activities/followers template modules.
+         *
+         *     Attributes:
+         *         status: The target status; only ``accepted`` is valid.
          */
         FollowRequestAccept: {
             status: components["schemas"]["FollowStatus"];
