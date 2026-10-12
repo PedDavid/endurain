@@ -9,15 +9,9 @@ import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.activities.activity_exercise_titles.models as activity_exercise_titles_models
 import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
+import modules.activities.activity_exercise_titles.serializers as activity_exercise_titles_serializers
 
 logger = core_logger.get_logger(__name__)
-
-
-def _to_read_schema(
-    orm_title: activity_exercise_titles_models.ActivityExerciseTitles,
-) -> activity_exercise_titles_schema.ActivityExerciseTitles:
-    """Convert an ORM row to its read schema so ORM never leaves ``crud``."""
-    return activity_exercise_titles_schema.ActivityExerciseTitles.model_validate(orm_title)
 
 
 @core_decorators.handle_db_errors
@@ -36,12 +30,7 @@ def get_activity_exercise_titles(
         ProcessingError: If a database error occurs.
     """
     stmt = select(activity_exercise_titles_models.ActivityExerciseTitles)
-    activity_exercise_titles = db.execute(stmt).scalars().all()
-
-    if not activity_exercise_titles:
-        return []
-
-    return [_to_read_schema(title) for title in activity_exercise_titles]
+    return [activity_exercise_titles_serializers.to_read_schema(title) for title in db.execute(stmt).scalars().all()]
 
 
 @core_decorators.handle_db_errors
@@ -75,11 +64,7 @@ def create_activity_exercise_titles(
     existing_keys = set(db.execute(existing_stmt).all())
 
     new_entries = [
-        model(
-            exercise_category=t.exercise_category,
-            exercise_name=t.exercise_name,
-            wkt_step_name=t.wkt_step_name,
-        )
+        activity_exercise_titles_serializers.to_orm(t)
         for t in activity_exercise_titles
         if (t.exercise_name, t.exercise_category) not in existing_keys
     ]

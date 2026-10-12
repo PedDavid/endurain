@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 import core.logger as core_logger
 import modules.activities.activity_exercise_titles.crud as exercise_titles_crud
 import modules.activities.activity_exercise_titles.schema as exercise_titles_schema
-import modules.activities.activity_exercise_titles.service as exercise_titles_service
 import modules.activities.contributors as activity_contributors
 
 logger = core_logger.get_logger(__name__)
@@ -16,20 +15,12 @@ logger = core_logger.get_logger(__name__)
 
 def _list_exercise_titles(db: Session) -> list[exercise_titles_schema.ActivityExerciseTitles]:
     """Return every exercise-title reference row."""
-    return exercise_titles_service.list_activity_exercise_titles(db)
-
-
-def _store_exercise_titles(
-    titles: list[exercise_titles_schema.ActivityExerciseTitles],
-    db: Session,
-) -> None:
-    """Store exercise-title reference rows, skipping existing entries."""
-    exercise_titles_crud.create_activity_exercise_titles(titles, db)
+    return exercise_titles_crud.get_activity_exercise_titles(db)
 
 
 def _persist_file_ingestion_component(data: Any, db: Session) -> None:
     """Persist exercise titles through the generic file-ingestion contract."""
-    _store_exercise_titles(data, db)
+    exercise_titles_crud.create_activity_exercise_titles(data, db)
 
 
 def ingestion_contributor() -> activity_contributors.FileIngestionContributor:
@@ -55,7 +46,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
             logger.warning("Skipping invalid exercise-title profile record", exc_info=err)
 
     if titles:
-        _store_exercise_titles(titles, db)
+        exercise_titles_crud.create_activity_exercise_titles(titles, db)
     return len(titles)
 
 
