@@ -9,6 +9,6 @@ durable jobs are enabled, exactly like the thumbnail subsystem.
 Two shapes of handler live in ``subscribers``: a durable ``*_for_event`` core that
 **raises** so the job runner can retry/dead-letter, and an ``on_*`` bus subscriber
 that **swallows** so a geocoding failure never breaks activity import. The
-scheduled backfill (:func:`subscribers.run_missing_location_backfill`) is the
+scheduled backfill (:func:`integration_service.run_missing_location_backfill`) is the
 reconciliation net for anything the create-path handler misses.
 """
