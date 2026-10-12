@@ -145,8 +145,9 @@ The type lives in the platform rather than in the module that needed it first.
 While it lived in `modules/activities`, the invariant was enforceable for exactly
 one module — declaring nets anywhere else would have meant importing the
 activities module to borrow the vocabulary, a dependency between two bounded
-contexts for the sake of a shared word. Followers registered two durable
-subscribers with no net, no exemption, and nothing to catch it.
+contexts for the sake of a shared word. The follower notification subscribers
+had no net, no exemption, and nothing to catch it; they now live in
+`modules/notifications` with their nets declared in its `subscriber_registry.py`.
 
 A namespace-level file is appropriate only for composition or a genuinely
 shared, dependency-free contract. `modules/activities/computation.py` is the
@@ -356,8 +357,13 @@ exceptions, pagination, timezone, uploads. It is not enforced yet. Treat it as a
 declared dependency rather than free: prefer a primitive that is already generic
 (`core.exceptions`, `core.timezone`, `core.pagination`) over adding a new reach
 into application-wide state (`core.config`, `core.middleware`), and put anything
-generic enough to be shared by other products into `jasil`. A follow-up will turn
-this into an allowlist.
+generic enough to be shared by other products into `jasil`.
+
+For converted modules this is an allowlist:
+`tests/architecture/test_converted_module_dependencies.py` names every `core`
+module `activities` and `followers` may import, with the reason, and fails both
+on an import that is not listed and on an entry nothing uses any more. Unconverted
+modules are outside it.
 
 ## Inverting a platform-to-domain reach
 
@@ -476,10 +482,12 @@ the conformance test's allowlist.
 
 ### Pilot status and what the next conversion owns
 
-`activities` and `followers` are the pilot of this structure. The remaining
-modules are listed in `UNCONVERTED_MODULES` and are converted in a follow-up.
-Items that need changes outside the two pilot modules are recorded here rather
-than half-done:
+`activities` and `followers` are the only modules converted to this structure,
+and no further conversion is planned. The remaining modules are listed in
+`UNCONVERTED_MODULES` so that `TestModuleInventory` keeps them visible rather
+than silently exempt. The items below need changes outside the two converted
+modules, so they are recorded here as accepted limitations rather than
+half-done:
 
 - **Top-level cycles.** `users` ⇄ `activities` (profile export/import consumes
   activities; activities consumes `users.integration_service`) and, by the
@@ -487,22 +495,27 @@ than half-done:
   contributor pattern the activity children already use: `users_profile`
   export/import asks each module for its section instead of importing them.
   A `layers` contract (core, identity, followers/gears/health, activities,
-  providers) then states the module-level direction once.
-- **Hand-listed contract sources.** `auth-boundary`, `consumer-*` and
-  `consumer-users-boundary` name modules by hand, so a new module is
-  unconstrained until it is added. They collapse into one generic rule over
-  `modules/*` once most modules are converted.
-- **One registration seam per concern.** Router, model registry, subscribers,
-  jobs and contributors are each a separate file collected in a different place.
-  A single per-module manifest is the candidate replacement; decide it *before*
-  converting the other modules so they are not migrated twice.
+  providers) then states the module-level direction once. Every edge that closes
+  a cycle lives in `users` or `gears`; the activities side already publishes the
+  contributor surface, so the cycles stay until those modules are changed.
+- **Hand-listed contract sources.** `consumer-*` and `consumer-users-boundary`
+  name the modules they constrain by hand, because each states a specific
+  consumer relationship rather than a rule over every module.
+  `auth-boundary` is the generic one: `TestAuthBoundaryCoverage` fails when its
+  source list differs from the set of top-level modules, so a new module cannot
+  start unconstrained.
+- **Registration seams.** `RuntimeModule` in `app/module_registry.py` is the
+  per-module manifest for subscribers, durable handlers, nets, recurring jobs and
+  startup tasks. Routers (`api.py`) and models (`model_registry.py`) stay
+  separate composition surfaces on purpose: they have different consumers
+  (the HTTP app and Alembic), and the legacy model scan keeps the model seam
+  distinct until the unconverted modules are gone.
 - **Namespace-level code in `health`.** `health` has `router.py`, `schema.py`
   and `utils.py` beside its sub-packages, which conflicts with "a composition
   namespace is not an implementation boundary".
 - **`auth` naming.** `identity_service.py` and `_internal/` instead of
   `integration_service.py` and the filename vocabulary, as described above.
   The generic boundary rule needs a special case until it is aligned.
-- **`core` allowlist.** See [What a module may take from `core`](#what-a-module-may-take-from-core).
 
 ### Sibling persistence reaches
 
@@ -609,7 +622,9 @@ converted lists its files.
 past two modules' surfaces to do what `notifications.integration_service` and
 `websocket.integration_service` each state as one operation, and the reason the
 module could not be lifted out without dragging the websocket connection registry
-with it. Enforced by `followers-consumes-surfaces`.
+with it. The handlers now live in `modules/notifications`, which subscribes to
+the constants in `followers.events`; followers itself holds no subscribers.
+Enforced by `followers-consumes-surfaces`.
 
 The same reach survives in `garmin`, `strava`, `auth.sign_up_tokens` and
 `users.users_profile`; each is fixed as its module is converted.
