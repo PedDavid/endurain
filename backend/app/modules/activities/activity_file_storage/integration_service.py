@@ -47,6 +47,14 @@ def _activity_file_key(activity_id: int, extension: str) -> str:
 
 
 def _processed_storage_key(key: str) -> str:
+    """Return the storage key placed under the ``processed`` hierarchy.
+
+    Args:
+        key: The activity file key, e.g. ``"42.fit"``.
+
+    Returns:
+        The prefixed storage key, e.g. ``"processed/42.fit"``.
+    """
     return f"{_PROCESSED_KEY_PREFIX}/{key}"
 
 
