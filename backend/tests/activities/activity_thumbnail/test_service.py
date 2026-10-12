@@ -44,8 +44,8 @@ class TestResolveTileSettings:
 
         url, background_color, api_key = resolve_tile_settings(MagicMock())
 
-        assert url == render._DEFAULT_TILE_URL
-        assert background_color == render._DEFAULT_BG_COLOR
+        assert url == render.DEFAULT_TILE_URL
+        assert background_color == render.DEFAULT_BG_COLOR
         assert api_key is None
 
 

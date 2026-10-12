@@ -31,8 +31,8 @@ _THUMBNAIL_METHOD = 6
 
 # Fallback tile URL used when server settings are unavailable.
 # Uses a fixed subdomain; staticmap does not support {s} rotation.
-_DEFAULT_TILE_URL = "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
-_DEFAULT_BG_COLOR = "#dddddd"
+DEFAULT_TILE_URL = "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"
+DEFAULT_BG_COLOR = "#dddddd"
 
 # Visual constants mirroring the frontend Leaflet map (design tokens):
 # track = --color-brand, start marker = --color-goal, finish marker = --color-hr.
@@ -84,8 +84,8 @@ def render_activity_thumbnail(
     activity_id: int,
     waypoints: list[dict],
     *,
-    tile_url: str = _DEFAULT_TILE_URL,
-    background_color: str = _DEFAULT_BG_COLOR,
+    tile_url: str = DEFAULT_TILE_URL,
+    background_color: str = DEFAULT_BG_COLOR,
     api_key: str | None = None,
     width: int = THUMBNAIL_WIDTH,
     height: int = THUMBNAIL_HEIGHT,

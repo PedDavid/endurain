@@ -96,8 +96,8 @@ def resolve_tile_settings(db: Session) -> tuple[str, str, str | None]:
     """
     settings = server_settings_integration.get_tile_server_settings(db)
     return (
-        settings.tile_url or activity_thumbnail_render._DEFAULT_TILE_URL,
-        settings.background_color or activity_thumbnail_render._DEFAULT_BG_COLOR,
+        settings.tile_url or activity_thumbnail_render.DEFAULT_TILE_URL,
+        settings.background_color or activity_thumbnail_render.DEFAULT_BG_COLOR,
         settings.api_key,
     )
 
