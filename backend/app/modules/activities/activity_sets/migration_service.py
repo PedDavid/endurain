@@ -3,9 +3,14 @@
 from sqlalchemy.orm import Session
 
 import modules.activities.activity_sets.crud as activity_sets_crud
+import modules.activities.activity_sets.schema as activity_sets_schema
 
 
-def create_activity_sets(activity_sets: list, activity_id: int, db: Session) -> None:
+def create_activity_sets(
+    activity_sets: list[activity_sets_schema.ActivitySetsCreate | list],
+    activity_id: int,
+    db: Session,
+) -> None:
     """Create workout sets for an activity and commit them, as migrations did.
 
     Args:

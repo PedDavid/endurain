@@ -22,7 +22,7 @@ import modules.activities.activity_exercise_titles.migration_service as activity
 import modules.activities.activity_file_import.migration_service as activity_file_import_utils
 import modules.activities.activity_file_import.migration_service as fit_utils
 import modules.activities.activity_laps.migration_service as activity_laps_crud
-import modules.activities.activity_sets.migration_service as activity_sets_crud
+import modules.activities.activity_sets.migration_service as activity_sets_migration_service
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.migration_service as activity_streams_crud
 import modules.activities.activity_workout_steps.migration_service as activity_workout_steps_crud
@@ -566,6 +566,6 @@ def store_data_in_db(
 
     # Create activity sets in the database
     if sets_to_store:
-        activity_sets_crud.create_activity_sets(sets_to_store, activity.id, db)
+        activity_sets_migration_service.create_activity_sets(sets_to_store, activity.id, db)
 
     logger.info(f"Migration 3 - Activity {activity.id} processed.", extra=core_logger.context(console=True))
