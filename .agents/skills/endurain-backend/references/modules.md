@@ -33,7 +33,7 @@ A second persistence file is `<thing>_crud.py`, never a new word.
 | `model_registry.py` | Declares the package's ORM module | composition |
 | `migration_service.py` | Version-pinned operations for `app/migrations` only | migration-only |
 
-Other files (`utils.py`, `signing.py`, `pipeline.py`...) are package-private.
+Other files (`utils.py`, `signing.py`, `render.py`...) are package-private. A file that orchestrates modules or commits is a `<thing>_service.py`.
 
 ## Import rules
 

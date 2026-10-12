@@ -52,8 +52,8 @@ Because the role is what the rules see, the role has to be the truth:
 `tests/architecture/test_module_boundaries.py` asserts that only a `crud`-role
 file executes statements against the session, that only `router`/`public_router`
 files construct an `APIRouter`, and that only `models` files declare ORM classes.
-The vocabulary is deliberately open (`pipeline.py`, `render.py` and `signing.py`
-are legitimate private helpers), so the check is that a file's *content* agrees
+The vocabulary is deliberately open (`render.py` and `signing.py` are legitimate
+private helpers), so the check is that a file's *content* agrees
 with its name rather than that its name is on a list. Ending a transaction
 (`commit`, `rollback`) is a separate rule, stated under
 [Transaction ownership](#transaction-ownership).
@@ -79,8 +79,10 @@ with its name rather than that its name is on a list. Ending a transaction
 | `model_registry.py` | **composition surface** | Declares the package's ORM model module without requiring core to scan domains. |
 | `migration_service.py` | **migration-only surface** | Version-pinned operations used by `app/migrations`; never an ordinary domain dependency. |
 
-Anything else (`utils.py`, `signing.py`, `render.py`, `pipeline.py`, …) is
-package-private by default.
+Anything else (`utils.py`, `signing.py`, `render.py`, …) is package-private by
+default. A helper that orchestrates other modules or ends a transaction is not a
+helper: it plays the `service` role and is named `<thing>_service.py`, such as
+`activity_ingestion/pipeline_service.py`.
 
 ## Visibility
 
