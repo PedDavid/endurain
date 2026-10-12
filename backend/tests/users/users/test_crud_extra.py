@@ -983,6 +983,35 @@ class TestEditProfileUser:
         mock_recompute.assert_called_once_with(1, mock_db)
 
     @pytest.mark.asyncio
+    async def test_hr_zone_recompute_failure_does_not_fail_the_edit(self):
+        from modules.users.users.crud import edit_profile_user
+
+        mock_db = MagicMock(spec=Session)
+        mock_db_user = MagicMock()
+        mock_db_user.id = 1
+        mock_db_user.height = 180
+        mock_db_user.max_heart_rate = 180
+        mock_db_user.birthdate = None
+        mock_db_user.photo_path = None
+
+        mock_profile = MagicMock()
+        mock_profile.model_dump.return_value = {"max_heart_rate": 190}
+
+        with (
+            patch("modules.users.users.crud._get_user_model_by_id_or_404", return_value=mock_db_user),
+            patch(
+                "modules.activities.activity_streams.service.recompute_hr_zones_for_user",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
+            mock_db.refresh.side_effect = lambda x: setattr(mock_db_user, "max_heart_rate", 190)
+
+            result = await edit_profile_user(1, mock_profile, mock_db)
+
+        assert result == mock_db_user
+        mock_db.rollback.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_unchanged_max_heart_rate_skips_hr_zone_recompute(self):
         from modules.users.users.crud import edit_profile_user
 

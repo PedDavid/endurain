@@ -202,48 +202,6 @@ def get_public_activity_stream(
 # ---------------------------------------------------------------------------
 # Derived-artifact reads
 #
-# The sibling surface: the thumbnail and geocoding subsystems need an activity's
-# recorded track to render a map or resolve a place name. They read it through
-# these instead of importing ``activity_streams.crud``, which made each of them a
-# second owner of the streams table. No masking is applied and none is wanted —
-# the caller is deriving an artifact for the owner, not serving a viewer.
-
-
-def get_stream_for_derivation(
-    activity_id: int,
-    stream_type: int,
-    db: Session,
-) -> activity_streams_schema.ActivityStreamsRead | None:
-    """Return one raw stream of an activity for a derived-artifact producer.
-
-    Args:
-        activity_id: The parent activity.
-        stream_type: The stream type code.
-        db: Database session.
-
-    Returns:
-        The stream, or ``None`` when the activity has no such stream.
-    """
-    return activity_streams_crud.get_activity_stream_by_type(activity_id, stream_type, db)
-
-
-def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> dict[int, list]:
-    """Return each activity's GPS waypoints, keyed by activity id.
-
-    The batch read behind the thumbnail and geocoding backfills: one query for
-    many activities rather than one per activity. Activities with no GPS stream
-    are absent from the result.
-
-    Args:
-        activity_ids: The activities to fetch waypoints for.
-        db: Database session.
-
-    Returns:
-        Mapping of ``activity_id -> waypoints``.
-    """
-    return activity_streams_crud.get_gps_stream_waypoints_for_activities(activity_ids, db)
-
-
 # ---------------------------------------------------------------------------
 # Heart-rate zone scoring
 #
@@ -295,8 +253,8 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     """Recompute every stored HR-zone breakdown for one user.
 
     Called after the user's max heart rate or birthdate changes, so activities
-    imported earlier reflect the new zones. Errors are logged and swallowed: a
-    recompute problem must not fail the profile edit that triggered it.
+    imported earlier reflect the new zones. Each batch is committed as it is
+    scored; a failure propagates and the session is rolled back by its owner.
 
     Args:
         user_id: The user whose HR streams should be refreshed.
@@ -305,41 +263,33 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     Returns:
         None.
     """
-    try:
-        max_heart_rate = _max_heart_rate_of(user_id, db)
-        last_activity_id = 0
-        while True:
-            contexts = activity_child_access.list_user_activity_scoring_contexts(
-                user_id,
-                db,
-                after_id=last_activity_id,
-            )
-            if not contexts:
-                break
-            context_by_activity = {context.activity_id: context for context in contexts}
-            records = activity_streams_crud.list_hr_streams_for_activities(list(context_by_activity), db)
-            batch = [
-                _with_context(record, context_by_activity[record.activity_id])
-                for record in records
-                if record.activity_id in context_by_activity
-            ]
-            activity_streams_crud.set_zone_percentages(
-                {stream.stream_id: _zones_for(stream, max_heart_rate) for stream in batch},
-                db,
-            )
-            db.commit()
-            last_activity_id = contexts[-1].activity_id
-        logger.info(
-            "Recomputed HR zone percentages for a user",
-            extra=core_logger.context(user_id=user_id),
+    max_heart_rate = _max_heart_rate_of(user_id, db)
+    last_activity_id = 0
+    while True:
+        contexts = activity_child_access.list_user_activity_scoring_contexts(
+            user_id,
+            db,
+            after_id=last_activity_id,
         )
-    except Exception as err:
-        db.rollback()
-        logger.error(
-            "Failed to recompute HR zone percentages for user",
-            exc_info=err,
-            extra=core_logger.context(console=True, user_id=user_id),
+        if not contexts:
+            break
+        context_by_activity = {context.activity_id: context for context in contexts}
+        records = activity_streams_crud.list_hr_streams_for_activities(list(context_by_activity), db)
+        batch = [
+            _with_context(record, context_by_activity[record.activity_id])
+            for record in records
+            if record.activity_id in context_by_activity
+        ]
+        activity_streams_crud.set_zone_percentages(
+            {stream.stream_id: _zones_for(stream, max_heart_rate) for stream in batch},
+            db,
         )
+        db.commit()
+        last_activity_id = contexts[-1].activity_id
+    logger.info(
+        "Recomputed HR zone percentages for a user",
+        extra=core_logger.context(user_id=user_id),
+    )
 
 
 def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None:

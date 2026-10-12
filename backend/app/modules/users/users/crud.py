@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
+import core.logger as core_logger
 import modules.activities.activity.integration_service as activities_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.auth.password_policy as auth_password_policy
@@ -30,6 +31,8 @@ import modules.users.users.models as users_models
 import modules.users.users.schema as users_schema
 import modules.users.users.signing as users_signing
 import modules.users.users.utils as users_utils
+
+logger = core_logger.get_logger(__name__)
 
 # Private internal helpers
 
@@ -145,10 +148,19 @@ def _persist_user_edits(
     # from the user's resolved max heart rate. Recompute them when the
     # max heart rate or birthdate changes so previously imported
     # activities show up-to-date zones (issue #776). Imported lazily to
-    # avoid a users <-> activity_streams import cycle; the recompute
-    # logs and swallows its own errors so it can't fail the edit.
+    # avoid a users <-> activity_streams import cycle. The edit is already
+    # committed, so a recompute failure is logged rather than failing the
+    # request; the zones stay stale until the next recompute.
     if max_heart_rate_before != db_users.max_heart_rate or birthdate_before != db_users.birthdate:
-        activity_streams_integration.recompute_hr_zones_for_user(db_users.id, db)
+        try:
+            activity_streams_integration.recompute_hr_zones_for_user(db_users.id, db)
+        except Exception as err:
+            db.rollback()
+            logger.error(
+                "Failed to recompute HR zone percentages after profile edit",
+                exc_info=err,
+                extra=core_logger.context(user_id=db_users.id),
+            )
 
     return _transform_users(db_users)
 

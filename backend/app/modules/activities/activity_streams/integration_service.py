@@ -99,13 +99,20 @@ def get_stream_for_derivation(
     stream_type: int,
     db: Session,
 ) -> activity_streams_schema.ActivityStreamsRead | None:
-    """Return one unmasked stream for an internal derived artifact."""
-    return activity_streams_service.get_stream_for_derivation(activity_id, stream_type, db)
+    """Return one unmasked stream for an internal derived artifact.
+
+    No masking is applied: the caller derives an artifact for the owner rather
+    than serving a viewer.
+    """
+    return activity_streams_crud.get_activity_stream_by_type(activity_id, stream_type, db)
 
 
 def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> dict[int, list]:
-    """Return GPS waypoints for several activities in one query."""
-    return activity_streams_service.get_gps_waypoints_for_activities(activity_ids, db)
+    """Return GPS waypoints for several activities in one query.
+
+    Activities with no GPS stream are absent from the result.
+    """
+    return activity_streams_crud.get_gps_stream_waypoints_for_activities(activity_ids, db)
 
 
 def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:

@@ -8,6 +8,8 @@ these tests assert on that map rather than on mutated ORM rows.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_streams.contracts as contracts
 
@@ -83,11 +85,12 @@ class TestRecomputeHrZonesForUser:
 
     @patch(f"{_SVC}.users_integration_service.get_user", side_effect=RuntimeError("boom"))
     @patch(f"{_SVC}.activity_streams_crud")
-    def test_swallows_errors(self, mock_crud, mock_get_user):
-        """A recompute failure must not fail the profile edit that triggered it."""
+    def test_propagates_errors(self, mock_crud, mock_get_user):
+        """The service does not translate failures; the session owner rolls back."""
         from modules.activities.activity_streams import service
 
-        service.recompute_hr_zones_for_user(1, MagicMock())
+        with pytest.raises(RuntimeError):
+            service.recompute_hr_zones_for_user(1, MagicMock())
 
         mock_crud.set_zone_percentages.assert_not_called()
 
