@@ -24,8 +24,7 @@ def _to_read_schema(
 def get_activity_exercise_titles(
     db: Session,
 ) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
-    """
-    Retrieve all activity exercise titles.
+    """Retrieve all activity exercise titles.
 
     Args:
         db: Database session.
@@ -50,8 +49,7 @@ def create_activity_exercise_titles(
     activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitles],
     db: Session,
 ) -> None:
-    """
-    Insert activity exercise titles, skipping existing entries.
+    """Insert activity exercise titles, skipping existing entries.
 
     Args:
         activity_exercise_titles: Schemas to insert.

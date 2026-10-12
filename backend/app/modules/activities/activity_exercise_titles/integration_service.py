@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 import core.logger as core_logger
 import modules.activities.activity_exercise_titles.crud as exercise_titles_crud
 import modules.activities.activity_exercise_titles.schema as exercise_titles_schema
+import modules.activities.activity_exercise_titles.service as exercise_titles_service
 import modules.activities.contributors as activity_contributors
 
 logger = core_logger.get_logger(__name__)
@@ -15,7 +16,7 @@ logger = core_logger.get_logger(__name__)
 
 def _list_exercise_titles(db: Session) -> list[exercise_titles_schema.ActivityExerciseTitles]:
     """Return every exercise-title reference row."""
-    return exercise_titles_crud.get_activity_exercise_titles(db)
+    return exercise_titles_service.list_activity_exercise_titles(db)
 
 
 def _store_exercise_titles(

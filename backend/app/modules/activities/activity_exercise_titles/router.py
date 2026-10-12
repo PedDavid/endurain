@@ -25,17 +25,13 @@ def read_activities_exercise_titles_all(
     ],
     db: Annotated[Session, Depends(core_database.get_db)],
 ) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
-    """
-    Return all activity exercise titles.
+    """Return all activity exercise titles.
 
     Args:
         _check_scopes: Scope check dependency for authorization.
         db: Database session.
 
     Returns:
-        List of ActivityExerciseTitles or None when empty.
-
-    Raises:
-        HTTPException: If a database error occurs.
+        Every exercise title, empty when there are none.
     """
     return activity_exercise_titles_service.list_activity_exercise_titles(db)
