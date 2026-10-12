@@ -10,8 +10,7 @@ import modules.activities.activity_exercise_titles.schema as activity_exercise_t
 def to_read_schema(
     orm_title: activity_exercise_titles_models.ActivityExerciseTitles,
 ) -> activity_exercise_titles_schema.ActivityExerciseTitles:
-    """
-    Convert an ORM row to its read schema.
+    """Convert an ORM row to its read schema.
 
     Args:
         orm_title: The ORM model instance.
@@ -25,8 +24,7 @@ def to_read_schema(
 def to_orm(
     title: activity_exercise_titles_schema.ActivityExerciseTitles,
 ) -> activity_exercise_titles_models.ActivityExerciseTitles:
-    """
-    Build an ORM row from a title schema.
+    """Build an ORM row from a title schema.
 
     Args:
         title: The exercise title schema to persist.

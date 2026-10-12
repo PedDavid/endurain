@@ -13,11 +13,6 @@ import modules.activities.contributors as activity_contributors
 logger = core_logger.get_logger(__name__)
 
 
-def _list_exercise_titles(db: Session) -> list[exercise_titles_schema.ActivityExerciseTitles]:
-    """Return every exercise-title reference row."""
-    return exercise_titles_crud.get_activity_exercise_titles(db)
-
-
 def _persist_file_ingestion_component(data: Any, db: Session) -> None:
     """Persist exercise titles through the generic file-ingestion contract."""
     exercise_titles_crud.create_activity_exercise_titles(data, db)
@@ -56,6 +51,6 @@ def profile_global_contributor() -> activity_contributors.ProfileGlobalContribut
         key="exercise_titles",
         archive_path="data/activity_exercise_titles.json",
         count_key="activity_exercise_titles",
-        export=_list_exercise_titles,
+        export=exercise_titles_crud.get_activity_exercise_titles,
         restore=_restore_profile_records,
     )
