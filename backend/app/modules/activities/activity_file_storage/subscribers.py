@@ -6,8 +6,10 @@ that **swallows** so a cleanup failure never breaks activity deletion. The
 storage key is derived from the activity id, so the already-deleted row is not
 needed and the delete is idempotent (safe when no file was ever retained).
 
-There is deliberately no reconciliation net: like thumbnail cleanup this is an
-idempotent teardown keyed by activity id, and a stray orphaned file is harmless.
+There is deliberately no reconciliation net: once the activity row is gone
+nothing names the retained file, so no backfill can rediscover it. A dropped
+cleanup event leaves the file in storage until a storage-side sweep exists (see
+the exemption in :mod:`subscriber_registry`).
 """
 
 import jasil.event_versioning as platform_event_versioning
@@ -19,7 +21,7 @@ from jasil.subscribers import best_effort
 
 import core.logger as core_logger
 import modules.activities.activity.events as activity_events
-import modules.activities.activity_file_storage.service as activity_file_storage_service
+import modules.activities.activity_file_storage.integration_service as activity_file_storage_service
 
 logger = core_logger.get_logger(__name__)
 

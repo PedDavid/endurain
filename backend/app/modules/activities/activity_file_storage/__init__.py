@@ -6,11 +6,13 @@ Owns the durable copy of each activity's original source file (the parsed
 image — so the same code serves a local disk or remote object storage without
 change, and file-based ingestion is no longer pinned to the API node's disk.
 
-- :mod:`service` — storage addressing (area/key) plus save/read/delete of the
-  retained file through the platform ``StorageProvider``.
+- :mod:`integration_service` — storage addressing (area/key) plus save/read/delete
+  of the retained file through the platform ``StorageProvider``; the surface
+  ``activity_ingestion`` and the profile export/import call.
 - :mod:`subscribers` — the ``activity.deleted`` cleanup handler and registration.
+- :mod:`subscriber_registry` — event wiring called by ``main.py`` and ``worker.py``.
 
-No module here is imported by the activity router or by ``store_activity``; the
-ingestion orchestrator writes the file and the delete route only publishes a
-fact, keeping the subsystem decoupled from the activities core.
+The activity router never touches this module: the delete route only publishes a
+fact, which the cleanup subscriber reacts to, keeping the subsystem decoupled
+from the activity core.
 """

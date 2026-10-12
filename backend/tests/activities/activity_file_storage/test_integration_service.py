@@ -1,15 +1,15 @@
-"""Tests for the activity_file_storage service (storage-backed source files)."""
+"""Tests for the activity_file_storage integration service (storage-backed source files)."""
 
 from jasil.backends.storage_local import LocalStorage
 
-import modules.activities.activity_file_storage.service as service
+import modules.activities.activity_file_storage.integration_service as service
 
 
 class TestActivityFileKey:
     def test_adds_dot_and_lowercases(self):
-        assert service.activity_file_key(42, "fit") == "42.fit"
-        assert service.activity_file_key(42, ".FIT") == "42.fit"
-        assert service.activity_file_key(7, ".gpx") == "7.gpx"
+        assert service._activity_file_key(42, "fit") == "42.fit"
+        assert service._activity_file_key(42, ".FIT") == "42.fit"
+        assert service._activity_file_key(7, ".gpx") == "7.gpx"
 
 
 class TestStoreAndGet:

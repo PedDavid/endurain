@@ -1,8 +1,53 @@
-"""Public storage operations for retained activity source files."""
+"""Public storage operations for retained activity source files.
+
+The behavioural core of the subsystem. Ingestion hands over the parsed file's
+bytes; this module stores/reads/removes them through the platform
+``StorageProvider`` under a domain-owned *area*, keyed by activity id. It mirrors
+the thumbnail subsystem's use of the provider, so the retained file lives on
+local disk or object storage identically and file-based ingestion is no longer
+tied to the API node's filesystem.
+
+The database stores no key for these files: the key is derived from the activity
+id plus one of the known source extensions, so reads/deletes probe those
+extensions rather than reading a column. There is no servable URL — the retained
+file is only consumed in-process (profile export) and on cleanup, never served.
+"""
 
 import jasil.providers as platform_providers
 
-import modules.activities.activity_file_storage.service as file_storage_service
+import core.logger as core_logger
+
+logger = core_logger.get_logger(__name__)
+
+# Domain-owned storage namespace for retained activity source files. The
+# ``processed`` hierarchy belongs in the key because JASIL storage areas are
+# single namespace components.
+ACTIVITY_FILE_STORAGE_AREA = "activity_files"
+_PROCESSED_KEY_PREFIX = "processed"
+
+# The activity source-file extensions we retain and can address by activity id.
+# A ``.gz`` upload is decompressed before storage, so only the inner formats are
+# ever stored under an ``{id}`` key.
+_STORED_EXTENSIONS = (".gpx", ".fit", ".tcx")
+
+
+def _activity_file_key(activity_id: int, extension: str) -> str:
+    """Return the storage key for an activity's retained source file.
+
+    Args:
+        activity_id: The owning activity id.
+        extension: The source-file extension, with or without a leading dot
+            (e.g. ``".fit"`` or ``"fit"``).
+
+    Returns:
+        The storage key, e.g. ``"42.fit"``.
+    """
+    ext = extension if extension.startswith(".") else f".{extension}"
+    return f"{activity_id}{ext.lower()}"
+
+
+def _processed_storage_key(key: str) -> str:
+    return f"{_PROCESSED_KEY_PREFIX}/{key}"
 
 
 def store_activity_file(
@@ -11,8 +56,24 @@ def store_activity_file(
     data: bytes,
     storage: platform_providers.StorageProvider,
 ) -> str:
-    """Store one activity's retained source file."""
-    return file_storage_service.store_activity_file(activity_id, extension, data, storage)
+    """Persist one activity's source file and return its storage key.
+
+    Args:
+        activity_id: The owning activity id.
+        extension: The source-file extension (e.g. ``".fit"``).
+        data: The raw (already-decompressed) file bytes.
+        storage: The blob-storage provider.
+
+    Returns:
+        The storage key the file was saved under.
+    """
+    key = _activity_file_key(activity_id, extension)
+    storage.save(ACTIVITY_FILE_STORAGE_AREA, _processed_storage_key(key), data)
+    logger.debug(
+        "Stored the activity source file",
+        extra=core_logger.context(activity_id=activity_id, storage_key=key),
+    )
+    return key
 
 
 def store_activity_file_for_ids(
@@ -21,18 +82,64 @@ def store_activity_file_for_ids(
     data: bytes,
     storage: platform_providers.StorageProvider,
 ) -> None:
-    """Store one retained source file for several parsed activities."""
-    file_storage_service.store_activity_file_for_ids(activity_ids, extension, data, storage)
+    """Persist the same source file under each of several activities' keys.
+
+    A single upload can yield more than one activity (a multi-activity ``.fit``),
+    and each activity owns its own retained copy so its lifecycle (export,
+    deletion) is independent. The bytes are written once per id.
+
+    Args:
+        activity_ids: The activity ids to store the file under.
+        extension: The source-file extension (e.g. ``".fit"``).
+        data: The raw (already-decompressed) file bytes.
+        storage: The blob-storage provider.
+
+    Returns:
+        None.
+    """
+    for activity_id in activity_ids:
+        store_activity_file(activity_id, extension, data, storage)
 
 
 def get_activity_file(
     activity_id: int,
     storage: platform_providers.StorageProvider,
 ) -> tuple[str, bytes] | None:
-    """Return an activity's retained source file when present."""
-    return file_storage_service.get_activity_file(activity_id, storage)
+    """Read an activity's retained source file, probing the known extensions.
+
+    Args:
+        activity_id: The owning activity id.
+        storage: The blob-storage provider.
+
+    Returns:
+        A ``(key, data)`` tuple for the first stored extension found, or ``None``
+        when the activity has no retained source file.
+    """
+    for extension in _STORED_EXTENSIONS:
+        key = _activity_file_key(activity_id, extension)
+        data = storage.get(ACTIVITY_FILE_STORAGE_AREA, _processed_storage_key(key))
+        if data is not None:
+            return key, data
+    return None
 
 
-def delete_activity_file(activity_id: int, storage: platform_providers.StorageProvider) -> None:
-    """Delete every retained source-file key for an activity."""
-    file_storage_service.delete_activity_file(activity_id, storage)
+def delete_activity_file(
+    activity_id: int,
+    storage: platform_providers.StorageProvider,
+) -> None:
+    """Delete an activity's retained source file(s).
+
+    Deletes every known-extension key for the activity. Deletes are idempotent
+    (a missing blob is a no-op on every backend), so this is safe to call for an
+    activity that never had a retained file.
+
+    Args:
+        activity_id: The owning activity id.
+        storage: The blob-storage provider.
+
+    Returns:
+        None.
+    """
+    for extension in _STORED_EXTENSIONS:
+        key = _activity_file_key(activity_id, extension)
+        storage.delete(ACTIVITY_FILE_STORAGE_AREA, _processed_storage_key(key))
