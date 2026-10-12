@@ -13,6 +13,7 @@ Rules and file roles: `docs/developer-guide/module-structure.md` and the `endura
 1. Read the module's current files and list every import it makes from, and receives from, other modules.
 2. Check Known debt in the guide for what is already recorded for this module.
 3. Convert one top-level module per commit series; do not mix in behaviour changes.
+   - Keep it minimal (KISS, YAGNI): move and rename existing code; do not add layers, helpers or surface operations nobody uses.
 4. Run the gates once on the untouched module to know the baseline.
 
 ## Procedure

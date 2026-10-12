@@ -36,6 +36,7 @@ Goal: the least text loaded per task that still prevents the mistakes the skill 
 7. **Format:** one sentence per line (clean diffs), tables for lookups, code blocks for commands only.
 8. **One concern per skill.** Split by trigger, not by size; do not create several skills that always fire together.
 9. **No secrets or personal paths;** commands are repo-relative.
+10. **KISS, YAGNI, DRY:** no rule, reference or section for a hypothetical case; state each rule once and link to it.
 
 ## Splitting an existing skill
 

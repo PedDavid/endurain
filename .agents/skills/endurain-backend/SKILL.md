@@ -25,6 +25,7 @@ Where this skill and a guide disagree, the guide wins.
 - Never register contributors, subscribers or providers as an import side effect.
 - Storage, events, jobs and geocoding come from `jasil` ports (`jasil.providers`, `jasil.publisher`, ...); never import `jasil.backends` or `jasil._core`.
 - Resolve providers (`get_active_platform()`) only at entry points - router `Depends`, subscriber, job, `integration_service`; below that, take the provider as an argument.
+- KISS, YAGNI, DRY: search the module and `core` for an existing helper first; add no parameter, wrapper, base class or `integration_service` operation without a current caller; extract on the third repetition.
 - Events are published from `service` via `event_publishers`, with the commit callable, never from `crud` or `integration_service`.
 
 ## Read on demand
@@ -52,7 +53,7 @@ If a rule blocks you, add the operation to the owner's `integration_service`; do
 ## Repo hygiene
 
 - Do only what was asked: no extra docs, summaries or READMEs.
-- Prefer existing patterns and utilities over new files.
+- Prefer existing patterns and utilities over new files; keep it simple, build only what is needed now, do not repeat existing code.
 - Do not touch Dockerfiles, CI, ports, env vars or framework versions unless asked.
 - Local notes go in `devdocs/`, helper scripts in `devscripts/` (gitignored).
 - Never run `git commit` unless asked; use the `conventional-commits` skill for messages.
