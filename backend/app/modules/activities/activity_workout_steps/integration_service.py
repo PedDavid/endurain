@@ -1,4 +1,4 @@
-"""Public persistence operations for activity workout steps."""
+"""Module surface for activity workout steps: ingestion and profile contributors."""
 
 from typing import Any
 
