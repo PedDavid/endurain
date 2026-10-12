@@ -35,7 +35,7 @@ import core.logger as core_logger
 import modules.activities.activity_ingestion.background as activity_ingestion_background
 import modules.activities.activity_ingestion.bulk_entry as bulk_entry
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.crud as ingestion_jobs_crud
+import modules.activities.activity_ingestion.crud as ingestion_crud
 import modules.activities.activity_ingestion.event_publishers as ingestion_event_publishers
 import modules.activities.activity_ingestion.refresh_entry as refresh_entry
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
@@ -113,7 +113,7 @@ def accept_upload(
     received = upload_entry.receive_upload(file, fingerprint=idempotency_key is not None)
 
     if idempotency_key:
-        prior = ingestion_jobs_crud.get_job_for_idempotency(
+        prior = ingestion_crud.get_job_for_idempotency(
             idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
         )
         if prior is not None:
@@ -131,7 +131,7 @@ def accept_upload(
     job_id = str(uuid.uuid4())
 
     try:
-        ingestion_jobs_crud.create_ingestion_job(
+        ingestion_crud.create_ingestion_job(
             job_id,
             token_user_id,
             activity_ingestion_schema.IngestionJobKind.UPLOAD,
@@ -156,7 +156,7 @@ def accept_upload(
         upload_entry.discard_staged_upload(staged_key, storage)
         db.rollback()
         prior = (
-            ingestion_jobs_crud.get_job_for_idempotency(
+            ingestion_crud.get_job_for_idempotency(
                 idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
             )
             if idempotency_key
@@ -185,7 +185,7 @@ def accept_upload(
         "Activity upload accepted for background import",
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
-    return ingestion_jobs_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
+    return ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
         job_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, str(file.filename)
     )
 
@@ -239,7 +239,7 @@ def get_job(
             someone else is reported as missing rather than forbidden, so the
             endpoint does not confirm that an id exists.
     """
-    job = ingestion_jobs_crud.get_ingestion_job(job_id, token_user_id, db)
+    job = ingestion_crud.get_ingestion_job(job_id, token_user_id, db)
     if job is None:
         logger.debug(
             "Ingestion job read resolved to nothing for this caller",
@@ -273,7 +273,7 @@ def accept_refresh(
     """
     job_id = str(uuid.uuid4())
 
-    ingestion_jobs_crud.create_ingestion_job(
+    ingestion_crud.create_ingestion_job(
         job_id,
         token_user_id,
         activity_ingestion_schema.IngestionJobKind.REFRESH,
@@ -289,7 +289,7 @@ def accept_refresh(
         "Provider refresh accepted for background sync",
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
-    return ingestion_jobs_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
+    return ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
         job_id, activity_ingestion_schema.IngestionJobKind.REFRESH
     )
 
@@ -314,11 +314,11 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         Exception: Whatever the provider sync raised, so the caller can retry.
     """
     with core_database.SessionLocal() as db:
-        owner = ingestion_jobs_crud.get_job_owner(job_id, db)
+        owner = ingestion_crud.get_job_owner(job_id, db)
         if owner is None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
-        ingestion_jobs_crud.mark_processing(job_id, db)
+        ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
     with core_database.SessionLocal() as db:
@@ -334,7 +334,7 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
             raise
 
         activity_ids = [activity.id for activity in activities if activity.id is not None]
-        ingestion_jobs_crud.mark_completed(job_id, activity_ids, db)
+        ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
         logger.info(
             "Refresh job synced provider activities",
@@ -367,7 +367,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         Exception: Whatever the import raised, so the caller can retry.
     """
     with core_database.SessionLocal() as db:
-        work_item = ingestion_jobs_crud.get_job_work_item(job_id, db)
+        work_item = ingestion_crud.get_job_work_item(job_id, db)
         if work_item is None:
             # Already consumed — a retry after the import succeeded, or a job
             # whose row was pruned. Nothing to do, and re-running would be wrong.
@@ -377,7 +377,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             )
             return
         user_id, staged_key = work_item
-        ingestion_jobs_crud.mark_processing(job_id, db)
+        ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
     with core_database.SessionLocal() as db:
@@ -409,7 +409,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         # id-less entry would only mean the client cannot refresh that one row.
         activity_ids = [activity.id for activity in created or [] if activity.id is not None]
         if not activity_ids:
-            ingestion_jobs_crud.mark_failed(
+            ingestion_crud.mark_failed(
                 job_id,
                 activity_ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND,
                 db,
@@ -420,7 +420,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
                 extra=core_logger.context(user_id=user_id, job_id=job_id),
             )
             return
-        ingestion_jobs_crud.mark_completed(job_id, activity_ids, db)
+        ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
         logger.info(
             "Upload job imported activities",
@@ -451,9 +451,9 @@ def fail_ingestion_job(
     try:
         with core_database.SessionLocal() as db:
             if staged_key is None:
-                work_item = ingestion_jobs_crud.get_job_work_item(job_id, db)
+                work_item = ingestion_crud.get_job_work_item(job_id, db)
                 staged_key = work_item[1] if work_item else None
-            ingestion_jobs_crud.mark_failed(job_id, error_code, db)
+            ingestion_crud.mark_failed(job_id, error_code, db)
             db.commit()
     except Exception as err:
         # Never mask the original failure with a bookkeeping one.
@@ -510,7 +510,7 @@ def prune_expired_ingestion_jobs(
             return
         cutoff = clock.now() - timedelta(days=retention_days)
         with core_database.SessionLocal() as db:
-            deleted = ingestion_jobs_crud.delete_jobs_before(cutoff, db)
+            deleted = ingestion_crud.delete_jobs_before(cutoff, db)
             db.commit()
 
     if deleted:
@@ -687,7 +687,7 @@ def start_bulk_import(
         # visible from the moment the 202 is returned.
         jobs = [
             (
-                ingestion_jobs_crud.create_ingestion_job(
+                ingestion_crud.create_ingestion_job(
                     str(uuid.uuid4()),
                     user_id,
                     activity_ingestion_schema.IngestionJobKind.BULK_IMPORT,
@@ -822,7 +822,7 @@ def process_all_files_sync(
                     user_id=user_id,
                 ),
             )
-            ingestion_jobs_crud.mark_processing(job_id, db)
+            ingestion_crud.mark_processing(job_id, db)
             db.commit()
             activities = bulk_entry.store_activity_file(
                 user_id,
@@ -837,11 +837,11 @@ def process_all_files_sync(
             # is the only signal that this file failed. Nothing retries here, so
             # the state recorded is terminal either way.
             if activities is None:
-                ingestion_jobs_crud.mark_failed(
+                ingestion_crud.mark_failed(
                     job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
                 )
             else:
-                ingestion_jobs_crud.mark_completed(
+                ingestion_crud.mark_completed(
                     job_id, [activity.id for activity in activities if activity.id is not None], db
                 )
             db.commit()
@@ -867,7 +867,7 @@ def mark_bulk_import_job_processing(job_id: str | None) -> None:
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_jobs_crud.mark_processing(job_id, db)
+        ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
 
@@ -884,7 +884,7 @@ def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) 
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_jobs_crud.mark_completed(job_id, activity_ids, db)
+        ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
 
 
@@ -900,5 +900,5 @@ def mark_bulk_import_job_failed(job_id: str | None) -> None:
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_jobs_crud.mark_failed(job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db)
+        ingestion_crud.mark_failed(job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db)
         db.commit()

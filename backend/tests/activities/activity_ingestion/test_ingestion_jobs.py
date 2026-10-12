@@ -31,8 +31,8 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
@@ -54,8 +54,8 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
@@ -75,7 +75,7 @@ class TestAcceptUpload:
                 "receive_upload",
                 side_effect=core_exceptions.UnsupportedFormatError("nope"),
             ),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             pytest.raises(core_exceptions.UnsupportedFormatError),
         ):
             ingestion_jobs.accept_upload(7, _file("ride.txt"), db, "storage")
@@ -89,7 +89,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job"),
             patch.object(
                 ingestion_jobs.ingestion_event_publishers.platform_publisher,
                 "publish_committing",
@@ -108,9 +108,9 @@ class TestRunUploadJob:
         created = [MagicMock(id=11), MagicMock(id=12)]
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing") as processing,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_completed") as completed,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing") as processing,
+            patch.object(ingestion_jobs.ingestion_crud, "mark_completed") as completed,
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=created),
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -124,7 +124,7 @@ class TestRunUploadJob:
         """A retry after a successful import must not import the file twice."""
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=None),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=None),
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload") as process,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -135,9 +135,9 @@ class TestRunUploadJob:
     def test_an_unparseable_file_fails_with_a_specific_code(self):
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_failed") as failed,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_failed") as failed,
             patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=None),
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -150,8 +150,8 @@ class TestRunUploadJob:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gz")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gz")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
             patch.object(ingestion_jobs, "fail_ingestion_job") as fail,
             patch.object(
                 ingestion_jobs.upload_entry,
@@ -172,8 +172,8 @@ class TestRunUploadJob:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
             patch.object(ingestion_jobs, "fail_ingestion_job") as fail,
             patch.object(
                 ingestion_jobs.upload_entry,
@@ -192,8 +192,8 @@ class TestRunUploadJob:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
             patch.object(ingestion_jobs, "fail_ingestion_job") as fail,
             patch.object(
                 ingestion_jobs.upload_entry,
@@ -212,7 +212,7 @@ class TestFailUploadJob:
     def test_discards_the_blob_after_the_row_is_terminal(self):
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_failed") as failed,
+            patch.object(ingestion_jobs.ingestion_crud, "mark_failed") as failed,
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -230,8 +230,8 @@ class TestFailUploadJob:
         """The dead-letter path only knows the job id."""
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_failed"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_failed"),
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -266,7 +266,7 @@ class TestPruneExpiredUploadJobs:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_RETENTION_DAYS", 90),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "delete_jobs_before", return_value=3) as delete,
+            patch.object(ingestion_jobs.ingestion_crud, "delete_jobs_before", return_value=3) as delete,
         ):
             platform = self._platform()
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -286,7 +286,7 @@ class TestPruneExpiredUploadJobs:
         platform = self._platform(acquired=False)
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_RETENTION_DAYS", 90),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "delete_jobs_before") as delete,
+            patch.object(ingestion_jobs.ingestion_crud, "delete_jobs_before") as delete,
         ):
             ingestion_jobs.prune_expired_ingestion_jobs(platform.lock, platform.clock)
 
@@ -317,7 +317,7 @@ class TestErrorCodeFor:
 class TestGetJob:
     """The status read is scoped to the caller in the service, not the route."""
 
-    @patch("modules.activities.activity_ingestion.service.ingestion_jobs_crud")
+    @patch("modules.activities.activity_ingestion.service.ingestion_crud")
     def test_returns_the_caller_s_job(self, mock_crud):
         import modules.activities.activity_ingestion.service as ingestion_jobs
 
@@ -328,7 +328,7 @@ class TestGetJob:
         assert ingestion_jobs.get_job("job-1", 7, db) is job
         mock_crud.get_ingestion_job.assert_called_once_with("job-1", 7, db)
 
-    @patch("modules.activities.activity_ingestion.service.ingestion_jobs_crud")
+    @patch("modules.activities.activity_ingestion.service.ingestion_crud")
     def test_another_user_s_job_is_absent_not_forbidden(self, mock_crud):
         """404 rather than 403, so the endpoint cannot confirm an id exists."""
         import core.exceptions as core_exceptions

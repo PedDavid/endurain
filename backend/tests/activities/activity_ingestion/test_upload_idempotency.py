@@ -37,13 +37,13 @@ class TestReplay:
         with (
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
             patch.object(
-                ingestion_jobs.ingestion_jobs_crud,
+                ingestion_jobs.ingestion_crud,
                 "get_job_for_idempotency",
                 return_value=(original, "hash-of-this-file"),
             ),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload") as store,
             patch.object(ingestion_jobs.upload_entry, "discard_received_upload") as discard,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
         ):
             result = ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
 
@@ -58,10 +58,10 @@ class TestReplay:
         db = MagicMock()
         with (
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_for_idempotency", return_value=None) as lookup,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_for_idempotency", return_value=None) as lookup,
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
         ):
@@ -74,10 +74,10 @@ class TestReplay:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received("fp-1")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_for_idempotency", return_value=None),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_for_idempotency", return_value=None),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
             ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
@@ -93,7 +93,7 @@ class TestKeyReuseWithDifferentContent:
         with (
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received("fp-second")),
             patch.object(
-                ingestion_jobs.ingestion_jobs_crud,
+                ingestion_jobs.ingestion_crud,
                 "get_job_for_idempotency",
                 return_value=(MagicMock(id="job-1"), "fp-first"),
             ),
@@ -119,12 +119,12 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received("fp-1")),
             patch.object(
-                ingestion_jobs.ingestion_jobs_crud,
+                ingestion_jobs.ingestion_crud,
                 "get_job_for_idempotency",
                 side_effect=[None, (winner, "fp-1")],
             ),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job", side_effect=_integrity_error()),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job", side_effect=_integrity_error()),
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
         ):
             result = ingestion_jobs.accept_upload(7, _file(), db, "storage", idempotency_key="key-1")
@@ -139,12 +139,12 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received("fp-second")),
             patch.object(
-                ingestion_jobs.ingestion_jobs_crud,
+                ingestion_jobs.ingestion_crud,
                 "get_job_for_idempotency",
                 side_effect=[None, (MagicMock(id="job-1"), "fp-first")],
             ),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job", side_effect=_integrity_error()),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job", side_effect=_integrity_error()),
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload"),
             pytest.raises(core_exceptions.ConflictError),
         ):
@@ -157,7 +157,7 @@ class TestConcurrentSameKey:
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received()),
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job", side_effect=_integrity_error()),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job", side_effect=_integrity_error()),
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload"),
             pytest.raises(IntegrityError),
         ):
@@ -170,10 +170,10 @@ class TestWithoutAKey:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.upload_entry, "receive_upload", return_value=_received("fp-1")),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_for_idempotency") as lookup,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_for_idempotency") as lookup,
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
         ):
             ingestion_jobs.accept_upload(7, _file(), db, "storage")
@@ -190,8 +190,8 @@ class TestRefreshIsUnaffected:
         db = MagicMock()
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
             ingestion_jobs.accept_refresh(7, db, "storage")

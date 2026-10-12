@@ -51,7 +51,7 @@ def create_ingestion_job(
 
     Raises:
         IntegrityError: If the user already has a job with this idempotency key.
-        HTTPException: If another database error occurs.
+        ProcessingError: If another database error occurs.
     """
     now = datetime.now(UTC)
     new_job = activity_ingestion_models.ActivityIngestionJob(
@@ -93,7 +93,7 @@ def get_ingestion_job(
         The ingestion job, or None if it does not exist or belongs to someone else.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.id == job_id,
@@ -122,7 +122,7 @@ def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
         upload was already consumed.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None or orm_job.staged_key is None:
@@ -159,7 +159,7 @@ def get_job_for_idempotency(
         key for that kind.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.idempotency_key == idempotency_key,
@@ -188,7 +188,7 @@ def get_job_owner(job_id: str, db: Session) -> int | None:
         The owning user id, or None if the job is unknown.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     return orm_job.user_id if orm_job else None
@@ -207,7 +207,7 @@ def mark_processing(job_id: str, db: Session) -> None:
         None.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -231,7 +231,7 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
         None.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -264,7 +264,7 @@ def mark_failed(
         None.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -291,7 +291,7 @@ def delete_jobs_before(cutoff: datetime, db: Session) -> int:
         Number of rows deleted.
 
     Raises:
-        HTTPException: If a database error occurs.
+        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.completed_at.is_not(None),

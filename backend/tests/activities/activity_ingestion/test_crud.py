@@ -9,7 +9,7 @@ from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_ingestion.crud as ingestion_jobs_crud
+import modules.activities.activity_ingestion.crud as ingestion_crud
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 
@@ -48,7 +48,7 @@ class TestCreateUploadJob:
     def test_stages_without_committing(self, model, mock_db):
         """Lets the row and its outbox event land in one transaction."""
         model.return_value = _row()
-        result = ingestion_jobs_crud.create_ingestion_job(
+        result = ingestion_crud.create_ingestion_job(
             "job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx"
         )
         mock_db.add.assert_called_once()
@@ -62,27 +62,25 @@ class TestCreateUploadJob:
         model.return_value = _row()
         mock_db.flush.side_effect = SQLAlchemyError("err")
         with pytest.raises(core_exceptions.ProcessingError) as err:
-            ingestion_jobs_crud.create_ingestion_job(
-                "job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx"
-            )
+            ingestion_crud.create_ingestion_job("job-1", 7, _KIND, mock_db, filename="ride.gpx", staged_key="abc.gpx")
         assert err.value.status_code == 500
 
 
 class TestGetUploadJob:
     def test_returns_the_job(self, mock_db):
         _stub_first(mock_db, _row())
-        result = ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db)
+        result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
         assert result.id == "job-1"
 
     def test_returns_none_when_absent(self, mock_db):
         _stub_first(mock_db, None)
-        assert ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db) is None
+        assert ingestion_crud.get_ingestion_job("job-1", 7, mock_db) is None
 
     def test_filters_by_owner(self, mock_db):
         """The owner is part of the query, not an afterthought in the caller."""
         _stub_first(mock_db, None)
-        ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db)
+        ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         stmt = mock_db.scalars.call_args.args[0]
         # Read the clause structure rather than compiling to SQL: compiling
         # would configure every mapper, which makes this test depend on what
@@ -92,14 +90,14 @@ class TestGetUploadJob:
 
     def test_maps_a_completed_job(self, mock_db):
         _stub_first(mock_db, _row(status="completed", activity_ids=[11, 12], completed_at=_NOW))
-        result = ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db)
+        result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
         assert result.status == activity_ingestion_schema.IngestionJobStatus.COMPLETED
         assert result.activity_ids == [11, 12]
 
     def test_maps_a_failed_job(self, mock_db):
         _stub_first(mock_db, _row(status="failed", error_code="invalid_file"))
-        result = ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db)
+        result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
         assert result.error_code == activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE
 
@@ -108,22 +106,22 @@ class TestGetJobWorkItem:
     def test_returns_the_stored_owner_and_key(self, mock_db):
         """The owner comes from the row, so a tampered event cannot reattribute the import."""
         mock_db.get.return_value = _row()
-        assert ingestion_jobs_crud.get_job_work_item("job-1", mock_db) == (7, "abc.gpx")
+        assert ingestion_crud.get_job_work_item("job-1", mock_db) == (7, "abc.gpx")
 
     def test_returns_none_when_already_consumed(self, mock_db):
         mock_db.get.return_value = _row(staged_key=None)
-        assert ingestion_jobs_crud.get_job_work_item("job-1", mock_db) is None
+        assert ingestion_crud.get_job_work_item("job-1", mock_db) is None
 
     def test_returns_none_for_an_unknown_job(self, mock_db):
         mock_db.get.return_value = None
-        assert ingestion_jobs_crud.get_job_work_item("job-1", mock_db) is None
+        assert ingestion_crud.get_job_work_item("job-1", mock_db) is None
 
 
 class TestTerminalTransitions:
     def test_mark_completed_records_ids_and_clears_the_staged_key(self, mock_db):
         row = _row(status="processing")
         mock_db.get.return_value = row
-        ingestion_jobs_crud.mark_completed("job-1", [11], mock_db)
+        ingestion_crud.mark_completed("job-1", [11], mock_db)
         assert row.status == "completed"
         assert row.activity_ids == [11]
         # Cleared so a retry after success is a no-op rather than a re-import.
@@ -135,7 +133,7 @@ class TestTerminalTransitions:
     def test_mark_failed_records_only_the_sanitized_code(self, mock_db):
         row = _row(status="processing")
         mock_db.get.return_value = row
-        ingestion_jobs_crud.mark_failed("job-1", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
+        ingestion_crud.mark_failed("job-1", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
         assert row.status == "failed"
         assert row.error_code == "invalid_file"
         assert row.staged_key is None
@@ -143,35 +141,35 @@ class TestTerminalTransitions:
     def test_mark_processing(self, mock_db):
         row = _row()
         mock_db.get.return_value = row
-        ingestion_jobs_crud.mark_processing("job-1", mock_db)
+        ingestion_crud.mark_processing("job-1", mock_db)
         assert row.status == "processing"
 
     def test_transitions_on_a_missing_row_are_no_ops(self, mock_db):
         mock_db.get.return_value = None
-        ingestion_jobs_crud.mark_processing("gone", mock_db)
-        ingestion_jobs_crud.mark_completed("gone", [1], mock_db)
-        ingestion_jobs_crud.mark_failed("gone", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
+        ingestion_crud.mark_processing("gone", mock_db)
+        ingestion_crud.mark_completed("gone", [1], mock_db)
+        ingestion_crud.mark_failed("gone", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
         mock_db.commit.assert_not_called()
 
 
 class TestDeleteJobsBefore:
     def test_deletes_only_terminal_rows(self, mock_db):
         setup_mock_execute(mock_db, return_scalars_all=[_row(), _row(id="job-2")])
-        assert ingestion_jobs_crud.delete_jobs_before(_NOW, mock_db) == 2
+        assert ingestion_crud.delete_jobs_before(_NOW, mock_db) == 2
         assert mock_db.delete.call_count == 2
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
     def test_returns_zero_when_nothing_is_stale(self, mock_db):
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert ingestion_jobs_crud.delete_jobs_before(_NOW, mock_db) == 0
+        assert ingestion_crud.delete_jobs_before(_NOW, mock_db) == 0
 
 
 class TestSchemaMapping:
     def test_ids_default_to_an_empty_list_not_null(self, mock_db):
         """The client always gets a list to iterate."""
         _stub_first(mock_db, _row(activity_ids=None))
-        result = ingestion_jobs_crud.get_ingestion_job("job-1", 7, mock_db)
+        result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
         assert result.activity_ids == []
 

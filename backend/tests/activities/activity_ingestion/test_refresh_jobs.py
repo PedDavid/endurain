@@ -13,8 +13,8 @@ class TestAcceptRefresh:
         db = MagicMock()
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
@@ -33,8 +33,8 @@ class TestAcceptRefresh:
         db = MagicMock()
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
@@ -49,8 +49,8 @@ class TestAcceptRefresh:
         db = MagicMock()
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "create_ingestion_job") as create,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_ingestion_job", return_value="job-view"),
+            patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
+            patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
             ingestion_jobs.accept_refresh(7, db, "storage")
@@ -64,9 +64,9 @@ class TestRunRefreshJob:
         synced = [MagicMock(id=11), MagicMock(id=12)]
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=7),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing") as processing,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_completed") as completed,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=7),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing") as processing,
+            patch.object(ingestion_jobs.ingestion_crud, "mark_completed") as completed,
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -84,9 +84,9 @@ class TestRunRefreshJob:
         """A tampered payload must not make the worker sync somebody else's providers."""
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=42) as owner,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_completed"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=42) as owner,
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_completed"),
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -103,7 +103,7 @@ class TestRunRefreshJob:
     def test_an_unknown_job_is_a_no_op(self):
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=None),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=None),
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
@@ -116,8 +116,8 @@ class TestRunRefreshJob:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", True),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=7),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=7),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
             patch.object(ingestion_jobs, "fail_ingestion_job") as fail,
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
             pytest.raises(RuntimeError),
@@ -136,8 +136,8 @@ class TestRunRefreshJob:
         with (
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=7),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=7),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
             patch.object(ingestion_jobs, "fail_ingestion_job") as fail,
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
             pytest.raises(RuntimeError),
@@ -156,10 +156,10 @@ class TestRunRefreshJob:
         """Nothing new is a normal outcome, not a failure."""
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "get_job_owner", return_value=7),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_processing"),
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_completed") as completed,
-            patch.object(ingestion_jobs.ingestion_jobs_crud, "mark_failed") as failed,
+            patch.object(ingestion_jobs.ingestion_crud, "get_job_owner", return_value=7),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_processing"),
+            patch.object(ingestion_jobs.ingestion_crud, "mark_completed") as completed,
+            patch.object(ingestion_jobs.ingestion_crud, "mark_failed") as failed,
             patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers") as sync,
         ):
             session_local.return_value.__enter__.return_value = MagicMock()

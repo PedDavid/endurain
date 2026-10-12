@@ -100,7 +100,7 @@ class TestProcessAllFilesSync:
     def test_processes_every_file_with_the_same_import_time(self):
         with (
             patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(ingestion_service, "ingestion_jobs_crud"),
+            patch.object(ingestion_service, "ingestion_crud"),
             patch.object(ingestion_service.bulk_entry, "store_activity_file") as store,
         ):
             ingestion_service.process_all_files_sync(
@@ -118,7 +118,7 @@ class TestProcessAllFilesSync:
         created = MagicMock(id=11)
         with (
             patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(ingestion_service, "ingestion_jobs_crud") as jobs,
+            patch.object(ingestion_service, "ingestion_crud") as jobs,
             patch.object(ingestion_service.bulk_entry, "store_activity_file", side_effect=[[created], None]),
         ):
             ingestion_service.process_all_files_sync(
