@@ -132,7 +132,7 @@ class TestStoreParsedActivity:
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
     @patch("modules.activities.activity.ingestion_service.contributor_registry")
     @patch("modules.activities.activity.ingestion_service.activities_crud")
-    def test_rolls_back_and_raises_when_component_fails(self, mock_crud, mock_registry, mock_pub):
+    def test_database_error_from_a_component_propagates_untranslated(self, mock_crud, mock_registry, mock_pub):
         from sqlalchemy.exc import SQLAlchemyError
 
         import modules.activities.activity.ingestion_service as ingestion_service
@@ -145,12 +145,11 @@ class TestStoreParsedActivity:
 
         parsed = _parsed(components={"streams": [MagicMock()]})
 
-        with pytest.raises(core_exceptions.ProcessingError) as exc:
+        # Not translated here: the transaction owner rolls back and the app's
+        # database error handler renders the response.
+        with pytest.raises(SQLAlchemyError):
             ingestion_service.store_parsed_activity(parsed, db)
-        assert exc.value.status_code == 500
-        # The whole unit of work rolls back (no partial activity) and no event is
-        # published for a store that never committed.
-        db.rollback.assert_called_once()
+        # No event is published for a store that never committed.
         mock_pub.publish_activity_created.assert_not_called()
 
     @patch("modules.activities.activity.ingestion_service.activities_crud")

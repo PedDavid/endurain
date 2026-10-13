@@ -4,15 +4,12 @@ Mirrors the thumbnail/notification subscriber pattern: a durable
 ``*_for_event`` core that **raises** so the durable-job runner can retry and
 eventually dead-letter, and an ``on_*`` bus subscriber that **swallows** so an
 HR-zone failure never breaks activity import. The scheduled backfill
-(:func:`run_missing_hr_zone_backfill`) is the reconciliation net for any streams the
-create-path handler misses (e.g. delivery dropped on the best-effort bus, or the
-owner's max heart rate was set only later).
+is the reconciliation net (``integration_service.run_missing_hr_zone_backfill``)
+for any streams the create-path handler misses (e.g. delivery dropped on the
+best-effort bus, or the owner's max heart rate was set only later).
 """
 
-import logging
-
 import jasil.event_versioning as platform_event_versioning
-import jasil.runtime as platform_runtime
 from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
@@ -90,32 +87,3 @@ def register_hr_zone_durable_handlers(registry: JobHandlerRegistry) -> None:
         HR_ZONE_SUBSCRIBER_ID,
         compute_hr_zones_for_event,
     )
-
-
-def run_missing_hr_zone_backfill() -> None:
-    """Scheduled reconciliation net: score HR streams missing ``zone_percentages``.
-
-    Intended to be called periodically by the scheduler. Acquires the coordination
-    lock so only one replica runs the pass, then opens its own database session and
-    scores any HR streams the create-path handler missed.
-
-    Returns:
-        None.
-
-    Raises:
-        None — the crud backfill logs and continues per batch.
-    """
-    platform = platform_runtime.get_active_platform()
-    with platform.lock.try_acquire("hr_zone_backfill") as acquired:
-        if not acquired:
-            logger.debug("HR-zone scheduler: another replica holds the backfill lock; skipping")
-            return
-        with core_database.SessionLocal() as db:
-            updated = activity_streams_service.backfill_missing_hr_zones(db)
-        # Level varies so an idle scheduler pass stays at debug instead of
-        # emitting an INFO line every tick.
-        logger.log(
-            logging.INFO if updated else logging.DEBUG,
-            "HR-zone scheduler pass complete",
-            extra=core_logger.context(updated=updated),
-        )

@@ -96,37 +96,30 @@ class TestNoSqlOrParametersInLogs:
         assert _LEAKED_PARAMETER not in exc.value.detail
 
 
-class TestScheduledQueriesStillDegrade:
-    """The backfill queries deliberately swallow rather than raise.
+_SCHEDULED_QUERIES = [
+    activities_crud.get_activities_missing_location,
+    activities_crud.get_activities_with_thumbnail,
+    activities_crud.get_activities_without_thumbnail,
+    activities_crud.get_activities_with_legacy_thumbnail_path,
+]
 
-    A transient database error must not take the scheduler down, so these return
-    an empty result and log. They were left undecorated on purpose — only their
-    logging was corrected.
+
+class TestScheduledQueriesRaise:
+    """The backfill queries raise like every other read.
+
+    Returning ``[]`` made "nothing to do" and "the database is down" the same
+    answer, so a failing pass looked like a finished one. The scheduler and the
+    migration runner already handle a raised error.
     """
 
-    @pytest.mark.parametrize(
-        "function",
-        [
-            activities_crud.get_activities_missing_location,
-            activities_crud.get_activities_with_thumbnail,
-            activities_crud.get_activities_without_thumbnail,
-            activities_crud.get_activities_with_legacy_thumbnail_path,
-        ],
-    )
-    def test_returns_empty_instead_of_raising(self, function):
-        assert function(_failing_db()) == []
+    @pytest.mark.parametrize("function", _SCHEDULED_QUERIES)
+    def test_raises_processing_error(self, function):
+        with pytest.raises(core_exceptions.ProcessingError):
+            function(_failing_db())
 
-    @pytest.mark.parametrize(
-        "function",
-        [
-            activities_crud.get_activities_missing_location,
-            activities_crud.get_activities_with_thumbnail,
-            activities_crud.get_activities_without_thumbnail,
-            activities_crud.get_activities_with_legacy_thumbnail_path,
-        ],
-    )
-    def test_swallowed_failures_also_keep_sql_out_of_logs(self, function, caplog):
-        with caplog.at_level(logging.ERROR):
+    @pytest.mark.parametrize("function", _SCHEDULED_QUERIES)
+    def test_failures_keep_sql_out_of_logs(self, function, caplog):
+        with caplog.at_level(logging.ERROR), pytest.raises(core_exceptions.ProcessingError):
             function(_failing_db())
 
         messages = " ".join(record.getMessage() for record in caplog.records)

@@ -1,15 +1,21 @@
 """Public persistence and derivation operations for activity streams."""
 
+import logging
 from typing import Any
 
+import jasil.runtime as platform_runtime
 from sqlalchemy.orm import Session
 
+import core.database as core_database
 import core.exceptions as core_exceptions
+import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.schema as activity_streams_schema
 import modules.activities.activity_streams.service as activity_streams_service
 import modules.activities.contributors as activity_contributors
+
+logger = core_logger.get_logger(__name__)
 
 
 def _list_streams_for_activities(
@@ -117,3 +123,29 @@ def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> di
 def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     """Recompute stored HR-zone breakdowns after user settings change."""
     activity_streams_service.recompute_hr_zones_for_user(user_id, db)
+
+
+def run_missing_hr_zone_backfill() -> None:
+    """Scheduled reconciliation net: score HR streams missing ``zone_percentages``.
+
+    Scheduler-invoked, with no request to carry the provider or a session, so
+    this entry point resolves the provider and opens the session. Acquires the
+    coordination lock so only one replica runs the pass.
+
+    Returns:
+        None.
+    """
+    platform = platform_runtime.get_active_platform()
+    with platform.lock.try_acquire("hr_zone_backfill") as acquired:
+        if not acquired:
+            logger.debug("HR-zone scheduler: another replica holds the backfill lock; skipping")
+            return
+        with core_database.SessionLocal() as db:
+            updated = activity_streams_service.backfill_missing_hr_zones(db)
+        # Level varies so an idle scheduler pass stays at debug instead of
+        # emitting an INFO line every tick.
+        logger.log(
+            logging.INFO if updated else logging.DEBUG,
+            "HR-zone scheduler pass complete",
+            extra=core_logger.context(updated=updated),
+        )

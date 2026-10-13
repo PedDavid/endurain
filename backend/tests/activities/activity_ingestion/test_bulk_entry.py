@@ -46,10 +46,13 @@ class TestStoreActivityFile:
         assert result == ["activity"]
 
     def test_returns_none_on_failure(self):
+        db = MagicMock()
         with patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")):
-            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource())
+            result = bulk_entry.store_activity_file(3, "/tmp/x.gpx", db, "storage", source=sources.GarminSource())
 
         assert result is None
+        # The batch carries on with this session, so a failed file leaves it clean.
+        db.rollback.assert_called_once()
 
     def test_a_failed_garmin_file_is_not_quarantined(self):
         # Only bulk imports have an error directory; the Garmin sync cleans up
@@ -58,7 +61,7 @@ class TestStoreActivityFile:
             patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")),
             patch.object(bulk_entry, "_move_failed_file_to_error_directory") as move,
         ):
-            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource())
+            bulk_entry.store_activity_file(3, "/tmp/x.gpx", MagicMock(), "storage", source=sources.GarminSource())
 
         move.assert_not_called()
 
@@ -69,7 +72,7 @@ class TestStoreActivityFile:
             patch.object(bulk_entry.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")),
             patch.object(bulk_entry, "_move_failed_file_to_error_directory") as move,
         ):
-            bulk_entry.store_activity_file(3, "/tmp/x.gpx", "db", "storage", source=source)
+            bulk_entry.store_activity_file(3, "/tmp/x.gpx", MagicMock(), "storage", source=source)
 
         move.assert_called_once_with(source, "/tmp/x.gpx")
 

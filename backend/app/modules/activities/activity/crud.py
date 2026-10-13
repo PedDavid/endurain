@@ -23,7 +23,6 @@ from sqlalchemy import (
 from sqlalchemy import (
     update as sa_update,
 )
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
@@ -1343,6 +1342,7 @@ def update_activity_location(
     return True
 
 
+@core_decorators.handle_db_errors
 def get_activities_missing_location(
     db: Session,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
@@ -1359,28 +1359,23 @@ def get_activities_missing_location(
         limit: Maximum number of candidate rows to return.
 
     Returns:
-        Location references (id only) ordered by id, or an empty list on error.
+        Location references (id only) ordered by id.
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        stmt = (
-            select(activities_models.Activity.id)
-            .where(
-                activities_models.Activity.city.is_(None),
-                activities_models.Activity.town.is_(None),
-                activities_models.Activity.country.is_(None),
-            )
-            .order_by(activities_models.Activity.id)
-            .limit(limit)
+    stmt = (
+        select(activities_models.Activity.id)
+        .where(
+            activities_models.Activity.city.is_(None),
+            activities_models.Activity.town.is_(None),
+            activities_models.Activity.country.is_(None),
         )
-        ids = db.execute(stmt).scalars().all()
-        return [activities_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
-    except SQLAlchemyError as err:
-        logger.error(
-            "Database error in get_activities_missing_location",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
-        return []
+        .order_by(activities_models.Activity.id)
+        .limit(limit)
+    )
+    ids = db.execute(stmt).scalars().all()
+    return [activities_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
 
 
 @core_decorators.handle_db_errors
@@ -1399,6 +1394,7 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
     db.execute(sa_update(activities_models.Activity).values(map_thumbnail_path=None))
 
 
+@core_decorators.handle_db_errors
 def get_activities_with_thumbnail(
     db: Session,
     after_id: int = 0,
@@ -1416,31 +1412,27 @@ def get_activities_with_thumbnail(
 
     Returns:
         Thumbnail references (id + stored key) for rows with
-        ``map_thumbnail_path`` set, or an empty list on error.
+        ``map_thumbnail_path`` set.
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        stmt = (
-            select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
-            .where(
-                activities_models.Activity.map_thumbnail_path.isnot(None),
-                activities_models.Activity.id > after_id,
-            )
-            .order_by(activities_models.Activity.id)
-            .limit(limit)
+    stmt = (
+        select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
+        .where(
+            activities_models.Activity.map_thumbnail_path.isnot(None),
+            activities_models.Activity.id > after_id,
         )
-        return [
-            activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
-            for row in db.execute(stmt)
-        ]
-    except SQLAlchemyError as err:
-        logger.error(
-            "Database error in get_activities_with_thumbnail",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
-        return []
+        .order_by(activities_models.Activity.id)
+        .limit(limit)
+    )
+    return [
+        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
+        for row in db.execute(stmt)
+    ]
 
 
+@core_decorators.handle_db_errors
 def get_activities_without_thumbnail(
     db: Session,
     after_id: int = 0,
@@ -1459,31 +1451,27 @@ def get_activities_without_thumbnail(
 
     Returns:
         Thumbnail references (id, with a null key) for rows with
-        ``map_thumbnail_path`` set to NULL, or an empty list on error.
+        ``map_thumbnail_path`` set to NULL.
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        stmt = (
-            select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
-            .where(
-                activities_models.Activity.map_thumbnail_path.is_(None),
-                activities_models.Activity.id > after_id,
-            )
-            .order_by(activities_models.Activity.id)
-            .limit(limit)
+    stmt = (
+        select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
+        .where(
+            activities_models.Activity.map_thumbnail_path.is_(None),
+            activities_models.Activity.id > after_id,
         )
-        return [
-            activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
-            for row in db.execute(stmt)
-        ]
-    except SQLAlchemyError as err:
-        logger.error(
-            "Database error in get_activities_without_thumbnail",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
-        return []
+        .order_by(activities_models.Activity.id)
+        .limit(limit)
+    )
+    return [
+        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
+        for row in db.execute(stmt)
+    ]
 
 
+@core_decorators.handle_db_errors
 def get_activities_with_legacy_thumbnail_path(
     db: Session,
     after_id: int = 0,
@@ -1503,31 +1491,25 @@ def get_activities_with_legacy_thumbnail_path(
 
     Returns:
         Thumbnail references (id + stored key) for rows with a legacy thumbnail
-        path, or an empty list on error.
+        path.
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        stmt = (
-            select(activities_models.Activity)
-            .where(
-                activities_models.Activity.map_thumbnail_path.isnot(None),
-                activities_models.Activity.map_thumbnail_path.like("%/%"),
-                activities_models.Activity.id > after_id,
-            )
-            .order_by(activities_models.Activity.id)
-            .limit(limit)
+    stmt = (
+        select(activities_models.Activity)
+        .where(
+            activities_models.Activity.map_thumbnail_path.isnot(None),
+            activities_models.Activity.map_thumbnail_path.like("%/%"),
+            activities_models.Activity.id > after_id,
         )
-        rows = db.execute(stmt).scalars().all()
-        return [
-            activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
-            for row in rows
-        ]
-    except SQLAlchemyError as err:
-        logger.error(
-            "Database error in get_activities_with_legacy_thumbnail_path",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
-        return []
+        .order_by(activities_models.Activity.id)
+        .limit(limit)
+    )
+    rows = db.execute(stmt).scalars().all()
+    return [
+        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path) for row in rows
+    ]
 
 
 @core_decorators.handle_db_errors

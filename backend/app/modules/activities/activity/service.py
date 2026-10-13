@@ -17,7 +17,6 @@ directly, which made every one of them a second owner of the activities table.
 import calendar
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -761,27 +760,19 @@ def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
 
 
 def clear_all_thumbnail_keys(db: Session) -> None:
-    """Clear every stored activity thumbnail key and commit, best effort.
-
-    A failure is logged and swallowed, as before: the caller is a maintenance
-    pass that re-derives thumbnails and can simply run again.
+    """Clear every stored activity thumbnail key and commit.
 
     Args:
         db: Database session.
 
     Returns:
         None.
+
+    Raises:
+        ProcessingError: On database error.
     """
-    try:
-        activities_crud.clear_all_activity_thumbnail_paths(db)
-        db.commit()
-    except (core_exceptions.ProcessingError, SQLAlchemyError) as err:
-        db.rollback()
-        logger.error(
-            "Failed to clear the stored activity thumbnail keys",
-            exc_info=err,
-            extra=core_logger.context(error=type(err).__name__),
-        )
+    activities_crud.clear_all_activity_thumbnail_paths(db)
+    db.commit()
 
 
 def set_activity_location(

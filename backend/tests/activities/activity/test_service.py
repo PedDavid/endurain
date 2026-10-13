@@ -378,16 +378,15 @@ class TestDerivedArtifactWrites:
         db.commit.assert_called_once()
 
     @patch("modules.activities.activity.service.activities_crud")
-    def test_clear_all_thumbnail_keys_swallows_a_failure_and_rolls_back(self, mock_crud):
-        """A maintenance pass that re-derives thumbnails can simply run again."""
+    def test_clear_all_thumbnail_keys_propagates_a_failure_without_committing(self, mock_crud):
         from modules.activities.activity.service import clear_all_thumbnail_keys
 
         db = MagicMock()
         mock_crud.clear_all_activity_thumbnail_paths.side_effect = core_exceptions.ProcessingError()
 
-        clear_all_thumbnail_keys(db)
+        with pytest.raises(core_exceptions.ProcessingError):
+            clear_all_thumbnail_keys(db)
 
-        db.rollback.assert_called_once()
         db.commit.assert_not_called()
 
     @patch("modules.activities.activity.service.activities_crud")

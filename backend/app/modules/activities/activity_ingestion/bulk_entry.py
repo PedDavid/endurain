@@ -143,6 +143,9 @@ def store_activity_file(
         KeyError,
         TypeError,
     ) as err:
+        # This entry swallows the failure so the batch continues on the same
+        # session, so it is the one that has to leave that session usable.
+        db.rollback()
         if isinstance(source, ingestion_contracts.BulkImportSource):
             logger.error(
                 "Bulk file import: error while parsing file",

@@ -7,7 +7,7 @@ persists its contributed components, and publishes ``activity.created``.
 
 from datetime import datetime
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
@@ -129,8 +129,8 @@ def store_parsed_activity(
             ),
         )
 
-        # Persist every contributed component with commit=False so the parent and
-        # children land in one transaction. Unknown keys fail closed above rather
+        # Contributors only stage, so the parent and children land in one
+        # transaction. Unknown keys fail closed above rather
         # than silently dropping parsed data.
         for contributor, data in component_work:
             contributor.persist(data, created_activity, db)
@@ -201,11 +201,3 @@ def store_parsed_activity(
         # never decides its status.
         db.rollback()
         raise
-    except SQLAlchemyError as err:
-        db.rollback()
-        logger.error(
-            "Error in store_parsed_activity",
-            exc_info=err,
-            extra=core_logger.context(user_id=parsed.activity.user_id, dedup_key=dedup_key),
-        )
-        raise core_exceptions.ProcessingError("Error creating activity") from err

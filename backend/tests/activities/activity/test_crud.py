@@ -1471,7 +1471,8 @@ class TestGetActivitiesWithThumbnail:
         import modules.activities.activity.crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        assert crud.get_activities_with_thumbnail(db=mock_db) == []
+        with pytest.raises(core_exceptions.ProcessingError):
+            crud.get_activities_with_thumbnail(db=mock_db)
 
     def test_pages_from_the_cursor(self, mock_db):
         """An unbounded scan of this table is what the ``after_id``/``limit`` pair exists to stop."""
@@ -1502,7 +1503,8 @@ class TestGetActivitiesWithoutThumbnail:
         import modules.activities.activity.crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        assert crud.get_activities_without_thumbnail(db=mock_db) == []
+        with pytest.raises(core_exceptions.ProcessingError):
+            crud.get_activities_without_thumbnail(db=mock_db)
 
     def test_pages_from_the_cursor(self, mock_db):
         """The backfill walks the whole table, so it must do it in bounded steps."""
@@ -1564,7 +1566,8 @@ class TestGetActivitiesMissingLocation:
         import modules.activities.activity.crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        assert crud.get_activities_missing_location(db=mock_db) == []
+        with pytest.raises(core_exceptions.ProcessingError):
+            crud.get_activities_missing_location(db=mock_db)
 
 
 class TestEditUserActivitiesVisibility:
@@ -1659,11 +1662,12 @@ class TestGetActivitiesWithLegacyThumbnailPath:
         assert result[0].id == 7
         assert result[0].map_thumbnail_path == "/data/x/7.png"
 
-    def test_returns_empty_on_error(self, mock_db):
+    def test_raises_on_error(self, mock_db):
         import modules.activities.activity.crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("boom")
-        assert crud.get_activities_with_legacy_thumbnail_path(mock_db) == []
+        with pytest.raises(core_exceptions.ProcessingError):
+            crud.get_activities_with_legacy_thumbnail_path(mock_db)
 
 
 class TestLocalTimeBucketing:
