@@ -172,6 +172,12 @@ class ActivityBase(BaseModel):
         existing producer working by normalizing whatever it passes (naive UTC
         wall clock from the file parsers, offset-carrying ISO strings from the
         providers) to an aware UTC instant.
+
+        Args:
+            value: An ISO string or datetime.
+
+        Returns:
+            The aware UTC datetime, or the input unchanged when it is not a date.
         """
         return core_timezone.to_utc_aware(value) if isinstance(value, str) else value
 

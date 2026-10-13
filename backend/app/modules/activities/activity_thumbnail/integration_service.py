@@ -8,7 +8,15 @@ import modules.activities.activity_thumbnail.signing as thumbnail_signing
 
 
 def thumbnail_url(key: str | None, activity_id: int) -> str | None:
-    """Resolve a stored thumbnail key to a servable capability URL."""
+    """Resolve a stored thumbnail key to a servable capability URL.
+
+    Args:
+        key: The stored thumbnail key, or None.
+        activity_id: ID of the activity.
+
+    Returns:
+        The URL, or None when there is no thumbnail.
+    """
     return thumbnail_signing.thumbnail_url(key, activity_id)
 
 
@@ -17,6 +25,9 @@ def generate_missing_thumbnails() -> None:
 
     Scheduler-invoked, with no request to carry the providers or a session, so
     this entry point resolves the providers and opens the session.
+
+    Returns:
+        None.
     """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
@@ -24,7 +35,11 @@ def generate_missing_thumbnails() -> None:
 
 
 def regenerate_all_thumbnails() -> None:
-    """Delete and regenerate every activity thumbnail."""
+    """Delete and regenerate every activity thumbnail.
+
+    Returns:
+        None.
+    """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
         thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)

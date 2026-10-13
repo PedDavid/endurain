@@ -46,11 +46,29 @@ class ChildCollection[PageT]:
     build: Callable[[list[Any], int, int, int], PageT]
 
     def _empty(self, page_number: int, num_records: int) -> PageT:
-        """Return the empty page — the answer to both "none" and "not allowed"."""
+        """Return the empty page — the answer to both "none" and "not allowed".
+
+        Args:
+            page_number: 1-based page number.
+            num_records: Page size.
+
+        Returns:
+            The empty page.
+        """
         return self.build([], 0, page_number, num_records)
 
     def _page(self, activity_id: int, db: Session, page_number: int, num_records: int) -> PageT:
-        """Read one page and its total."""
+        """Read one page and its total.
+
+        Args:
+            activity_id: ID of the activity.
+            db: Database session.
+            page_number: 1-based page number.
+            num_records: Page size.
+
+        Returns:
+            The page and its total.
+        """
         items = self.fetch(activity_id, db, page_number=page_number, num_records=num_records)
         return self.build(items, self.count(activity_id, db), page_number, num_records)
 

@@ -5,7 +5,11 @@ import modules.activities.activity_geocoding.integration_service as geocoding_in
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
-    """Return geocoding reconciliation jobs."""
+    """Return geocoding reconciliation jobs.
+
+    Returns:
+        The jobs to schedule.
+    """
     return (
         core_scheduler.ScheduledJob(
             geocoding_integration.run_missing_location_backfill,
@@ -16,7 +20,11 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
 
 
 def schedule_missing_location_backfill() -> None:
-    """Queue one missing-location reconciliation pass."""
+    """Queue one missing-location reconciliation pass.
+
+    Returns:
+        None.
+    """
     core_scheduler.run_once(
         geocoding_integration.run_missing_location_backfill,
         job_id="endurain_backfill_missing_locations_oneshot",

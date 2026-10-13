@@ -42,18 +42,6 @@ def read_activities_streams_for_activity_all(
 ) -> activity_streams_schema.ActivityStreamsPage:
     """
     Return one page of the given activity's streams, with the matching total.
-
-    Args:
-        activity_id: The activity identifier.
-        _check_scopes: Scope authorization dep.
-        token_user_id: Authenticated user ID.
-        db: Database session.
-        page: Resolved paging window, capped so one request cannot ask for
-            an unbounded number of rows.
-
-    Returns:
-        The page envelope. Empty when the activity is hidden from the caller or
-        has no visible streams.
     """
     return activity_streams_service.list_activity_streams(
         activity_id,
@@ -94,23 +82,10 @@ def read_activities_streams_for_activity_stream_type(
     """
     Get a specific stream type for an activity.
 
-    Args:
-        activity_id: The activity identifier.
-        stream_type: The stream type code.
-        validate_activity_stream_type: Type dep.
-        _check_scopes: Scope authorization dep.
-        token_user_id: Authenticated user ID.
-        db: Database session.
-
-    Returns:
-        The activity stream.
-
-    Raises:
-        NotFoundError: When the activity has no such stream, or is not visible
-            to the caller. A single resource that does not exist is a 404; it
-            used to answer ``200 null``, which is neither a resource nor an
-            error. The two cases are deliberately indistinguishable so the
-            endpoint cannot be used to probe which activities exist.
+    Not found when the activity has no such stream or is not visible to the
+    caller. A single resource that does not exist is a ``404`` rather than
+    ``200 null``, and the two cases are indistinguishable so the endpoint cannot
+    be used to probe which activities exist.
     """
     stream = activity_streams_service.get_activity_stream(
         activity_id,

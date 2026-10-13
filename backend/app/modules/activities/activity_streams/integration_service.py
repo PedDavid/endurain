@@ -22,7 +22,15 @@ def _list_streams_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_streams_schema.ActivityStreamsRead]:
-    """Return streams for activity IDs already scoped by the caller."""
+    """Return streams for activity IDs already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Streams for activity IDs already scoped by the caller.
+    """
     return activity_streams_crud.get_activities_streams(activity_ids, db)
 
 
@@ -31,7 +39,16 @@ def _store_streams(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """Store parsed streams for an activity."""
+    """Store parsed streams for an activity.
+
+    Args:
+        streams: Streams to store.
+        activity: The parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_streams_crud.create_activity_streams(streams, activity, db)
 
 
@@ -40,7 +57,16 @@ def _persist_ingestion_component(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """Validate and persist parsed streams through the ingestion contract."""
+    """Validate and persist parsed streams through the ingestion contract.
+
+    Args:
+        data: The parsed component payload.
+        activity: The newly created parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store streams before the activity has an id")
     streams = [
@@ -56,7 +82,11 @@ def _persist_ingestion_component(
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
-    """Return the activity-streams ingestion contribution."""
+    """Return the activity-streams ingestion contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ActivityIngestionContributor(
         key="streams",
         persist=_persist_ingestion_component,
@@ -69,7 +99,17 @@ def _restore_profile_records(
     new_activity: activity_schema.Activity,
     db: Session,
 ) -> int:
-    """Validate and restore profile stream records for one activity."""
+    """Validate and restore profile stream records for one activity.
+
+    Args:
+        records: Profile records to restore.
+        original_activity_id: The activity's ID in the exported archive.
+        new_activity: The activity the records are restored onto.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     if new_activity.id is None:
         return 0
 
@@ -88,7 +128,11 @@ def _restore_profile_records(
 
 
 def profile_contributor() -> activity_contributors.ProfileActivityContributor:
-    """Return the activity-streams profile contribution."""
+    """Return the activity-streams profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileActivityContributor(
         key="streams",
         archive_path="data/activity_streams.json",
@@ -108,6 +152,14 @@ def get_stream_for_derivation(
 
     No masking is applied: the caller derives an artifact for the owner rather
     than serving a viewer.
+
+    Args:
+        activity_id: ID of the activity.
+        stream_type: The stream type code.
+        db: Database session.
+
+    Returns:
+        One unmasked stream for an internal derived artifact.
     """
     return activity_streams_crud.get_activity_stream_by_type(activity_id, stream_type, db)
 
@@ -116,12 +168,27 @@ def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> di
     """Return GPS waypoints for several activities in one query.
 
     Activities with no GPS stream are absent from the result.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        GPS waypoints for several activities in one query.
     """
     return activity_streams_crud.get_gps_stream_waypoints_for_activities(activity_ids, db)
 
 
 def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
-    """Recompute stored HR-zone breakdowns after user settings change."""
+    """Recompute stored HR-zone breakdowns after user settings change.
+
+    Args:
+        user_id: ID of the user.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_streams_service.recompute_hr_zones_for_user(user_id, db)
 
 

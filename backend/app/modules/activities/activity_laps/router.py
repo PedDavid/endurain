@@ -31,19 +31,6 @@ def read_activities_laps_for_activity_all(
 ) -> activity_laps_schema.ActivityLapsPage:
     """
     Return one page of the given activity's laps, with the matching total.
-
-    Args:
-        activity_id: Activity primary key.
-        _check_scopes: FastAPI security dependency enforcing scopes.
-        token_user_id: Authenticated user id derived from the access
-            token.
-        db: Database session.
-        page: Resolved paging window, capped so one request cannot ask for
-            an unbounded number of rows.
-
-    Returns:
-        The page envelope. Empty when the activity is hidden from the caller or
-        has no laps.
     """
     return activity_laps_service.list_activity_laps(
         activity_id,

@@ -14,12 +14,24 @@ logger = core_logger.get_logger(__name__)
 
 
 def _persist_file_ingestion_component(data: Any, db: Session) -> None:
-    """Persist exercise titles through the generic file-ingestion contract."""
+    """Persist exercise titles through the generic file-ingestion contract.
+
+    Args:
+        data: The parsed exercise titles.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     exercise_titles_crud.create_activity_exercise_titles(data, db)
 
 
 def ingestion_contributor() -> activity_contributors.FileIngestionContributor:
-    """Return the exercise-title file-ingestion contribution."""
+    """Return the exercise-title file-ingestion contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.FileIngestionContributor(
         key="exercise_titles",
         persist=_persist_file_ingestion_component,
@@ -27,7 +39,15 @@ def ingestion_contributor() -> activity_contributors.FileIngestionContributor:
 
 
 def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
-    """Validate and restore all profile exercise-title records."""
+    """Validate and restore all profile exercise-title records.
+
+    Args:
+        records: Profile records to restore.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     titles: list[exercise_titles_schema.ActivityExerciseTitles] = []
     for record in records:
         if not isinstance(record, dict):
@@ -46,7 +66,11 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
 
 
 def profile_global_contributor() -> activity_contributors.ProfileGlobalContributor:
-    """Return the exercise-title global profile contribution."""
+    """Return the exercise-title global profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileGlobalContributor(
         key="exercise_titles",
         archive_path="data/activity_exercise_titles.json",

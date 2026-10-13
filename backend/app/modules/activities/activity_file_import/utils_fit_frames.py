@@ -26,6 +26,14 @@ logger = core_logger.get_logger(__name__)
 
 
 def parse_frame_session(frame):
+    """Extract the session summary fields from a FIT session frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The session fields as an ordered tuple.
+    """
     # Extracting coordinates
     initial_latitude, initial_longitude = convert_coordinates_to_degrees(
         get_value_from_frame(frame, "start_position_lat"),
@@ -84,11 +92,27 @@ def parse_frame_session(frame):
 
 
 def parse_frame_workout(frame):
+    """Extract the workout name from a FIT workout frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The workout name, or ``Workout`` when absent.
+    """
     # Return the extracted name
     return get_value_from_frame(frame, "wkt_name", "Workout")
 
 
 def parse_frame_record(frame):
+    """Extract the sample fields from a FIT record frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        A tuple of latitude, longitude, elevation, time, heart rate, cadence, power and temperature.
+    """
     # Extracting data using the helper function
     latitude = get_value_from_frame(frame, "position_lat")
     longitude = get_value_from_frame(frame, "position_long")
@@ -106,6 +130,14 @@ def parse_frame_record(frame):
 
 
 def parse_frame_lap(frame):
+    """Extract the lap fields from a FIT lap frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The lap fields as a dict.
+    """
     keys = [
         "start_time",
         "start_position_lat",
@@ -185,6 +217,14 @@ def parse_frame_lap(frame):
 
 
 def parse_frame_split(frame):
+    """Extract the split fields from a FIT split frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The split values as a tuple, in the parser's field order.
+    """
     # Define a list of keys and their default values
     keys_defaults = [
         ("split_type", 0),
@@ -212,6 +252,14 @@ def parse_frame_split(frame):
 
 
 def parse_frame_split_summary(frame):
+    """Extract the split type and working time from a FIT split-summary frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        A tuple of split type and total timer time.
+    """
     # split type
     split_type = get_value_from_frame(frame, "split_type")
     if split_type is None:
@@ -227,6 +275,14 @@ def parse_frame_split_summary(frame):
 
 
 def parse_frame_set(frame):
+    """Extract the set fields from a FIT set frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The set values as a list, in the parser's field order.
+    """
     keys_value = [
         "duration",
         "repetitions",
@@ -251,6 +307,14 @@ def parse_frame_set(frame):
 
 
 def parse_frame_workout_step(frame):
+    """Build a workout step from a FIT workout-step frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The workout step.
+    """
     keys_value = [
         "message_index",
         "duration_type",
@@ -304,6 +368,14 @@ def parse_frame_workout_step(frame):
 
 
 def parse_frame_exercise_title(frame):
+    """Build an exercise title from a FIT exercise-title frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The exercise title.
+    """
     keys_value = [
         "wkt_step_name",
     ]
@@ -324,10 +396,26 @@ def parse_frame_exercise_title(frame):
 
 
 def parse_frame_device_settings(frame):
+    """Extract the time offset from a FIT device-settings frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The raw time offset, or None when absent.
+    """
     return get_value_from_frame(frame, "time_offset")
 
 
 def parse_frame_length(frame):
+    """Extract the pool-length fields from a FIT length frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The length fields as a dict.
+    """
     return {
         "message_index": get_value_from_frame(frame, "message_index"),
         "start_time": get_value_from_frame(frame, "start_time"),
@@ -342,6 +430,14 @@ def parse_frame_length(frame):
 
 
 def parse_frame_file_id(frame):
+    """Extract the file identification fields from a FIT file-id frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The file-id fields as a dict.
+    """
     return {
         "type": get_value_from_frame(frame, "type"),
         "manufacturer": get_value_from_frame(frame, "manufacturer"),
@@ -352,6 +448,15 @@ def parse_frame_file_id(frame):
 
 
 def parse_frame_monitoring(frame, last_timestamp):
+    """Extract step and heart-rate samples from a FIT monitoring frame.
+
+    Args:
+        frame: The decoded FIT data message.
+        last_timestamp: Timestamp of the previous monitoring frame.
+
+    Returns:
+        A tuple of step samples and heart-rate samples.
+    """
     steps = []
     heart_rate = []
 
@@ -402,6 +507,14 @@ def parse_frame_monitoring(frame, last_timestamp):
 
 
 def parse_frame_monitoring_hr_data(frame):
+    """Extract the resting heart-rate fields from a FIT monitoring frame.
+
+    Args:
+        frame: The decoded FIT data message.
+
+    Returns:
+        The timestamp and resting heart-rate fields as a dict.
+    """
     return {
         "timestamp": get_value_from_frame(frame, "timestamp"),
         "resting_heart_rate": get_value_from_frame(frame, "resting_heart_rate"),
@@ -410,6 +523,14 @@ def parse_frame_monitoring_hr_data(frame):
 
 
 def interpret_time_offset(raw_offset):
+    """Convert a raw FIT time offset from two's complement to a signed value.
+
+    Args:
+        raw_offset: The raw offset, possibly unsigned.
+
+    Returns:
+        The signed offset, or the input when it is None or already signed.
+    """
     # Check for two's complement representation (values > 2^31)
     if raw_offset != 0 and raw_offset is not None and raw_offset > 2**31 - 1:
         return raw_offset - 2**32
@@ -417,6 +538,16 @@ def interpret_time_offset(raw_offset):
 
 
 def get_value_from_frame(frame, key, default=None):
+    """Read a field's value from a FIT frame.
+
+    Args:
+        frame: The decoded FIT data message.
+        key: The field name or index.
+        default: Value returned when the field is missing.
+
+    Returns:
+        The field value, or ``default``.
+    """
     try:
         value = frame.get_value(key)
         # Explicit None check so a genuine 0 (e.g. 0 m ascent, 0 W power, a lap
@@ -427,6 +558,16 @@ def get_value_from_frame(frame, key, default=None):
 
 
 def get_raw_value_from_frame(frame, key, default=None):
+    """Read a field's raw value from a FIT frame.
+
+    Args:
+        frame: The decoded FIT data message.
+        key: The field name or index.
+        default: Value returned when the field is missing.
+
+    Returns:
+        The raw value, or ``default``.
+    """
     try:
         raw_value = frame.get_raw_value(key)
         return raw_value if raw_value else default
@@ -435,6 +576,15 @@ def get_raw_value_from_frame(frame, key, default=None):
 
 
 def convert_coordinates_to_degrees(latitude, longitude):
+    """Convert FIT semicircle coordinates to degrees.
+
+    Args:
+        latitude: Latitude in semicircles, or None.
+        longitude: Longitude in semicircles, or None.
+
+    Returns:
+        A (latitude, longitude) tuple; unchanged when either is None.
+    """
     # Convert FIT coordinates to degrees if available
     if latitude is not None and longitude is not None:
         latitude = latitude * (180 / 2**31)
@@ -444,6 +594,18 @@ def convert_coordinates_to_degrees(latitude, longitude):
 
 
 def calculate_pace(distance, total_timer_time, activity_type, split_summary, lengths):
+    """Compute the active time and pace for an activity.
+
+    Args:
+        distance: Total distance, or None when unknown.
+        total_timer_time: Total timer time.
+        activity_type: Activity type code to filter by, or None.
+        split_summary: Parsed split-summary records.
+        lengths: Parsed pool-length records.
+
+    Returns:
+        A tuple of active time and pace.
+    """
     if distance:
         if activity_type != "lap_swimming" or (activity_type == "lap_swimming" and not split_summary and not lengths):
             return total_timer_time, total_timer_time / distance

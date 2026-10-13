@@ -48,20 +48,9 @@ def read_activity_media_file(
 ) -> Response:
     """Serve an activity media blob when the signed token is valid.
 
-    Args:
-        activity_id: The activity the media must belong to.
-        media_id: The media record to serve.
-        token: The signed access token (``?t=``) minted at serialization time.
-        db: Database session dependency.
-        storage: Blob-storage provider.
-
-    Returns:
-        The image bytes.
-
-    Raises:
-        HTTPException: 404 when the token is invalid/forged, the record does not
-            belong to ``activity_id``, or no blob exists (a 404 — rather than
-            403 — avoids confirming the resource to an unauthorized caller).
+    Answers ``404`` when the token is invalid or forged, the record does not belong
+    to the activity, or no blob exists. A ``404`` rather than ``403`` avoids
+    confirming the resource to an unauthorized caller.
     """
     if not activity_media_signing.verify_media_token(media_id, token):
         # Security-relevant: either a forged token or one replayed against a

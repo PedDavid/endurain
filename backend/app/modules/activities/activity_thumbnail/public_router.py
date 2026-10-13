@@ -34,17 +34,7 @@ def read_activity_thumbnail(
 ) -> Response:
     """Serve an activity's map thumbnail when the signed token is valid.
 
-    Args:
-        activity_id: The activity whose thumbnail to serve.
-        token: The signed access token (``?t=``) minted at serialization time.
-        storage: Blob-storage provider.
-
-    Returns:
-        The WebP thumbnail bytes.
-
-    Raises:
-        NotFoundError: When the token is invalid/forged or no thumbnail exists
-            (rendered as a 404).
+    Answers ``404`` when the token is invalid or forged, or no thumbnail exists.
     """
     data = activity_thumbnail_service.read_activity_thumbnail(activity_id, token, storage)
 

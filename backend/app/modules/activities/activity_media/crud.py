@@ -29,6 +29,12 @@ def _to_record(
 
     The single ORM→record boundary for this module, so ORM instances never leave
     ``crud``.
+
+    Args:
+        orm_media: The ORM row to convert.
+
+    Returns:
+        The media record.
     """
     return activity_media_contracts.ActivityMediaRecord.model_validate(orm_media)
 

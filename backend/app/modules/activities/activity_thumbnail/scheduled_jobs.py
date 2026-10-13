@@ -5,7 +5,11 @@ import modules.activities.activity_thumbnail.integration_service as thumbnail_in
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
-    """Return thumbnail reconciliation jobs."""
+    """Return thumbnail reconciliation jobs.
+
+    Returns:
+        The jobs to schedule.
+    """
     return (
         core_scheduler.ScheduledJob(
             thumbnail_integration.generate_missing_thumbnails,
@@ -16,7 +20,11 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
 
 
 def schedule_missing_thumbnail_generation() -> None:
-    """Queue one thumbnail reconciliation pass."""
+    """Queue one thumbnail reconciliation pass.
+
+    Returns:
+        None.
+    """
     core_scheduler.run_once(
         thumbnail_integration.generate_missing_thumbnails,
         job_id="endurain_generate_missing_thumbnails_oneshot",

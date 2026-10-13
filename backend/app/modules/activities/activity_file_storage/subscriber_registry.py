@@ -8,12 +8,26 @@ import modules.activities.activity_file_storage.subscribers as file_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register retained-file cleanup subscribers."""
+    """Register retained-file cleanup subscribers.
+
+    Args:
+        events: The event bus to subscribe on.
+
+    Returns:
+        None.
+    """
     file_subscribers.register_activity_file_cleanup_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register retained-file cleanup durable handlers."""
+    """Register retained-file cleanup durable handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     file_subscribers.register_activity_file_cleanup_durable_handlers(registry)
 
 

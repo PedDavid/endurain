@@ -56,6 +56,9 @@ def append_if_not_none(
         waypoint_time: Timestamp associated with the value.
         value: The value to record; ignored when ``None``.
         key: Dict key under which ``value`` is stored.
+
+    Returns:
+        None.
     """
     if value is not None:
         waypoint_list.append({"time": waypoint_time, key: value})
@@ -121,6 +124,15 @@ def compute_elevation_gain_and_loss(
 
     # 1) Median Filter
     def median_filter(values, window_size):
+        """Smooth a series with a sliding median.
+
+        Args:
+            values: Samples to smooth.
+            window_size: Window width; below 2 returns a copy.
+
+        Returns:
+            The filtered series, the same length as the input.
+        """
         if window_size < 2:
             return values[:]
         half = window_size // 2
@@ -135,6 +147,15 @@ def compute_elevation_gain_and_loss(
 
     # 2) Moving-Average Smoothing
     def moving_average(values, window_size):
+        """Smooth a series with a sliding mean.
+
+        Args:
+            values: Samples to smooth.
+            window_size: Window width; below 2 returns a copy.
+
+        Returns:
+            The smoothed series, the same length as the input.
+        """
         if window_size < 2:
             return values[:]
         half = window_size // 2

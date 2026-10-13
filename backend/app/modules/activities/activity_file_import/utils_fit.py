@@ -27,6 +27,14 @@ def create_activity_objects(
     Pure: derives everything from the FIT bytes. Privacy defaults, gear, and the
     Garmin provider ids are re-attached later by the ``activity_ingestion``
     enrichment seam.
+
+    Args:
+        sessions_records: Parsed FIT session records.
+        user_id: ID of the user the activities belong to.
+        default_timezone: Timezone to assume when the file carries none.
+
+    Returns:
+        One parsed payload per activity.
     """
     try:
         logger.debug(
@@ -245,6 +253,14 @@ def create_activity_objects(
 
 
 def split_records_by_activity(parsed_data: dict) -> list[dict]:
+    """Split parsed FIT records into one payload per session.
+
+    Args:
+        parsed_data: The parsed FIT dict with sessions and waypoint streams.
+
+    Returns:
+        One payload dict per activity session.
+    """
     sessions = parsed_data["sessions"]
     lat_lon_waypoints = parsed_data["lat_lon_waypoints"]
     ele_waypoints = parsed_data.get("ele_waypoints", [])
@@ -465,13 +481,21 @@ class FitParseState:
     is_temperature_set: bool = False
 
     def reset_record_cursor(self) -> None:
-        """Clear cursors that must not bridge across FIT sessions."""
+        """Clear cursors that must not bridge across FIT sessions.
+
+        Returns:
+            None.
+        """
         self.prev_latitude = None
         self.prev_longitude = None
         self.last_waypoint_time = None
 
     def to_payload(self) -> dict:
-        """Return the parser output dict expected by downstream callers."""
+        """Return the parser output dict expected by downstream callers.
+
+        Returns:
+            The payload dict.
+        """
         return {
             "sessions": self.sessions,
             "time_offset": self.time_offset,
@@ -526,7 +550,15 @@ _SPLIT_KEYS = (
 
 
 def _handle_session_frame(frame, state: FitParseState) -> None:
-    """Parse a session frame, geocode it, and reset per-record cursors."""
+    """Parse a session frame, geocode it, and reset per-record cursors.
+
+    Args:
+        frame: The decoded FIT session message.
+        state: Mutable parse state for the current file.
+
+    Returns:
+        None.
+    """
     (
         initial_latitude,
         initial_longitude,
@@ -592,13 +624,29 @@ def _handle_session_frame(frame, state: FitParseState) -> None:
 
 
 def _handle_split_frame(frame, state: FitParseState) -> None:
-    """Parse a split frame and append it to state."""
+    """Parse a split frame and append it to state.
+
+    Args:
+        frame: The decoded FIT split message.
+        state: Mutable parse state for the current file.
+
+    Returns:
+        None.
+    """
     split_data = fit_frames.parse_frame_split(frame)
     state.splits.append(dict(zip(_SPLIT_KEYS, split_data, strict=False)))
 
 
 def _handle_split_summary_frame(frame, state: FitParseState) -> None:
-    """Parse a split_summary frame and append it to state."""
+    """Parse a split_summary frame and append it to state.
+
+    Args:
+        frame: The decoded FIT split-summary message.
+        state: Mutable parse state for the current file.
+
+    Returns:
+        None.
+    """
     split_type, total_timer_time = fit_frames.parse_frame_split_summary(frame)
     state.split_summary.append(
         {
@@ -609,7 +657,15 @@ def _handle_split_summary_frame(frame, state: FitParseState) -> None:
 
 
 def _handle_record_frame(frame, state: FitParseState) -> None:
-    """Process a record frame into waypoint streams and presence flags."""
+    """Process a record frame into waypoint streams and presence flags.
+
+    Args:
+        frame: The decoded FIT record message.
+        state: Mutable parse state for the current file.
+
+    Returns:
+        None.
+    """
     (
         latitude,
         longitude,
@@ -673,14 +729,32 @@ def _handle_record_frame(frame, state: FitParseState) -> None:
 
 
 def _handle_monitoring_frame(frame, state: FitParseState, last_timestamp) -> None:
-    """Parse a monitoring frame and extend intraday collections."""
+    """Parse a monitoring frame and extend intraday collections.
+
+    Args:
+        frame: The decoded FIT monitoring message.
+        state: Mutable parse state for the current file.
+        last_timestamp: Timestamp of the previous monitoring frame.
+
+    Returns:
+        None.
+    """
     steps, heart_rate = fit_frames.parse_frame_monitoring(frame, last_timestamp)
     state.intraday_steps.extend(steps)
     state.intraday_heart_rate.extend(heart_rate)
 
 
 def _dispatch_data_message(frame, state: FitParseState, last_timestamp) -> None:
-    """Route a FIT data message to the appropriate handler."""
+    """Route a FIT data message to the appropriate handler.
+
+    Args:
+        frame: The decoded FIT data message.
+        state: Mutable parse state for the current file.
+        last_timestamp: Timestamp of the previous monitoring frame.
+
+    Returns:
+        None.
+    """
     name = frame.name
     if name == "session":
         _handle_session_frame(frame, state)
@@ -713,6 +787,18 @@ def _dispatch_data_message(frame, state: FitParseState, last_timestamp) -> None:
 
 
 def parse_fit_file(file: str, activity_name_input: str | None = None) -> dict:
+    """Parse a FIT file into the parser's payload dict.
+
+    Args:
+        file: Path of the FIT file.
+        activity_name_input: Optional activity name override.
+
+    Returns:
+        The payload dict consumed by the ingestion pipeline.
+
+    Raises:
+        ProcessingError: When the file cannot be parsed.
+    """
     try:
         logger.debug("FIT parse start", extra=core_logger.context(file=Path(file).name))
         state = FitParseState(

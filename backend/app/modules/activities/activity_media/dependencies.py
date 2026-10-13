@@ -15,6 +15,9 @@ def validate_media_id(media_id: int) -> None:
     Args:
         media_id: The activity media ID to validate.
 
+    Returns:
+        None.
+
     Raises:
         HTTPException: If media_id is not greater than 0.
     """

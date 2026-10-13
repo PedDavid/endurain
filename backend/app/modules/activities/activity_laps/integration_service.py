@@ -15,7 +15,15 @@ def _list_laps_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_laps_schema.ActivityLapsRead]:
-    """Return laps for activity IDs already scoped by the caller."""
+    """Return laps for activity IDs already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Laps for activity IDs already scoped by the caller.
+    """
     return activity_laps_crud.get_activities_laps(activity_ids, db)
 
 
@@ -24,7 +32,16 @@ def _store_laps(
     activity_id: int,
     db: Session,
 ) -> None:
-    """Store parsed laps for an activity."""
+    """Store parsed laps for an activity.
+
+    Args:
+        laps: Laps to store.
+        activity_id: ID of the parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_laps_crud.create_activity_laps(laps, activity_id, db)
 
 
@@ -33,14 +50,27 @@ def _persist_ingestion_component(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """Persist parsed lap data through the generic ingestion contract."""
+    """Persist parsed lap data through the generic ingestion contract.
+
+    Args:
+        data: The parsed component payload.
+        activity: The newly created parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store laps before the activity has an id")
     _store_laps(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
-    """Return the activity-laps ingestion contribution."""
+    """Return the activity-laps ingestion contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ActivityIngestionContributor(
         key="laps",
         persist=_persist_ingestion_component,
@@ -53,7 +83,17 @@ def _restore_profile_records(
     new_activity: activity_schema.Activity,
     db: Session,
 ) -> int:
-    """Validate and restore profile lap records for one activity."""
+    """Validate and restore profile lap records for one activity.
+
+    Args:
+        records: Profile records to restore.
+        original_activity_id: The activity's ID in the exported archive.
+        new_activity: The activity the records are restored onto.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     if new_activity.id is None:
         return 0
 
@@ -73,7 +113,11 @@ def _restore_profile_records(
 
 
 def profile_contributor() -> activity_contributors.ProfileActivityContributor:
-    """Return the activity-laps profile contribution."""
+    """Return the activity-laps profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileActivityContributor(
         key="laps",
         archive_path="data/activity_laps.json",

@@ -52,6 +52,14 @@ _UPLOAD_STAGING_KEY_PREFIX = "upload_staging"
 
 
 def _upload_staging_storage_key(key: str) -> str:
+    """Build the storage key a staged upload is held under.
+
+    Args:
+        key: The staged upload's key.
+
+    Returns:
+        The prefixed storage key.
+    """
     return f"{_UPLOAD_STAGING_KEY_PREFIX}/{key}"
 
 

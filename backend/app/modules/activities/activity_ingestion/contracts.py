@@ -138,6 +138,9 @@ class BulkImportSource:
         Per-user for a generic bulk import, matching the per-user drop
         directory: moving one user's failed file into a shared location would
         undo the isolation the import itself enforces.
+
+        Returns:
+            The directory path.
         """
         if self.user_id is None:
             return core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR

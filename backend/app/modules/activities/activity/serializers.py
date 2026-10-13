@@ -94,7 +94,7 @@ def apply_visibility_mask(
     if schema.hide_map:
         # The map thumbnail is a rendered picture of the route, so hide_map must
         # suppress it for non-owners (the GPS map stream is masked separately via
-        # is_stream_hidden). Without this a non-owner would still receive the
+        # activity_streams.service). Without this a non-owner would still receive the
         # thumbnail URL in the serialized activity despite the privacy flag.
         schema.map_thumbnail_path = None
     return schema

@@ -58,6 +58,15 @@ class FileParser(Protocol):
         file yields no timezone of its own (no GPS track and no reported UTC
         offset). It is **passed in** rather than looked up so the parsers stay free
         of any ``modules.users`` coupling, as the purity contract requires.
+
+        Args:
+            path: Path of the file to parse.
+            user_id: ID of the user the file belongs to.
+            activity_name: Optional activity name override.
+            default_timezone: Timezone to assume when the file carries none.
+
+        Returns:
+            The parsed file.
         """
         ...
 
@@ -68,7 +77,17 @@ def _parse_gpx(
     activity_name: str | None = None,
     default_timezone: str | None = None,
 ) -> activities_contracts.ParsedFile:
-    """Adapter: parse a GPX file into the single activity it describes."""
+    """Adapter: parse a GPX file into the single activity it describes.
+
+    Args:
+        path: Path of the GPX file.
+        user_id: ID of the user the file belongs to.
+        activity_name: Optional activity name override.
+        default_timezone: Timezone to assume when the file carries none.
+
+    Returns:
+        The parsed file.
+    """
     parsed_info = dict(gpx_utils.parse_gpx_file(path, user_id, activity_name, default_timezone))
     return activities_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
 
@@ -79,7 +98,17 @@ def _parse_tcx(
     activity_name: str | None = None,
     default_timezone: str | None = None,
 ) -> activities_contracts.ParsedFile:
-    """Adapter: parse a TCX file into the single activity it describes."""
+    """Adapter: parse a TCX file into the single activity it describes.
+
+    Args:
+        path: Path of the TCX file.
+        user_id: ID of the user the file belongs to.
+        activity_name: Optional activity name override.
+        default_timezone: Timezone to assume when the file carries none.
+
+    Returns:
+        The parsed file.
+    """
     parsed_info = tcx_utils.parse_tcx_file(path, user_id, activity_name, default_timezone)
     return activities_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
 
@@ -97,6 +126,15 @@ def _parse_fit(
     where the owner and the fallback timezone apply. Both stages run here so that
     a multi-session ``.fit`` looks exactly like a single-activity ``.gpx`` to the
     caller — that dispatch used to sit in the ingestion orchestrator.
+
+    Args:
+        path: Path of the FIT file.
+        user_id: ID of the user the file belongs to.
+        activity_name: Optional activity name override.
+        default_timezone: Timezone to assume when the file carries none.
+
+    Returns:
+        The parsed file, one entry per activity.
     """
     payload = fit_utils.parse_fit_file(path, activity_name)
     sessions = fit_utils.split_records_by_activity(payload)

@@ -127,6 +127,9 @@ def _retain_source_file(
         file_extension: The file's extension, used for the stored object's name.
         activity_ids: IDs of the activities parsed from the file.
         storage: The blob-storage provider the file is retained in.
+
+    Returns:
+        None.
     """
     if activity_ids:
         with open(file_path, "rb") as source_file:
@@ -307,6 +310,9 @@ def _finish_bulk_import_file(
         created_activities: Activities persisted from the file.
         file_base_name: The file's original base name.
         db: Database session.
+
+    Returns:
+        None.
     """
     ids_to_filename = "_".join(str(activity.id) for activity in created_activities)
     logger.info(

@@ -97,7 +97,11 @@ def _sort_order_by(sort_by: str | None, sort_order: str | None) -> list[Any]:
 
 
 def _is_not_live_strava_api_activity():
-    """Return the policy predicate excluding live Strava API data."""
+    """Return the policy predicate excluding live Strava API data.
+
+    Returns:
+        The SQL predicate.
+    """
     return activities_models.Activity.strava_activity_id.is_(None)
 
 
@@ -1052,7 +1056,14 @@ def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> acti
 
 
 def _to_scoring_context(row) -> activities_contracts.ActivityScoringContext:
-    """Convert one activity projection row to its scoring context."""
+    """Convert one activity projection row to its scoring context.
+
+    Args:
+        row: The activity projection row.
+
+    Returns:
+        The scoring context.
+    """
     activity_id, owner_id, total_timer_time = row
     return activities_contracts.ActivityScoringContext(
         activity_id=activity_id,
@@ -1066,7 +1077,15 @@ def get_activity_scoring_context(
     activity_id: int,
     db: Session,
 ) -> activities_contracts.ActivityScoringContext | None:
-    """Return parent columns needed to score an activity's streams."""
+    """Return parent columns needed to score an activity's streams.
+
+    Args:
+        activity_id: ID of the activity.
+        db: Database session.
+
+    Returns:
+        Parent columns needed to score an activity's streams.
+    """
     stmt = select(
         activities_models.Activity.id,
         activities_models.Activity.user_id,
@@ -1081,7 +1100,15 @@ def get_activity_scoring_contexts(
     activity_ids: list[int],
     db: Session,
 ) -> dict[int, activities_contracts.ActivityScoringContext]:
-    """Return scoring contexts keyed by activity id."""
+    """Return scoring contexts keyed by activity id.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Scoring contexts keyed by activity id.
+    """
     if not activity_ids:
         return {}
     stmt = select(
@@ -1101,7 +1128,17 @@ def list_user_activity_scoring_contexts(
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activities_contracts.ActivityScoringContext]:
-    """Return an id-ordered batch of one user's activity scoring contexts."""
+    """Return an id-ordered batch of one user's activity scoring contexts.
+
+    Args:
+        user_id: ID of the user.
+        db: Database session.
+        after_id: Return only rows with an ID greater than this.
+        batch_size: Maximum number of contexts to return.
+
+    Returns:
+        An id-ordered batch of one user's activity scoring contexts.
+    """
     stmt = (
         select(
             activities_models.Activity.id,

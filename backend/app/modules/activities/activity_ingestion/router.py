@@ -97,17 +97,6 @@ def create_activity_with_uploaded_file(
     authentication (X-API-Key header or ?api_key=
     query parameter). Requires the
     ``activities:upload`` scope.
-
-    Args:
-        token_user_id: Authenticated user ID.
-        file: The activity file to upload.
-        _check_scopes: Scope validation dependency.
-        db: Database session dependency.
-        storage: Blob-storage provider dependency.
-        idempotency_key: Optional key identifying this request.
-
-    Returns:
-        The accepted upload job, in the pending state.
     """
     return ingestion_service.accept_upload(token_user_id, file, db, storage, idempotency_key=idempotency_key)
 
@@ -144,18 +133,6 @@ def get_activity_ingestion_job(
     Scoped to the caller: a job belonging to another user is reported as not
     found rather than forbidden, so the endpoint does not confirm that an id
     exists.
-
-    Args:
-        job_id: The job identifier returned by the upload or refresh route.
-        token_user_id: Authenticated user ID.
-        _check_scopes: Scope validation dependency.
-        db: Database session dependency.
-
-    Returns:
-        The ingestion job.
-
-    Raises:
-        NotFoundError: If no such job belongs to the caller.
     """
     return ingestion_service.get_job(job_id, token_user_id, db)
 
@@ -191,18 +168,8 @@ def create_activity_with_bulk_import(
     batch-level handle could report. An empty list means nothing importable was
     found in the directory.
 
-    Args:
-        token_user_id: Authenticated user ID.
-        _check_scopes: Scope validation dependency.
-        db: Database session dependency.
-        storage: Blob-storage provider dependency.
-
-    Returns:
-        The accepted jobs, one per queued file, in the pending state.
-
-    Raises:
-        ProcessingError: If the directory cannot be read or the jobs cannot be
-            queued.
+    Fails with a processing error if the directory cannot be read or the jobs
+    cannot be queued.
     """
     return ingestion_service.start_bulk_import(token_user_id, db, storage)
 
@@ -241,14 +208,5 @@ def refresh_activities(
     occupying a single worker thread. Running the sync as a job removes that
     class of bug rather than auditing for it: no provider code touches the loop
     any more.
-
-    Args:
-        token_user_id: Authenticated user ID.
-        _check_scopes: Scope validation dependency.
-        db: Database session dependency.
-        storage: Blob-storage provider dependency.
-
-    Returns:
-        The accepted refresh job, in the pending state.
     """
     return ingestion_service.accept_refresh(token_user_id, db, storage)

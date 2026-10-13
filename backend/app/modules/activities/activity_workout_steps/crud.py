@@ -14,7 +14,14 @@ logger = core_logger.get_logger(__name__)
 def _to_read_schema(
     orm_step: activity_workout_steps_models.ActivityWorkoutSteps,
 ) -> activity_workout_steps_schema.ActivityWorkoutSteps:
-    """Convert an ORM row to its read schema so ORM never leaves ``crud``."""
+    """Convert an ORM row to its read schema so ORM never leaves ``crud``.
+
+    Args:
+        orm_step: The ORM row to convert.
+
+    Returns:
+        The read schema.
+    """
     return activity_workout_steps_schema.ActivityWorkoutSteps.model_validate(orm_step)
 
 

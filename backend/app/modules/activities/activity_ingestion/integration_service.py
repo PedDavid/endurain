@@ -90,6 +90,10 @@ def shutdown_background_ingestion(*, wait: bool = False) -> None:
 
 
 def prune_expired_ingestion_jobs() -> None:
-    """Delete ingestion job rows beyond their retention window."""
+    """Delete ingestion job rows beyond their retention window.
+
+    Returns:
+        None.
+    """
     platform = platform_runtime.get_active_platform()
     ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)

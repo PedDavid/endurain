@@ -285,17 +285,43 @@ def resolve_readable_parent(
     requester_user_id: int,
     db: Session,
 ) -> activities_schema.Activity | None:
-    """Return the parent activity when an authenticated caller may read it."""
+    """Return the parent activity when an authenticated caller may read it.
+
+    Args:
+        activity_id: ID of the activity.
+        requester_user_id: The authenticated caller.
+        db: Database session.
+
+    Returns:
+        The parent activity when an authenticated caller may read it.
+    """
     return activity_child_access.resolve_readable_parent(activity_id, requester_user_id, db)
 
 
 def resolve_public_parent(activity_id: int, db: Session) -> activities_schema.Activity | None:
-    """Return the parent activity when it is publicly shareable."""
+    """Return the parent activity when it is publicly shareable.
+
+    Args:
+        activity_id: ID of the activity.
+        db: Database session.
+
+    Returns:
+        The parent activity when it is publicly shareable.
+    """
     return activity_child_access.resolve_public_parent(activity_id, db)
 
 
 def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
-    """Return whether a user owns an activity."""
+    """Return whether a user owns an activity.
+
+    Args:
+        activity_id: ID of the activity.
+        user_id: ID of the user.
+        db: Database session.
+
+    Returns:
+        Whether a user owns an activity.
+    """
     return activity_service.owns_activity(activity_id, user_id, db)
 
 
@@ -303,7 +329,15 @@ def get_activity_scoring_context(
     activity_id: int,
     db: Session,
 ) -> activities_contracts.ActivityScoringContext | None:
-    """Return parent columns needed to score one activity's streams."""
+    """Return parent columns needed to score one activity's streams.
+
+    Args:
+        activity_id: ID of the activity.
+        db: Database session.
+
+    Returns:
+        Parent columns needed to score one activity's streams.
+    """
     return activities_crud.get_activity_scoring_context(activity_id, db)
 
 
@@ -311,7 +345,15 @@ def get_activity_scoring_contexts(
     activity_ids: list[int],
     db: Session,
 ) -> dict[int, activities_contracts.ActivityScoringContext]:
-    """Return stream-scoring contexts keyed by activity id."""
+    """Return stream-scoring contexts keyed by activity id.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Stream-scoring contexts keyed by activity id.
+    """
     return activities_crud.get_activity_scoring_contexts(activity_ids, db)
 
 
@@ -322,7 +364,17 @@ def list_user_activity_scoring_contexts(
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activities_contracts.ActivityScoringContext]:
-    """Return a bounded batch of one user's stream-scoring contexts."""
+    """Return a bounded batch of one user's stream-scoring contexts.
+
+    Args:
+        user_id: ID of the user.
+        db: Database session.
+        after_id: Return only rows with an ID greater than this.
+        batch_size: Maximum number of contexts to return.
+
+    Returns:
+        A bounded batch of one user's stream-scoring contexts.
+    """
     return activities_crud.list_user_activity_scoring_contexts(
         user_id,
         db,
@@ -339,12 +391,28 @@ def list_user_activity_scoring_contexts(
 
 
 def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
-    """Record or clear an activity's stored thumbnail key."""
+    """Record or clear an activity's stored thumbnail key.
+
+    Args:
+        activity_id: ID of the activity.
+        key: The new storage key, or None to clear it.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_service.set_thumbnail_key(activity_id, key, db)
 
 
 def clear_all_thumbnail_keys(db: Session) -> None:
-    """Clear every stored activity thumbnail key."""
+    """Clear every stored activity thumbnail key.
+
+    Args:
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_service.clear_all_thumbnail_keys(db)
 
 
@@ -353,7 +421,16 @@ def list_activities_with_thumbnail(
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activities_contracts.ActivityThumbnailRef]:
-    """Return one bounded page of activity references carrying a stored thumbnail key."""
+    """Return one bounded page of activity references carrying a stored thumbnail key.
+
+    Args:
+        db: Database session.
+        after_id: Return only rows with an ID greater than this.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        One bounded page of activity references carrying a stored thumbnail key.
+    """
     return activities_crud.get_activities_with_thumbnail(db, after_id=after_id, limit=limit)
 
 
@@ -362,7 +439,16 @@ def list_activities_without_thumbnail(
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activities_contracts.ActivityThumbnailRef]:
-    """Return one bounded page of activity references that have no stored thumbnail key."""
+    """Return one bounded page of activity references that have no stored thumbnail key.
+
+    Args:
+        db: Database session.
+        after_id: Return only rows with an ID greater than this.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        One bounded page of activity references that have no stored thumbnail key.
+    """
     return activities_crud.get_activities_without_thumbnail(db, after_id=after_id, limit=limit)
 
 
@@ -370,7 +456,15 @@ def list_activities_missing_location(
     db: Session,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activities_contracts.ActivityLocationRef]:
-    """Return bounded activity references whose location is unresolved."""
+    """Return bounded activity references whose location is unresolved.
+
+    Args:
+        db: Database session.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        Bounded activity references whose location is unresolved.
+    """
     return activities_crud.get_activities_missing_location(db, limit)
 
 
@@ -381,7 +475,18 @@ def set_activity_location(
     country: str | None,
     db: Session,
 ) -> bool:
-    """Persist a reverse-geocoded activity location."""
+    """Persist a reverse-geocoded activity location.
+
+    Args:
+        activity_id: ID of the activity.
+        city: Resolved city, or None.
+        town: Resolved town, or None.
+        country: Resolved country, or None.
+        db: Database session.
+
+    Returns:
+        True when the activity existed and was updated.
+    """
     return activity_service.set_activity_location(activity_id, city, town, country, db)
 
 

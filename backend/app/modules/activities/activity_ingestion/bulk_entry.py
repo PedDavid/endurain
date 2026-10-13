@@ -71,6 +71,9 @@ def _move_failed_file_to_error_directory(source: ingestion_contracts.BulkImportS
     Args:
         source: The bulk-import source, which decides the destination.
         file_path: The file that failed to import.
+
+    Returns:
+        None.
     """
     try:
         error_file_dir = source.error_directory

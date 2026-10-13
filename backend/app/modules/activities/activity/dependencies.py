@@ -21,6 +21,9 @@ def validate_activity_id(activity_id: int):
     Args:
         activity_id (int): The ID of the activity to validate.
 
+    Returns:
+        None.
+
     Raises:
         ValueError: If the activity ID is less than 0.
     """
@@ -35,10 +38,12 @@ def validate_activity_type(activity_type: int | None = Query(None)):
     Args:
         activity_type (int | None): The activity type to validate. Defaults to None.
 
+    Returns:
+        None.
+
     Raises:
         HTTPException: If the provided activity type is not in the predefined mapping
                        and is not None, an HTTP 422 Unprocessable Entity exception is raised.
-
     """
     if activity_type not in ACTIVITY_ID_TO_NAME and activity_type is not None:
         logger.debug(
@@ -58,6 +63,9 @@ def validate_sort_by(sort_by: str | None = Query(None)):
 
     Args:
         sort_by (str | None): The sorting field provided as a query parameter.
+
+    Returns:
+        None.
 
     Raises:
         HTTPException: If `sort_by` is not `None` and is not one of the allowed values,
@@ -81,6 +89,9 @@ def validate_sort_order(sort_order: str | None = Query(None)):
 
     Args:
         sort_order (str | None): The sort order to validate. It can be "asc", "desc", or None.
+
+    Returns:
+        None.
 
     Raises:
         HTTPException: If the sort_order is not "asc", "desc", or None, an HTTP 422 Unprocessable Entity error is raised.

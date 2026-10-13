@@ -5,7 +5,11 @@ import modules.activities.activity_streams.integration_service as stream_integra
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
-    """Return stream reconciliation jobs."""
+    """Return stream reconciliation jobs.
+
+    Returns:
+        The jobs to schedule.
+    """
     return (
         core_scheduler.ScheduledJob(
             stream_integration.run_missing_hr_zone_backfill,
@@ -16,7 +20,11 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
 
 
 def schedule_missing_hr_zone_backfill() -> None:
-    """Queue one missing-HR-zone reconciliation pass."""
+    """Queue one missing-HR-zone reconciliation pass.
+
+    Returns:
+        None.
+    """
     core_scheduler.run_once(
         stream_integration.run_missing_hr_zone_backfill,
         job_id="endurain_backfill_missing_hr_zones_oneshot",

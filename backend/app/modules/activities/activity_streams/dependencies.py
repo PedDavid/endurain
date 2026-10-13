@@ -12,6 +12,9 @@ def validate_activity_stream_type(
     Args:
         stream_type: The stream type to validate.
 
+    Returns:
+        None.
+
     Raises:
         HTTPException: If stream type is not 1-7.
     """

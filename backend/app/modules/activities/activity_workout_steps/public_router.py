@@ -22,18 +22,7 @@ def read_public_activity_workout_steps_all(
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_workout_steps_schema.ActivityWorkoutStepsPage:
-    """Return one page of a publicly shared activity's workout steps.
-
-    Args:
-        activity_id: Activity primary key.
-        db: Database session.
-        page: Resolved paging window, capped so one request cannot ask for
-            an unbounded number of rows.
-
-    Returns:
-        The page envelope. Empty when public sharing is disabled, the activity is
-        not public, or the workout steps are hidden.
-    """
+    """Return one page of a publicly shared activity's workout steps."""
     return activity_workout_steps_service.list_public_activity_workout_steps(
         activity_id,
         db,

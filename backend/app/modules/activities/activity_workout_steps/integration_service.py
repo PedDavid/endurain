@@ -15,7 +15,15 @@ def _list_workout_steps_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[workout_steps_schema.ActivityWorkoutSteps]:
-    """Return workout steps for activity IDs already scoped by the caller."""
+    """Return workout steps for activity IDs already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Workout steps for activity IDs already scoped by the caller.
+    """
     return workout_steps_crud.get_activities_workout_steps(activity_ids, db)
 
 
@@ -24,7 +32,16 @@ def _store_workout_steps(
     activity_id: int,
     db: Session,
 ) -> None:
-    """Store parsed workout steps for an activity."""
+    """Store parsed workout steps for an activity.
+
+    Args:
+        steps: Workout steps to store.
+        activity_id: ID of the parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     workout_steps_crud.create_activity_workout_steps(steps, activity_id, db)
 
 
@@ -33,14 +50,27 @@ def _persist_ingestion_component(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """Persist parsed workout steps through the ingestion contract."""
+    """Persist parsed workout steps through the ingestion contract.
+
+    Args:
+        data: The parsed component payload.
+        activity: The newly created parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store workout steps before the activity has an id")
     _store_workout_steps(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
-    """Return the workout-step ingestion contribution."""
+    """Return the workout-step ingestion contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ActivityIngestionContributor(
         key="workout_steps",
         persist=_persist_ingestion_component,
@@ -53,7 +83,17 @@ def _restore_profile_records(
     new_activity: activity_schema.Activity,
     db: Session,
 ) -> int:
-    """Validate and restore profile workout steps for one activity."""
+    """Validate and restore profile workout steps for one activity.
+
+    Args:
+        records: Profile records to restore.
+        original_activity_id: The activity's ID in the exported archive.
+        new_activity: The activity the records are restored onto.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     if new_activity.id is None:
         return 0
 
@@ -72,7 +112,11 @@ def _restore_profile_records(
 
 
 def profile_contributor() -> activity_contributors.ProfileActivityContributor:
-    """Return the workout-step profile contribution."""
+    """Return the workout-step profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileActivityContributor(
         key="workout_steps",
         archive_path="data/activity_workout_steps.json",

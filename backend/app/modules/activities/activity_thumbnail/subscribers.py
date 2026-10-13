@@ -124,7 +124,11 @@ on_activity_deleted_cleanup_thumbnail = best_effort(cleanup_activity_thumbnail_f
 
 
 def _schedule_thumbnail_regeneration() -> None:
-    """Queue a delete-and-regenerate pass over every thumbnail."""
+    """Queue a delete-and-regenerate pass over every thumbnail.
+
+    Returns:
+        None.
+    """
     core_scheduler.run_once(
         activity_thumbnail_integration.regenerate_all_thumbnails,
         job_id="endurain_regenerate_all_thumbnails",
@@ -133,7 +137,14 @@ def _schedule_thumbnail_regeneration() -> None:
 
 
 def regenerate_thumbnails_for_tile_settings_event(event: Event) -> None:
-    """Queue thumbnail regeneration when changed settings request it."""
+    """Queue thumbnail regeneration when changed settings request it.
+
+    Args:
+        event: The settings-changed event.
+
+    Returns:
+        None.
+    """
     payload = platform_event_versioning.parse_payload(server_settings_events.TileSettingsChangedPayload, event)
     if not payload.regenerate_thumbnails:
         logger.debug(

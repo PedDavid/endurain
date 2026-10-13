@@ -399,6 +399,14 @@ def filter_streams_by_time_range(
         end_time = end_time.replace(tzinfo=UTC)
 
     def _parse_wp_time(time_str: str) -> datetime:
+        """Parse a waypoint timestamp string to an aware UTC datetime.
+
+        Args:
+            time_str: The waypoint timestamp string.
+
+        Returns:
+            The parsed datetime.
+        """
         return _parse_utc(time_str)
 
     return {

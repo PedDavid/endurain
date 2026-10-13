@@ -43,7 +43,14 @@ THUMBNAIL_STORAGE_AREA = "activity_thumbnails"
 
 
 def thumbnail_key(activity_id: int) -> str:
-    """Return the storage key for an activity's thumbnail (e.g. ``42.webp``)."""
+    """Return the storage key for an activity's thumbnail (e.g. ``42.webp``).
+
+    Args:
+        activity_id: ID of the activity.
+
+    Returns:
+        The storage key.
+    """
     return f"{activity_id}.webp"
 
 

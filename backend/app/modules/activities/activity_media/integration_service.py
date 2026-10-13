@@ -20,7 +20,15 @@ def _list_media_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """Return media records for activity IDs already scoped by the caller."""
+    """Return media records for activity IDs already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Media records for activity IDs already scoped by the caller.
+    """
     return activity_media_crud.get_activities_media(activity_ids, db)
 
 
@@ -29,7 +37,16 @@ def _restore_media_records(
     activity_id: int,
     db: Session,
 ) -> None:
-    """Restore media records for one activity."""
+    """Restore media records for one activity.
+
+    Args:
+        media: Media records to restore.
+        activity_id: ID of the parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_media_crud.create_activity_medias(media, activity_id, db)
 
 
@@ -39,7 +56,17 @@ def _restore_profile_records(
     new_activity: activity_schema.Activity,
     db: Session,
 ) -> int:
-    """Validate and restore profile media records for one activity."""
+    """Validate and restore profile media records for one activity.
+
+    Args:
+        records: Profile records to restore.
+        original_activity_id: The activity's ID in the exported archive.
+        new_activity: The activity the records are restored onto.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     if new_activity.id is None:
         return 0
 
@@ -71,7 +98,11 @@ def _restore_profile_records(
 
 
 def profile_contributor() -> activity_contributors.ProfileActivityContributor:
-    """Return the activity-media profile contribution."""
+    """Return the activity-media profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileActivityContributor(
         key="media",
         archive_path="data/activity_media.json",
@@ -92,6 +123,15 @@ def attach_media_bytes(
 
     A server-side import calls this with no request to carry the provider, so
     this surface function is the point that resolves it.
+
+    Args:
+        activity_id: ID of the activity.
+        original_filename: The client's original filename, or None.
+        data: The parsed component payload.
+        db: Database session.
+
+    Returns:
+        The stored media record.
     """
     storage = platform_runtime.get_active_platform().storage
     return activity_media_service.store_activity_media_bytes(activity_id, original_filename, data, db, storage)
@@ -101,7 +141,15 @@ def list_media_blobs(
     activity_id: int,
     storage: platform_providers.StorageProvider,
 ) -> list[tuple[str, bytes]]:
-    """Return every readable media blob attached to an activity."""
+    """Return every readable media blob attached to an activity.
+
+    Args:
+        activity_id: ID of the activity.
+        storage: The blob-storage provider.
+
+    Returns:
+        Every readable media blob attached to an activity.
+    """
     return activity_media_service.list_media_blobs(activity_id, storage)
 
 
@@ -112,5 +160,16 @@ def store_media_blob(
     data: bytes,
     storage: platform_providers.StorageProvider,
 ) -> str:
-    """Restore one exported media blob and return its storage key."""
+    """Restore one exported media blob and return its storage key.
+
+    Args:
+        activity_id: ID of the activity.
+        suffix: Storage-key suffix of the blob.
+        extension: File extension of the blob, including the dot.
+        data: The parsed component payload.
+        storage: The blob-storage provider.
+
+    Returns:
+        The storage key the blob was stored under.
+    """
     return activity_media_service.store_media_blob(activity_id, suffix, extension, data, storage)

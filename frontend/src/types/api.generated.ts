@@ -54,17 +54,7 @@ export interface paths {
          *     not exist at that path. The body shape also leaves room for a second
          *     bulk-editable field without another endpoint.
          *
-         *     Args:
-         *         body: The fields to apply; only those present are changed.
-         *         token_user_id: Authenticated user ID.
-         *         _check_scopes: Scope validation dependency.
-         *         db: Database session dependency.
-         *
-         *     Returns:
-         *         How many activities changed.
-         *
-         *     Raises:
-         *         InvalidInputError: If the body asks for no change at all.
+         *     Rejected as invalid input when the body asks for no change at all.
          */
         patch: operations["edit_activities_api_v1_activities_patch"];
         trace?: never;
@@ -92,18 +82,8 @@ export interface paths {
          *     batch-level handle could report. An empty list means nothing importable was
          *     found in the directory.
          *
-         *     Args:
-         *         token_user_id: Authenticated user ID.
-         *         _check_scopes: Scope validation dependency.
-         *         db: Database session dependency.
-         *         storage: Blob-storage provider dependency.
-         *
-         *     Returns:
-         *         The accepted jobs, one per queued file, in the pending state.
-         *
-         *     Raises:
-         *         ProcessingError: If the directory cannot be read or the jobs cannot be
-         *             queued.
+         *     Fails with a processing error if the directory cannot be read or the jobs
+         *     cannot be queued.
          */
         post: operations["create_activity_with_bulk_import_api_v1_activities_bulk_import_post"];
         delete?: never;
@@ -122,13 +102,6 @@ export interface paths {
         /**
          * Read Activities Exercise Titles All
          * @description Return all activity exercise titles.
-         *
-         *     Args:
-         *         _check_scopes: Scope check dependency for authorization.
-         *         db: Database session.
-         *
-         *     Returns:
-         *         Every exercise title, empty when there are none.
          */
         get: operations["read_activities_exercise_titles_all_api_v1_activities_exercise_titles_all_get"];
         put?: never;
@@ -196,18 +169,6 @@ export interface paths {
          *     Scoped to the caller: a job belonging to another user is reported as not
          *     found rather than forbidden, so the endpoint does not confirm that an id
          *     exists.
-         *
-         *     Args:
-         *         job_id: The job identifier returned by the upload or refresh route.
-         *         token_user_id: Authenticated user ID.
-         *         _check_scopes: Scope validation dependency.
-         *         db: Database session dependency.
-         *
-         *     Returns:
-         *         The ingestion job.
-         *
-         *     Raises:
-         *         NotFoundError: If no such job belongs to the caller.
          */
         get: operations["get_activity_ingestion_job_api_v1_activities_ingestion_jobs__job_id__get"];
         put?: never;
@@ -241,15 +202,6 @@ export interface paths {
          *     occupying a single worker thread. Running the sync as a job removes that
          *     class of bug rather than auditing for it: no provider code touches the loop
          *     any more.
-         *
-         *     Args:
-         *         token_user_id: Authenticated user ID.
-         *         _check_scopes: Scope validation dependency.
-         *         db: Database session dependency.
-         *         storage: Blob-storage provider dependency.
-         *
-         *     Returns:
-         *         The accepted refresh job, in the pending state.
          */
         post: operations["refresh_activities_api_v1_activities_refresh_post"];
         delete?: never;
@@ -327,17 +279,6 @@ export interface paths {
          *     authentication (X-API-Key header or ?api_key=
          *     query parameter). Requires the
          *     ``activities:upload`` scope.
-         *
-         *     Args:
-         *         token_user_id: Authenticated user ID.
-         *         file: The activity file to upload.
-         *         _check_scopes: Scope validation dependency.
-         *         db: Database session dependency.
-         *         storage: Blob-storage provider dependency.
-         *         idempotency_key: Optional key identifying this request.
-         *
-         *     Returns:
-         *         The accepted upload job, in the pending state.
          */
         post: operations["create_activity_with_uploaded_file_api_v1_activities_upload_post"];
         delete?: never;
@@ -432,19 +373,6 @@ export interface paths {
         /**
          * Read Activities Laps For Activity All
          * @description Return one page of the given activity's laps, with the matching total.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         _check_scopes: FastAPI security dependency enforcing scopes.
-         *         token_user_id: Authenticated user id derived from the access
-         *             token.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when the activity is hidden from the caller or
-         *         has no laps.
          */
         get: operations["read_activities_laps_for_activity_all_api_v1_activities__activity_id__laps_get"];
         put?: never;
@@ -469,15 +397,6 @@ export interface paths {
          *     Returns an empty list when the activity has no media or is not accessible to
          *     the caller — previously ``200 null``, which made a collection endpoint answer
          *     with a scalar and forced every client to null-check it.
-         *
-         *     Args:
-         *         activity_id: Activity ID to fetch media for.
-         *         _check_scopes: Scope validation dependency.
-         *         token_user_id: Authenticated user ID.
-         *         db: Database session.
-         *
-         *     Returns:
-         *         The activity's media records, empty when there are none.
          */
         get: operations["read_activities_media_user_api_v1_activities__activity_id__media_get"];
         put?: never;
@@ -495,22 +414,8 @@ export interface paths {
          *     writes caller-supplied bytes to storage, so without a cap a single account
          *     can fill the media volume.
          *
-         *     Args:
-         *         request: Incoming request, required by the rate limiter.
-         *         file: Uploaded image file.
-         *         activity_id: Activity ID the media belongs to.
-         *         _check_scopes: Scope validation dependency.
-         *         token_user_id: Authenticated user ID.
-         *         db: Database session.
-         *         storage: Blob-storage provider.
-         *
-         *     Returns:
-         *         The newly created ActivityMedia record.
-         *
-         *     Raises:
-         *         NotFoundError: If the activity is not owned by the user.
-         *         UnsupportedMediaTypeError: If the extension is rejected.
-         *         ConflictError: If a media with the same path already exists.
+         *     Not found when the activity is not the caller's, rejected when the extension
+         *     is unsupported, and a conflict when a media with the same path already exists.
          */
         post: operations["upload_media_api_v1_activities__activity_id__media_post"];
         delete?: never;
@@ -533,21 +438,8 @@ export interface paths {
          * Delete Activity Media
          * @description Delete an activity media record and remove its stored blob.
          *
-         *     Args:
-         *         activity_id: Activity the media must belong to.
-         *         media_id: Activity media ID to delete.
-         *         _validate_id: Media ID validation dependency.
-         *         _check_scopes: Scope validation dependency.
-         *         token_user_id: Authenticated user ID.
-         *         db: Database session.
-         *         storage: Blob-storage provider.
-         *
-         *     Returns:
-         *         None.
-         *
-         *     Raises:
-         *         NotFoundError: If the media is missing, does not belong to this activity,
-         *             or its owning activity is not the user's.
+         *     Not found when the media is missing, does not belong to this activity, or its
+         *     activity is not the caller's.
          */
         delete: operations["delete_activity_media_api_v1_activities__activity_id__media__media_id__delete"];
         options?: never;
@@ -566,20 +458,9 @@ export interface paths {
          * Read Activity Media File
          * @description Serve an activity media blob when the signed token is valid.
          *
-         *     Args:
-         *         activity_id: The activity the media must belong to.
-         *         media_id: The media record to serve.
-         *         token: The signed access token (``?t=``) minted at serialization time.
-         *         db: Database session dependency.
-         *         storage: Blob-storage provider.
-         *
-         *     Returns:
-         *         The image bytes.
-         *
-         *     Raises:
-         *         HTTPException: 404 when the token is invalid/forged, the record does not
-         *             belong to ``activity_id``, or no blob exists (a 404 — rather than
-         *             403 — avoids confirming the resource to an unauthorized caller).
+         *     Answers ``404`` when the token is invalid or forged, the record does not belong
+         *     to the activity, or no blob exists. A ``404`` rather than ``403`` avoids
+         *     confirming the resource to an unauthorized caller.
          */
         get: operations["read_activity_media_file_api_v1_activities__activity_id__media__media_id__file_get"];
         put?: never;
@@ -600,18 +481,6 @@ export interface paths {
         /**
          * Read Activities Sets For Activity All
          * @description Return one page of the activity's sets, with the matching total.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         _check_scopes: FastAPI security dependency enforcing scopes.
-         *         token_user_id: Authenticated user id derived from the access token.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when the activity is hidden from the caller or
-         *         has no sets.
          */
         get: operations["read_activities_sets_for_activity_all_api_v1_activities__activity_id__sets_get"];
         put?: never;
@@ -632,18 +501,6 @@ export interface paths {
         /**
          * Read Activities Streams For Activity All
          * @description Return one page of the given activity's streams, with the matching total.
-         *
-         *     Args:
-         *         activity_id: The activity identifier.
-         *         _check_scopes: Scope authorization dep.
-         *         token_user_id: Authenticated user ID.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when the activity is hidden from the caller or
-         *         has no visible streams.
          */
         get: operations["read_activities_streams_for_activity_all_api_v1_activities__activity_id__streams_get"];
         put?: never;
@@ -665,23 +522,10 @@ export interface paths {
          * Read Activities Streams For Activity Stream Type
          * @description Get a specific stream type for an activity.
          *
-         *     Args:
-         *         activity_id: The activity identifier.
-         *         stream_type: The stream type code.
-         *         validate_activity_stream_type: Type dep.
-         *         _check_scopes: Scope authorization dep.
-         *         token_user_id: Authenticated user ID.
-         *         db: Database session.
-         *
-         *     Returns:
-         *         The activity stream.
-         *
-         *     Raises:
-         *         NotFoundError: When the activity has no such stream, or is not visible
-         *             to the caller. A single resource that does not exist is a 404; it
-         *             used to answer ``200 null``, which is neither a resource nor an
-         *             error. The two cases are deliberately indistinguishable so the
-         *             endpoint cannot be used to probe which activities exist.
+         *     Not found when the activity has no such stream or is not visible to the
+         *     caller. A single resource that does not exist is a ``404`` rather than
+         *     ``200 null``, and the two cases are indistinguishable so the endpoint cannot
+         *     be used to probe which activities exist.
          */
         get: operations["read_activities_streams_for_activity_stream_type_api_v1_activities__activity_id__streams__stream_type__get"];
         put?: never;
@@ -703,17 +547,7 @@ export interface paths {
          * Read Activity Thumbnail
          * @description Serve an activity's map thumbnail when the signed token is valid.
          *
-         *     Args:
-         *         activity_id: The activity whose thumbnail to serve.
-         *         token: The signed access token (``?t=``) minted at serialization time.
-         *         storage: Blob-storage provider.
-         *
-         *     Returns:
-         *         The WebP thumbnail bytes.
-         *
-         *     Raises:
-         *         NotFoundError: When the token is invalid/forged or no thumbnail exists
-         *             (rendered as a 404).
+         *     Answers ``404`` when the token is invalid or forged, or no thumbnail exists.
          */
         get: operations["read_activity_thumbnail_api_v1_activities__activity_id__thumbnail_get"];
         put?: never;
@@ -734,18 +568,6 @@ export interface paths {
         /**
          * Read Activity Workout Steps All
          * @description Return one page of the activity's workout steps, with the matching total.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         _check_scopes: FastAPI security dependency enforcing scopes.
-         *         token_user_id: Authenticated user id derived from the access token.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when the activity is hidden from the caller or
-         *         has no workout steps.
          */
         get: operations["read_activity_workout_steps_all_api_v1_activities__activity_id__workout_steps_get"];
         put?: never;
@@ -4017,13 +3839,6 @@ export interface paths {
         /**
          * Read Public Activities Exercise Titles All
          * @description Return all activity exercise titles via the public endpoint.
-         *
-         *     Args:
-         *         db: Database session.
-         *
-         *     Returns:
-         *         The exercise titles, or an empty list when public shareable links are
-         *         disabled or no entries exist.
          */
         get: operations["read_public_activities_exercise_titles_all_api_v1_public_activities_exercise_titles_all_get"];
         put?: never;
@@ -4069,16 +3884,6 @@ export interface paths {
         /**
          * Read Public Activities Laps For Activity All
          * @description Return one page of public laps for an activity exposed via shareable link.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when public sharing is disabled, the activity is
-         *         not public, or the laps are hidden.
          */
         get: operations["read_public_activities_laps_for_activity_all_api_v1_public_activities__activity_id__laps_get"];
         put?: never;
@@ -4099,16 +3904,6 @@ export interface paths {
         /**
          * Read Public Activities Sets For Activity All
          * @description Return one page of a publicly shared activity's sets.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when public sharing is disabled, the activity is
-         *         not public, or the sets are hidden.
          */
         get: operations["read_public_activities_sets_for_activity_all_api_v1_public_activities__activity_id__sets_get"];
         put?: never;
@@ -4129,16 +3924,6 @@ export interface paths {
         /**
          * Read Public Activities Streams For Activity All
          * @description Return one page of a publicly shared activity's streams, with the matching total.
-         *
-         *     Args:
-         *         activity_id: The activity identifier.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when public sharing is disabled, the activity is
-         *         not public, or it has no visible streams.
          */
         get: operations["read_public_activities_streams_for_activity_all_api_v1_public_activities__activity_id__streams_get"];
         put?: never;
@@ -4160,19 +3945,9 @@ export interface paths {
          * Read Public Activities Streams For Activity Stream Type
          * @description Get a public stream by type for an activity.
          *
-         *     Args:
-         *         activity_id: The activity identifier.
-         *         stream_type: The stream type code.
-         *         validate_activity_stream_type: Type dep.
-         *         db: Database session.
-         *
-         *     Returns:
-         *         The activity stream.
-         *
-         *     Raises:
-         *         NotFoundError: When the activity has no such stream, is not public, or
-         *             public links are disabled — indistinguishable on purpose, since this
-         *             endpoint is unauthenticated.
+         *     Not found when the activity has no such stream, is not public, or public links
+         *     are disabled. The cases are indistinguishable on purpose, since this endpoint
+         *     is unauthenticated.
          */
         get: operations["read_public_activities_streams_for_activity_stream_type_api_v1_public_activities__activity_id__streams__stream_type__get"];
         put?: never;
@@ -4193,16 +3968,6 @@ export interface paths {
         /**
          * Read Public Activity Workout Steps All
          * @description Return one page of a publicly shared activity's workout steps.
-         *
-         *     Args:
-         *         activity_id: Activity primary key.
-         *         db: Database session.
-         *         page: Resolved paging window, capped so one request cannot ask for
-         *             an unbounded number of rows.
-         *
-         *     Returns:
-         *         The page envelope. Empty when public sharing is disabled, the activity is
-         *         not public, or the workout steps are hidden.
          */
         get: operations["read_public_activity_workout_steps_all_api_v1_public_activities__activity_id__workout_steps_get"];
         put?: never;

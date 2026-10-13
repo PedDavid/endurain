@@ -5,7 +5,11 @@ import modules.activities.activity_ingestion.integration_service as activity_ing
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
-    """Return ingestion retention jobs."""
+    """Return ingestion retention jobs.
+
+    Returns:
+        The jobs to schedule.
+    """
     return (
         core_scheduler.ScheduledJob(
             activity_ingestion.prune_expired_ingestion_jobs,

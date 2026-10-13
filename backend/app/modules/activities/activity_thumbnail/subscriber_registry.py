@@ -9,12 +9,26 @@ import modules.activities.activity_thumbnail.subscribers as thumbnail_subscriber
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register thumbnail bus subscribers."""
+    """Register thumbnail bus subscribers.
+
+    Args:
+        events: The event bus to subscribe on.
+
+    Returns:
+        None.
+    """
     thumbnail_subscribers.register_thumbnail_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register thumbnail durable handlers."""
+    """Register thumbnail durable handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     thumbnail_subscribers.register_thumbnail_durable_handlers(registry)
 
 

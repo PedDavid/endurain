@@ -16,7 +16,15 @@ def _list_sets_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_sets_schema.ActivitySetsRead]:
-    """Return workout sets for activity IDs already scoped by the caller."""
+    """Return workout sets for activity IDs already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        Workout sets for activity IDs already scoped by the caller.
+    """
     return activity_sets_crud.get_activities_sets(activity_ids, db)
 
 
@@ -25,7 +33,16 @@ def _store_sets(
     activity_id: int,
     db: Session,
 ) -> None:
-    """Store parsed workout sets for an activity."""
+    """Store parsed workout sets for an activity.
+
+    Args:
+        sets: Sets to store.
+        activity_id: ID of the parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     activity_sets_crud.create_activity_sets(list(sets), activity_id, db)
 
 
@@ -34,14 +51,27 @@ def _persist_ingestion_component(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """Persist parsed set data through the generic ingestion contract."""
+    """Persist parsed set data through the generic ingestion contract.
+
+    Args:
+        data: The parsed component payload.
+        activity: The newly created parent activity.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store sets before the activity has an id")
     _store_sets(data, activity.id, db)
 
 
 def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
-    """Return the activity-sets ingestion contribution."""
+    """Return the activity-sets ingestion contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ActivityIngestionContributor(
         key="sets",
         persist=_persist_ingestion_component,
@@ -54,7 +84,17 @@ def _restore_profile_records(
     new_activity: activity_schema.Activity,
     db: Session,
 ) -> int:
-    """Validate and restore profile set records for one activity."""
+    """Validate and restore profile set records for one activity.
+
+    Args:
+        records: Profile records to restore.
+        original_activity_id: The activity's ID in the exported archive.
+        new_activity: The activity the records are restored onto.
+        db: Database session.
+
+    Returns:
+        The number of records restored.
+    """
     if new_activity.id is None:
         return 0
 
@@ -73,7 +113,11 @@ def _restore_profile_records(
 
 
 def profile_contributor() -> activity_contributors.ProfileActivityContributor:
-    """Return the activity-sets profile contribution."""
+    """Return the activity-sets profile contribution.
+
+    Returns:
+        The contributor.
+    """
     return activity_contributors.ProfileActivityContributor(
         key="sets",
         archive_path="data/activity_sets.json",

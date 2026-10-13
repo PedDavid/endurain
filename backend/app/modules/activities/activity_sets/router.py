@@ -26,20 +26,7 @@ def read_activities_sets_for_activity_all(
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_sets_schema.ActivitySetsPage:
-    """Return one page of the activity's sets, with the matching total.
-
-    Args:
-        activity_id: Activity primary key.
-        _check_scopes: FastAPI security dependency enforcing scopes.
-        token_user_id: Authenticated user id derived from the access token.
-        db: Database session.
-        page: Resolved paging window, capped so one request cannot ask for
-            an unbounded number of rows.
-
-    Returns:
-        The page envelope. Empty when the activity is hidden from the caller or
-        has no sets.
-    """
+    """Return one page of the activity's sets, with the matching total."""
     return activity_sets_service.list_activity_sets(
         activity_id,
         token_user_id,

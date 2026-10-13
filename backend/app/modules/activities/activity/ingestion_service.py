@@ -46,6 +46,13 @@ def _derive_dedup_key(
 
     Stays free of any file-format or provider-module coupling: it reads only the
     core schema + the ``ImportSource`` contract.
+
+    Args:
+        activity: The parsed activity schema.
+        source: Where the activity came from, or None.
+
+    Returns:
+        The key, or None when there is nothing to key on.
     """
     if activity.strava_activity_id is not None:
         return f"strava:{activity.strava_activity_id}"

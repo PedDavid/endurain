@@ -22,18 +22,7 @@ def read_public_activities_sets_for_activity_all(
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_sets_schema.ActivitySetsPage:
-    """Return one page of a publicly shared activity's sets.
-
-    Args:
-        activity_id: Activity primary key.
-        db: Database session.
-        page: Resolved paging window, capped so one request cannot ask for
-            an unbounded number of rows.
-
-    Returns:
-        The page envelope. Empty when public sharing is disabled, the activity is
-        not public, or the sets are hidden.
-    """
+    """Return one page of a publicly shared activity's sets."""
     return activity_sets_service.list_public_activity_sets(
         activity_id,
         db,

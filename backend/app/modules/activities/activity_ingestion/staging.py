@@ -145,6 +145,9 @@ def materialized(key: str, filename: str, storage: platform_providers.StoragePro
 
     Yields:
         Path to the materialised file, or ``None`` when the blob is absent.
+
+    Returns:
+        The local path, or None when the blob is missing.
     """
     data = storage.get(BULK_IMPORT_STORAGE_AREA, key)
     if data is None:

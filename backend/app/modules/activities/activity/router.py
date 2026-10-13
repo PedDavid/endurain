@@ -228,17 +228,7 @@ def edit_activities(
     not exist at that path. The body shape also leaves room for a second
     bulk-editable field without another endpoint.
 
-    Args:
-        body: The fields to apply; only those present are changed.
-        token_user_id: Authenticated user ID.
-        _check_scopes: Scope validation dependency.
-        db: Database session dependency.
-
-    Returns:
-        How many activities changed.
-
-    Raises:
-        InvalidInputError: If the body asks for no change at all.
+    Rejected as invalid input when the body asks for no change at all.
     """
     updated = activities_service.bulk_edit_activities(token_user_id, body, db)
     return activities_schema.VisibilityUpdateResponse(

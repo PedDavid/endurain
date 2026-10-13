@@ -7,7 +7,14 @@ import modules.activities.activity_ingestion.subscribers as ingestion_subscriber
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register ingestion command handlers."""
+    """Register ingestion command handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     ingestion_subscribers.register_durable_handlers(registry)
 
 

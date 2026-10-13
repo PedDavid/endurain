@@ -40,6 +40,9 @@ def _iter_activity_pages(
 
     Yields:
         Non-empty pages of activity thumbnail references, ordered by id.
+
+    Returns:
+        Non-empty pages of thumbnail references, ordered by id.
     """
     after_id = 0
     while True:
@@ -62,6 +65,9 @@ def _iter_activities_with_thumbnail(db: Session) -> Iterator[activities_contract
 
     Yields:
         Thumbnail references, ascending by activity id.
+
+    Returns:
+        Thumbnail references, in id order.
     """
     for page in _iter_activity_pages(db, activities_service.list_activities_with_thumbnail):
         yield from page
@@ -80,6 +86,9 @@ def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activities_
 
     Yields:
         Non-empty lists of thumbnail references, ascending by activity id.
+
+    Returns:
+        Pages of thumbnail references, in id order.
     """
     yield from _iter_activity_pages(db, activities_service.list_activities_without_thumbnail)
 

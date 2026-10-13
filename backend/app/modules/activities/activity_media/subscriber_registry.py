@@ -8,12 +8,26 @@ import modules.activities.activity_media.subscribers as media_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register media cleanup subscribers."""
+    """Register media cleanup subscribers.
+
+    Args:
+        events: The event bus to subscribe on.
+
+    Returns:
+        None.
+    """
     media_subscribers.register_activity_media_cleanup_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register media cleanup durable handlers."""
+    """Register media cleanup durable handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     media_subscribers.register_activity_media_cleanup_durable_handlers(registry)
 
 

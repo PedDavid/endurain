@@ -46,15 +46,6 @@ def read_activities_media_user(
     Returns an empty list when the activity has no media or is not accessible to
     the caller — previously ``200 null``, which made a collection endpoint answer
     with a scalar and forced every client to null-check it.
-
-    Args:
-        activity_id: Activity ID to fetch media for.
-        _check_scopes: Scope validation dependency.
-        token_user_id: Authenticated user ID.
-        db: Database session.
-
-    Returns:
-        The activity's media records, empty when there are none.
     """
     return activity_media_service.list_activity_media(activity_id, token_user_id, db)
 
@@ -99,22 +90,8 @@ def upload_media(
     writes caller-supplied bytes to storage, so without a cap a single account
     can fill the media volume.
 
-    Args:
-        request: Incoming request, required by the rate limiter.
-        file: Uploaded image file.
-        activity_id: Activity ID the media belongs to.
-        _check_scopes: Scope validation dependency.
-        token_user_id: Authenticated user ID.
-        db: Database session.
-        storage: Blob-storage provider.
-
-    Returns:
-        The newly created ActivityMedia record.
-
-    Raises:
-        NotFoundError: If the activity is not owned by the user.
-        UnsupportedMediaTypeError: If the extension is rejected.
-        ConflictError: If a media with the same path already exists.
+    Not found when the activity is not the caller's, rejected when the extension
+    is unsupported, and a conflict when a media with the same path already exists.
     """
     # The route is synchronous and runs on a worker thread, so the blocking read
     # never touches the event loop.
@@ -150,20 +127,7 @@ def delete_activity_media(
     """
     Delete an activity media record and remove its stored blob.
 
-    Args:
-        activity_id: Activity the media must belong to.
-        media_id: Activity media ID to delete.
-        _validate_id: Media ID validation dependency.
-        _check_scopes: Scope validation dependency.
-        token_user_id: Authenticated user ID.
-        db: Database session.
-        storage: Blob-storage provider.
-
-    Returns:
-        None.
-
-    Raises:
-        NotFoundError: If the media is missing, does not belong to this activity,
-            or its owning activity is not the user's.
+    Not found when the media is missing, does not belong to this activity, or its
+    activity is not the caller's.
     """
     activity_media_service.delete_activity_media(activity_id, media_id, token_user_id, db, storage)

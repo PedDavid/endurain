@@ -8,8 +8,8 @@ Streams mask differently from the other child resources: there is no single
 ``hide_streams`` flag, because each stream *type* is gated by its own parent flag
 (``hide_hr``, ``hide_power``, ``hide_cadence``, ...). So instead of the boolean
 gate the siblings use, this module resolves the parent activity through
-:mod:`modules.activities.activity.child_access_service` and hands it to
-:mod:`~modules.activities.activity_streams.serializers`, which decides per stream.
+:mod:`modules.activities.activity.child_access_service` and decides per stream
+itself: an activity can hide its heart rate while still publishing its route.
 
 They are also the one child resource whose page is not cut in SQL, deliberately.
 Laps, sets and workout steps have no domain ceiling on their row count, so a read
@@ -31,14 +31,56 @@ from sqlalchemy.orm import Session
 import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.integration_service as activity_integration
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.hr_zones as activity_streams_hr_zones
 import modules.activities.activity_streams.schema as activity_streams_schema
-import modules.activities.activity_streams.serializers as activity_streams_serializers
 import modules.users.users.integration_service as users_integration_service
 
 logger = core_logger.get_logger(__name__)
+
+# Map stream type to activity hide attribute
+_STREAM_HIDE_MAP: dict[int, str] = {
+    activity_streams_constants.STREAM_TYPE_HR: "hide_hr",
+    activity_streams_constants.STREAM_TYPE_POWER: "hide_power",
+    activity_streams_constants.STREAM_TYPE_CADENCE: "hide_cadence",
+    activity_streams_constants.STREAM_TYPE_ELEVATION: "hide_elevation",
+    activity_streams_constants.STREAM_TYPE_SPEED: "hide_speed",
+    activity_streams_constants.STREAM_TYPE_PACE: "hide_pace",
+    activity_streams_constants.STREAM_TYPE_MAP: "hide_map",
+}
+
+
+def _is_stream_hidden(activity: activity_schema.Activity, stream_type: int) -> bool:
+    """Return whether the activity hides a stream type from other viewers.
+
+    Args:
+        activity: The parent activity.
+        stream_type: The stream type code.
+
+    Returns:
+        True when the parent's hide flag for this stream type is set.
+    """
+    attr = _STREAM_HIDE_MAP.get(stream_type)
+    return bool(attr and getattr(activity, attr, False))
+
+
+def _filter_visible_streams(
+    streams: list[activity_streams_schema.ActivityStreamsRead],
+    activity: activity_schema.Activity,
+) -> list[activity_streams_schema.ActivityStreamsRead]:
+    """Drop the streams the activity hides from other viewers.
+
+    Args:
+        streams: The activity's streams, as read schemas.
+        activity: The parent activity.
+
+    Returns:
+        The streams that are not hidden.
+    """
+    return [stream for stream in streams if not _is_stream_hidden(activity, stream.stream_type)]
 
 
 def _page_of(
@@ -96,7 +138,7 @@ def list_activity_streams(
 
     streams = activity_streams_crud.get_activity_streams(activity_id, db)
     if requester_user_id != activity.user_id:
-        streams = activity_streams_serializers.filter_visible_streams(streams, activity)
+        streams = _filter_visible_streams(streams, activity)
 
     return _page_of(streams, page_number, num_records)
 
@@ -127,9 +169,7 @@ def get_activity_stream(
     if stream is None:
         return None
 
-    if requester_user_id != activity.user_id and activity_streams_serializers.is_stream_hidden(
-        activity, stream.stream_type
-    ):
+    if requester_user_id != activity.user_id and _is_stream_hidden(activity, stream.stream_type):
         return None
 
     return stream
@@ -163,7 +203,7 @@ def list_public_activity_streams(
 
     streams = activity_streams_crud.get_activity_streams(activity_id, db)
     return _page_of(
-        activity_streams_serializers.filter_visible_streams(streams, activity),
+        _filter_visible_streams(streams, activity),
         page_number,
         num_records,
     )
@@ -193,7 +233,7 @@ def get_public_activity_stream(
     if stream is None:
         return None
 
-    if activity_streams_serializers.is_stream_hidden(activity, stream.stream_type):
+    if _is_stream_hidden(activity, stream.stream_type):
         return None
 
     return stream
@@ -216,7 +256,15 @@ def _zones_for(
     stream: activity_streams_contracts.HrStreamForScoring,
     max_heart_rate: int | None,
 ) -> dict | None:
-    """Compute one stream's zone breakdown, or ``None`` when it cannot be scored."""
+    """Compute one stream's zone breakdown, or ``None`` when it cannot be scored.
+
+    Args:
+        stream: The stream, with its scoring context.
+        max_heart_rate: The user's max heart rate, or None when unknown.
+
+    Returns:
+        The zone breakdown, or None when it cannot be scored.
+    """
     if not max_heart_rate:
         return None
     breakdown = activity_streams_hr_zones.compute_hr_zone_breakdown_sync(
@@ -231,7 +279,15 @@ def _with_context(
     stream: activity_streams_contracts.HrStreamRecord,
     context,
 ) -> activity_streams_contracts.HrStreamForScoring:
-    """Combine stream-owned columns with its activity scoring context."""
+    """Combine stream-owned columns with its activity scoring context.
+
+    Args:
+        stream: The stream-owned columns.
+        context: The parent activity's scoring context.
+
+    Returns:
+        The stream with its scoring context.
+    """
     return activity_streams_contracts.HrStreamForScoring(
         stream_id=stream.stream_id,
         activity_id=stream.activity_id,
@@ -242,7 +298,15 @@ def _with_context(
 
 
 def _max_heart_rate_of(user_id: int, db: Session) -> int | None:
-    """Resolve a user's max heart rate, or ``None`` when it cannot be derived."""
+    """Resolve a user's max heart rate, or ``None`` when it cannot be derived.
+
+    Args:
+        user_id: ID of the stream's owner.
+        db: Database session.
+
+    Returns:
+        The max heart rate, or None when it cannot be derived.
+    """
     user = users_integration_service.get_user(user_id, db)
     if user is None:
         return None

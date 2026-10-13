@@ -152,7 +152,16 @@ def get_hr_streams_without_zone_percentages(
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_streams_schema.ActivityStreamsRead]:
-    """Return HR streams lacking pre-computed zone_percentages in batches."""
+    """Return HR streams lacking pre-computed zone_percentages in batches.
+
+    Args:
+        db: Database session.
+        after_id: Return only streams with an ID greater than this.
+        batch_size: Maximum number of rows to return.
+
+    Returns:
+        The streams still lacking zone percentages.
+    """
     stmt = (
         select(activity_streams_models.ActivityStreams)
         .where(
@@ -170,7 +179,15 @@ def backfill_zone_percentages_for_missing_hr_streams(
     computed_streams: list[dict[str, int | dict]],
     db: Session,
 ) -> None:
-    """Stage pre-computed zone_percentages for existing HR streams (not committed)."""
+    """Stage pre-computed zone_percentages for existing HR streams (not committed).
+
+    Args:
+        computed_streams: Stream IDs with their computed zone breakdowns.
+        db: Database session.
+
+    Returns:
+        None.
+    """
     for stream in computed_streams:
         db.query(activity_streams_models.ActivityStreams).filter(
             activity_streams_models.ActivityStreams.id == stream["stream_id"],
@@ -181,7 +198,14 @@ def backfill_zone_percentages_for_missing_hr_streams(
 
 
 def _to_hr_record(stream: activity_streams_models.ActivityStreams) -> activity_streams_contracts.HrStreamRecord:
-    """Project one stream ORM row into a package-owned record."""
+    """Project one stream ORM row into a package-owned record.
+
+    Args:
+        stream: The stream ORM row to project.
+
+    Returns:
+        The HR stream record.
+    """
     return activity_streams_contracts.HrStreamRecord(
         stream_id=stream.id,
         activity_id=stream.activity_id,
@@ -194,7 +218,15 @@ def list_hr_streams_for_activities(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_streams_contracts.HrStreamRecord]:
-    """Return HR streams for activity ids already scoped by the caller."""
+    """Return HR streams for activity ids already scoped by the caller.
+
+    Args:
+        activity_ids: IDs of the activities to read.
+        db: Database session.
+
+    Returns:
+        HR streams for activity ids already scoped by the caller.
+    """
     if not activity_ids:
         return []
     stmt = select(activity_streams_models.ActivityStreams).where(
@@ -307,6 +339,9 @@ def create_activity_streams(
         activity_streams: List of stream schemas.
         activity: Activity schema to associate streams with.
         db: Database session.
+
+    Returns:
+        None.
     """
     if activity.user_id is None:
         logger.warning(

@@ -9,12 +9,26 @@ import modules.activities.activity_geocoding.subscribers as geocoding_subscriber
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register geocoding bus subscribers."""
+    """Register geocoding bus subscribers.
+
+    Args:
+        events: The event bus to subscribe on.
+
+    Returns:
+        None.
+    """
     geocoding_subscribers.register_geocoding_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register geocoding durable handlers."""
+    """Register geocoding durable handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     geocoding_subscribers.register_geocoding_durable_handlers(registry)
 
 

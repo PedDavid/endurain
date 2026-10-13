@@ -137,6 +137,15 @@ def _week_bounds(
     based on the requester's configured first day. They previously carried the
     current time of day, which made "this week" a rolling span anchored on *now*
     rather than on the week's boundaries.
+
+    Args:
+        requester_user_id: The authenticated caller.
+        db: Database session.
+        week_number: How many weeks back from the current one (0 = current).
+        anchor: Reference day, or None for the requester's today.
+
+    Returns:
+        The start and end of the week.
     """
     today = _anchor_date(anchor, requester_user_id, db)
     requester = users_integration_service.get_user(requester_user_id, db)
@@ -156,6 +165,14 @@ def _month_bounds(
     Midnight-aligned for the same reason as :func:`_week_bounds`: keeping the
     current time of day meant activities recorded on the 1st before "now" fell
     outside the month window.
+
+    Args:
+        requester_user_id: The authenticated caller.
+        db: Database session.
+        anchor: Reference day, or None for the requester's today.
+
+    Returns:
+        The start and end of the month.
     """
     today = _anchor_date(anchor, requester_user_id, db)
     start_of_month = today.replace(day=1)
@@ -169,7 +186,17 @@ def week_stats(
     db: Session,
     anchor: date | None = None,
 ) -> activities_schema.ActivityStats:
-    """Aggregate per-sport stats for a user's current-week activities."""
+    """Aggregate per-sport stats for a user's current-week activities.
+
+    Args:
+        user_id: ID of the user.
+        requester_user_id: The authenticated caller.
+        db: Database session.
+        anchor: Reference day, or None for the requester's today.
+
+    Returns:
+        The aggregated stats.
+    """
     start, end = _week_bounds(requester_user_id, db, 0, anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
@@ -183,7 +210,17 @@ def month_stats(
     db: Session,
     anchor: date | None = None,
 ) -> activities_schema.ActivityStats:
-    """Aggregate per-sport stats for a user's current-month activities."""
+    """Aggregate per-sport stats for a user's current-month activities.
+
+    Args:
+        user_id: ID of the user.
+        requester_user_id: The authenticated caller.
+        db: Database session.
+        anchor: Reference day, or None for the requester's today.
+
+    Returns:
+        The aggregated stats.
+    """
     start, end = _month_bounds(requester_user_id, db, anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
@@ -207,6 +244,9 @@ def period_stats(
         db: Database session.
         anchor: The caller's local calendar date, used to decide which week or
             month is "current". Falls back to today in the requester's timezone.
+
+    Returns:
+        The aggregated stats.
     """
     logger.debug(
         "Aggregating period stats",
@@ -226,7 +266,19 @@ def count_user_activities(
     end_date: date | None = None,
     name_search: str | None = None,
 ) -> int:
-    """Count a user's own activities matching the given filters."""
+    """Count a user's own activities matching the given filters.
+
+    Args:
+        user_id: ID of the user.
+        db: Database session.
+        activity_type: Activity type code to filter by, or None.
+        start_date: Earliest activity date to include, or None.
+        end_date: Latest activity date to include, or None.
+        name_search: Case-insensitive name fragment to filter by, or None.
+
+    Returns:
+        The number of matching activities.
+    """
     return activities_crud.count_user_activities(
         user_id=user_id,
         db=db,
@@ -244,7 +296,18 @@ def list_gear_activities(
     num_records: int | None,
     db: Session,
 ) -> list[activities_schema.Activity] | None:
-    """List a user's activities for a gear (paginated when page/size are given)."""
+    """List a user's activities for a gear (paginated when page/size are given).
+
+    Args:
+        user_id: ID of the user.
+        gear_id: ID of the gear.
+        page_number: 1-based page number, or None for every row.
+        num_records: Page size, or None for every row.
+        db: Database session.
+
+    Returns:
+        The gear's activities, or None when none can be read.
+    """
     if page_number is not None and num_records is not None:
         return activities_crud.get_user_activities_by_gear_id_and_user_id_with_pagination(
             user_id, gear_id, page_number, num_records, db
@@ -253,7 +316,16 @@ def list_gear_activities(
 
 
 def _count_gear_activities(user_id: int, gear_id: int, db: Session) -> int:
-    """Count a user's activities for a gear."""
+    """Count a user's activities for a gear.
+
+    Args:
+        user_id: ID of the user.
+        gear_id: ID of the gear.
+        db: Database session.
+
+    Returns:
+        The number of the gear's activities.
+    """
     return activities_crud.get_gear_activities_count_by_user_id(user_id, gear_id, db)
 
 
@@ -276,6 +348,22 @@ def list_user_activities_paginated(
     The owner sees all of their activities; any other requester sees only the
     ones visible to them (the CRUD layer applies the mask from ``user_is_owner``
     plus the requester id).
+
+    Args:
+        user_id: ID of the user.
+        requester_user_id: The authenticated caller.
+        page_number: 1-based page number.
+        num_records: Page size.
+        db: Database session.
+        activity_type: Activity type code to filter by, or None.
+        start_date: Earliest activity date to include, or None.
+        end_date: Latest activity date to include, or None.
+        name_search: Case-insensitive name fragment to filter by, or None.
+        sort_by: Field to sort by, or None.
+        sort_order: Sort direction, or None.
+
+    Returns:
+        The visible activities on this page, or None when none can be read.
     """
     activities = activities_crud.get_user_activities_with_pagination(
         user_id=user_id,
@@ -305,7 +393,15 @@ def list_user_activities_paginated(
 
 
 def _require_feed_owner(user_id: int, requester_user_id: int) -> None:
-    """Enforce that the requester is reading their own following feed (OWASP A01 / IDOR)."""
+    """Enforce that the requester is reading their own following feed (OWASP A01 / IDOR).
+
+    Args:
+        user_id: ID of the user.
+        requester_user_id: The authenticated caller.
+
+    Returns:
+        None.
+    """
     if user_id != requester_user_id:
         logger.warning(
             "Blocked following-feed access for a feed the caller does not own",
@@ -457,7 +553,15 @@ def page_gear_activities(
 
 
 def list_activity_types(user_id: int, db: Session) -> dict[int, str]:
-    """Return the distinct activity types a user has recorded, keyed by type code."""
+    """Return the distinct activity types a user has recorded, keyed by type code.
+
+    Args:
+        user_id: ID of the user.
+        db: Database session.
+
+    Returns:
+        The distinct activity types a user has recorded, keyed by type code.
+    """
     return activities_crud.get_distinct_activity_types_for_user(user_id, db)
 
 
@@ -523,6 +627,16 @@ def edit_activity(
     commit, so when durable jobs are enabled the ``activity.updated`` outbox row
     is written in the *same* transaction as the change — a consumer can never see
     a row that changed without the fact that it did.
+
+    Args:
+        activity_id: ID of the activity.
+        user_id: ID of the user.
+        activity_attributes: The fields to change.
+        db: Database session.
+        if_match: The ``If-Match`` precondition, or None.
+
+    Returns:
+        The updated activity.
     """
     logger.debug(
         "Editing an activity",

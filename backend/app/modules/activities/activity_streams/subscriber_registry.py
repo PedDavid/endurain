@@ -9,12 +9,26 @@ import modules.activities.activity_streams.subscribers as stream_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register stream bus subscribers."""
+    """Register stream bus subscribers.
+
+    Args:
+        events: The event bus to subscribe on.
+
+    Returns:
+        None.
+    """
     stream_subscribers.register_hr_zone_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
-    """Register stream durable handlers."""
+    """Register stream durable handlers.
+
+    Args:
+        registry: The durable-handler registry to register on.
+
+    Returns:
+        None.
+    """
     stream_subscribers.register_hr_zone_durable_handlers(registry)
 
 

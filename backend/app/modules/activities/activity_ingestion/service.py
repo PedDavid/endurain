@@ -807,6 +807,9 @@ def process_all_files_sync(
         queued_files: ``(ingestion job id, file path)`` per file to process.
         import_initiated_time: ISO timestamp of when the bulk import was initiated.
         storage: The blob-storage provider the source files are retained in.
+
+    Returns:
+        None.
     """
     db = next(core_database.get_db())
     try:
