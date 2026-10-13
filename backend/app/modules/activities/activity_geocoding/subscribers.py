@@ -4,7 +4,7 @@ Mirrors the thumbnail / HR-zone subscriber pattern: a durable
 ``*_for_event`` core that **raises** so the durable-job runner can retry and
 eventually dead-letter, and an ``on_*`` bus subscriber that **swallows** so a
 geocoding failure never breaks activity import. The scheduled backfill
-(``integration_service.run_missing_location_backfill``) is the reconciliation net
+(``scheduled_jobs.run_missing_location_backfill``) is the reconciliation net
 for any activity the create-path handler misses (delivery dropped on the best-effort bus, provider
 temporarily down, etc.).
 """

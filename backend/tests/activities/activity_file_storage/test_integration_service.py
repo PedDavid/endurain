@@ -2,14 +2,15 @@
 
 from jasil.backends.storage_local import LocalStorage
 
+import modules.activities.activity_file_storage.files as activity_file_storage_files
 import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 
 
 class TestActivityFileKey:
     def test_adds_dot_and_lowercases(self):
-        assert activity_file_storage_integration._activity_file_key(42, "fit") == "42.fit"
-        assert activity_file_storage_integration._activity_file_key(42, ".FIT") == "42.fit"
-        assert activity_file_storage_integration._activity_file_key(7, ".gpx") == "7.gpx"
+        assert activity_file_storage_files.activity_file_key(42, "fit") == "42.fit"
+        assert activity_file_storage_files.activity_file_key(42, ".FIT") == "42.fit"
+        assert activity_file_storage_files.activity_file_key(7, ".gpx") == "7.gpx"
 
 
 class TestStoreAndGet:
@@ -50,11 +51,11 @@ class TestDelete:
     def test_delete_removes_stored_file(self, tmp_path):
         storage = LocalStorage(str(tmp_path))
         activity_file_storage_integration.store_activity_file(42, ".fit", b"x", storage)
-        activity_file_storage_integration.delete_activity_file(42, storage)
+        activity_file_storage_files.delete_activity_file(42, storage)
         assert activity_file_storage_integration.get_activity_file(42, storage) is None
 
     def test_delete_is_idempotent_when_absent(self, tmp_path):
         storage = LocalStorage(str(tmp_path))
         # Must not raise even though nothing is stored.
-        activity_file_storage_integration.delete_activity_file(123, storage)
+        activity_file_storage_files.delete_activity_file(123, storage)
         assert activity_file_storage_integration.get_activity_file(123, storage) is None

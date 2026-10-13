@@ -4,7 +4,7 @@ from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
-import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
+import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
 import modules.activities.activity_thumbnail.subscribers as thumbnail_subscribers
 
 
@@ -35,7 +35,7 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
         thumbnail_subscribers.THUMBNAIL_GENERATE_SUBSCRIBER_ID,
-        activity_thumbnail_integration.generate_missing_thumbnails,
+        activity_thumbnail_scheduled_jobs.generate_missing_thumbnails,
     ),
     DurableSubscriberNet(
         thumbnail_subscribers.THUMBNAIL_CLEANUP_SUBSCRIBER_ID,

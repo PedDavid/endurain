@@ -23,7 +23,7 @@ class TestCleanupActivityFileForEvent:
 
         mock_runtime.get_active_platform.assert_not_called()
 
-    @patch("modules.activities.activity_file_storage.integration_service.delete_activity_file")
+    @patch("modules.activities.activity_file_storage.files.delete_activity_file")
     @patch("modules.activities.activity_file_storage.subscribers.platform_runtime")
     def test_deletes_via_service(self, mock_runtime, mock_delete):
         from modules.activities.activity_file_storage.subscribers import cleanup_activity_file_for_event
@@ -38,7 +38,7 @@ class TestCleanupActivityFileForEvent:
 
 class TestOnActivityDeletedCleanupFile:
     @patch("modules.activities.activity_file_storage.subscribers.platform_runtime")
-    @patch("modules.activities.activity_file_storage.integration_service.delete_activity_file")
+    @patch("modules.activities.activity_file_storage.files.delete_activity_file")
     def test_swallows_errors(self, mock_delete, mock_runtime):
         from modules.activities.activity_file_storage.subscribers import on_activity_deleted_cleanup_file
 
@@ -48,7 +48,7 @@ class TestOnActivityDeletedCleanupFile:
         on_activity_deleted_cleanup_file(_deleted_event({"activity_id": 42}))
 
     @patch("modules.activities.activity_file_storage.subscribers.platform_runtime")
-    @patch("modules.activities.activity_file_storage.integration_service.delete_activity_file")
+    @patch("modules.activities.activity_file_storage.files.delete_activity_file")
     def test_delegates_to_core(self, mock_delete, mock_runtime):
         from modules.activities.activity_file_storage.subscribers import on_activity_deleted_cleanup_file
 

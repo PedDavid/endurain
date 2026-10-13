@@ -226,7 +226,7 @@ class TestTileSettingsRegeneration:
 
     @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")
     def test_queues_regeneration_when_requested(self, mock_run_once):
-        from modules.activities.activity_thumbnail import integration_service
+        from modules.activities.activity_thumbnail import scheduled_jobs
         from modules.activities.activity_thumbnail.subscribers import regenerate_thumbnails_for_tile_settings_event
 
         regenerate_thumbnails_for_tile_settings_event(
@@ -234,7 +234,7 @@ class TestTileSettingsRegeneration:
         )
 
         mock_run_once.assert_called_once()
-        assert mock_run_once.call_args.args[0] is integration_service.regenerate_all_thumbnails
+        assert mock_run_once.call_args.args[0] is scheduled_jobs.regenerate_all_thumbnails
         assert mock_run_once.call_args.kwargs["job_id"] == "endurain_regenerate_all_thumbnails"
 
     @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")

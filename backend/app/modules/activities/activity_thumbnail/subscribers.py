@@ -28,7 +28,7 @@ import core.scheduler as core_scheduler
 import modules.activities.activity.events as activity_events
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.integration_service as activity_streams_integration
-import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
+import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
 import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 import modules.server_settings.events as server_settings_events
 
@@ -130,7 +130,7 @@ def _schedule_thumbnail_regeneration() -> None:
         None.
     """
     core_scheduler.run_once(
-        activity_thumbnail_integration.regenerate_all_thumbnails,
+        activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails,
         job_id="endurain_regenerate_all_thumbnails",
         description="thumbnail regeneration",
     )

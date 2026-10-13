@@ -4,7 +4,7 @@ Mirrors the thumbnail/notification subscriber pattern: a durable
 ``*_for_event`` core that **raises** so the durable-job runner can retry and
 eventually dead-letter, and an ``on_*`` bus subscriber that **swallows** so an
 HR-zone failure never breaks activity import. The scheduled backfill
-is the reconciliation net (``integration_service.run_missing_hr_zone_backfill``)
+is the reconciliation net (``scheduled_jobs.run_missing_hr_zone_backfill``)
 for any streams the create-path handler misses (e.g. delivery dropped on the
 best-effort bus, or the owner's max heart rate was set only later).
 """

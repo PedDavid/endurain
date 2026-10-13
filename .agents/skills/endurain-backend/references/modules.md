@@ -64,7 +64,7 @@ Activity children return `ingestion_contributor`, `profile_contributor`, `profil
 ## Adding a module
 
 1. Create `modules/<name>` or `modules/<namespace>/<name>`; docstring-only `__init__.py`.
-2. Add `integration_service.py` with only operations that have a caller.
+2. Add `integration_service.py` with only operations that have a caller; a package nothing calls has none and is listed in `_NO_CROSS_MODULE_SURFACE` (`tests/activities/test_module_template.py`).
 3. Add `model_registry.py` if it owns a table, and contribute it to the namespace/app registry.
 4. Add `migration_service.py` only if an existing data migration needs it.
 5. Add `subscriber_registry.py` / `scheduled_jobs.py`, then one `RuntimeModule(name=..., ...)` in `app/module_registry.py` (keywords; backfills as `StartupTask`).

@@ -468,7 +468,9 @@ composition installs the answer.
 1. Create either `modules/<name>` or a package under a composition namespace such
    as `modules/activities/<name>`; `__init__.py` contains a docstring only.
 2. Add `integration_service.py`. It is the sole behavioral import path for peers
-   and outside modules; keep it limited to operations with real callers.
+   and outside modules; keep it limited to operations with real callers. A
+   package nothing else calls (`activity_geocoding`, purely reactive) has none
+   and is listed with its reason in `_NO_CROSS_MODULE_SURFACE`.
 3. Add `model_registry.py` when the module owns a table, and add its contribution
    to the namespace/application model registry.
 4. Add `migration_service.py` only when an existing data migration needs a

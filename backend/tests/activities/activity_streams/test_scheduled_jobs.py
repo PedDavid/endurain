@@ -1,4 +1,4 @@
-"""Tests for the activity-streams integration surface."""
+"""Tests for the activity-streams scheduled jobs."""
 
 from unittest.mock import MagicMock, patch
 
@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 class TestRunMissingHrZoneBackfill:
     """The scheduled reconciliation net: lock + batched backfill."""
 
-    @patch("modules.activities.activity_streams.integration_service.logger")
-    @patch("modules.activities.activity_streams.integration_service.platform_runtime")
+    @patch("modules.activities.activity_streams.scheduled_jobs.logger")
+    @patch("modules.activities.activity_streams.scheduled_jobs.platform_runtime")
     def test_skips_when_lock_not_acquired(self, mock_runtime, mock_logger):
-        from modules.activities.activity_streams.integration_service import run_missing_hr_zone_backfill
+        from modules.activities.activity_streams.scheduled_jobs import run_missing_hr_zone_backfill
 
         lock_cm = MagicMock()
         lock_cm.__enter__.return_value = False
@@ -21,12 +21,12 @@ class TestRunMissingHrZoneBackfill:
             "HR-zone scheduler: another replica holds the backfill lock; skipping",
         )
 
-    @patch("modules.activities.activity_streams.integration_service.logger")
-    @patch("modules.activities.activity_streams.integration_service.core_database")
-    @patch("modules.activities.activity_streams.integration_service.activity_streams_service")
-    @patch("modules.activities.activity_streams.integration_service.platform_runtime")
+    @patch("modules.activities.activity_streams.scheduled_jobs.logger")
+    @patch("modules.activities.activity_streams.scheduled_jobs.core_database")
+    @patch("modules.activities.activity_streams.scheduled_jobs.activity_streams_service")
+    @patch("modules.activities.activity_streams.scheduled_jobs.platform_runtime")
     def test_runs_backfill_when_acquired(self, mock_runtime, mock_service, mock_db, mock_logger):
-        from modules.activities.activity_streams.integration_service import run_missing_hr_zone_backfill
+        from modules.activities.activity_streams.scheduled_jobs import run_missing_hr_zone_backfill
 
         lock_cm = MagicMock()
         lock_cm.__enter__.return_value = True

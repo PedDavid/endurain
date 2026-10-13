@@ -20,7 +20,6 @@ import modules.activities.activity_ingestion.background as activity_ingestion_ba
 import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.provider_registry as provider_registry
-import modules.activities.activity_ingestion.service as ingestion_service
 
 #: Where a file came from, and the metadata that source carries. Re-exported so a
 #: provider names one module rather than reaching for the package internals.
@@ -86,13 +85,3 @@ def shutdown_background_ingestion(*, wait: bool = False) -> None:
         None.
     """
     activity_ingestion_background.shutdown(wait=wait)
-
-
-def prune_expired_ingestion_jobs() -> None:
-    """Delete ingestion job rows beyond their retention window.
-
-    Returns:
-        None.
-    """
-    platform = platform_runtime.get_active_platform()
-    ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)

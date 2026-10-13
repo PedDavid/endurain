@@ -4,7 +4,7 @@ from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
-import modules.activities.activity_streams.integration_service as activity_streams_integration
+import modules.activities.activity_streams.scheduled_jobs as activity_streams_scheduled_jobs
 import modules.activities.activity_streams.subscribers as stream_subscribers
 
 
@@ -35,6 +35,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
         stream_subscribers.HR_ZONE_SUBSCRIBER_ID,
-        activity_streams_integration.run_missing_hr_zone_backfill,
+        activity_streams_scheduled_jobs.run_missing_hr_zone_backfill,
     ),
 )

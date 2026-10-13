@@ -17,7 +17,6 @@ with the reason it still exists, and anything not listed fails.
 import ast
 import fnmatch
 import pathlib
-import re
 
 from tests._helpers.module_roles import CONVERTED_MODULES, UNCONVERTED_MODULES
 from tests._helpers.module_roles import role_of as _role
@@ -223,6 +222,41 @@ def _symbol_reference_nodes(tree: ast.AST, symbols: set[str]) -> list[tuple[ast.
             continue
         references.extend((node, candidate) for candidate in candidates if candidate in symbols)
     return references
+
+
+def _names_reached_through(tree: ast.AST, module: str) -> set[str]:
+    """
+    Return the names a file accesses on one module.
+
+    Resolves how the file bound the module rather than matching a bare
+    attribute name, so ``other.thing`` on an unrelated object is not a use of
+    ``module.thing``.
+
+    Args:
+        tree: The parsed file.
+        module: Fully qualified dotted module path, e.g.
+            ``modules.activities.activity_laps.integration_service``.
+
+    Returns:
+        The attribute names read from the module and the names imported from it.
+    """
+    package, _, leaf = module.rpartition(".")
+    bound: set[str] = set()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == module:
+                    bound.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0:
+            if node.module == module:
+                names.update(alias.name for alias in node.names)
+            elif node.module == package:
+                bound.update(alias.asname or alias.name for alias in node.names if alias.name == leaf)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and ast.unparse(node.value) in bound:
+            names.add(node.attr)
+    return names
 
 
 def _package_graph(module_name: str) -> dict[str, set[str]]:
@@ -650,27 +684,36 @@ class TestModuleSurface:
         factory that was the actual surface, so "what may I depend on?" answered
         with three times more than the module meant.
 
-        Callers are matched by attribute access, which is how this codebase
-        imports (``import x.y as z`` then ``z.f()``). A new operation lands here
-        together with the caller that needed it, or it stays private until then.
+        A caller is a file **outside the package** that reaches the function
+        through the module it imported: ``alias.name`` for ``import x as alias``,
+        or ``name`` for ``from x import name``. A same-named attribute on some
+        other object does not count, and neither does the package calling its own
+        surface, which is a function that belongs in the package, not on its
+        face. A new operation lands here together with the caller that needed it,
+        or it stays private until then.
         """
-        app_texts = {path: path.read_text() for path in _python_files(_APP_ROOT)}
+        trees = {path: ast.parse(path.read_text()) for path in _python_files(_APP_ROOT)}
         offenders: list[str] = []
         for module_name in _CONVERTED:
             for path in _python_files(_MODULES_ROOT / module_name):
                 if path.name != "integration_service.py":
                     continue
-                for node in ast.parse(app_texts[path]).body:
+                dotted = ".".join(path.relative_to(_APP_ROOT).with_suffix("").parts)
+                called = {
+                    name
+                    for other, tree in trees.items()
+                    if path.parent not in other.parents
+                    for name in _names_reached_through(tree, dotted)
+                }
+                for node in trees[path].body:
                     if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                         continue
-                    if node.name.startswith("_"):
+                    if node.name.startswith("_") or node.name in called:
                         continue
-                    used = re.compile(rf"\.{re.escape(node.name)}\b")
-                    if not any(used.search(text) for other, text in app_texts.items() if other != path):
-                        offenders.append(f"{_module_path(path, _APP_ROOT)}.{node.name}")
+                    offenders.append(f"{_module_path(path, _APP_ROOT)}.{node.name}")
         assert not offenders, (
-            "Published on an integration surface with no caller. Make it private "
-            "until something needs it:\n  " + "\n  ".join(sorted(offenders))
+            "Published on an integration surface with no caller outside its package. "
+            "Make it private until something needs it:\n  " + "\n  ".join(sorted(offenders))
         )
 
     def test_outsiders_use_the_published_surface(self):

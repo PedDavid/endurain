@@ -4,7 +4,7 @@ from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
-import modules.activities.activity_geocoding.integration_service as activity_geocoding_integration
+import modules.activities.activity_geocoding.scheduled_jobs as activity_geocoding_scheduled_jobs
 import modules.activities.activity_geocoding.subscribers as geocoding_subscribers
 
 
@@ -35,6 +35,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
         geocoding_subscribers.GEOCODING_SUBSCRIBER_ID,
-        activity_geocoding_integration.run_missing_location_backfill,
+        activity_geocoding_scheduled_jobs.run_missing_location_backfill,
     ),
 )

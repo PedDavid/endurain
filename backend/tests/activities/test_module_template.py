@@ -59,6 +59,20 @@ def test_package_init_is_a_docstring_only(init_file: Path) -> None:
     )
 
 
+#: Packages that publish no cross-module operation, as ``{package name: reason}``.
+#: Only a package no other module calls may be listed: an empty
+#: ``integration_service.py`` would promise a surface that does not exist. The
+#: test below fails on an entry that has grown a surface, so the list cannot
+#: outlive the exemption.
+_NO_CROSS_MODULE_SURFACE: dict[str, str] = {
+    "activity_geocoding": (
+        "Purely reactive: it geocodes on the activity.created event (subscribers) and "
+        "reconciles on a schedule (scheduled_jobs), both wired by app/module_registry.py. "
+        "Nothing outside the package calls it."
+    ),
+}
+
+
 def test_every_module_exposes_one_cross_module_surface_name() -> None:
     """The surface other modules may consume is always ``integration_service``.
 
@@ -69,12 +83,22 @@ def test_every_module_exposes_one_cross_module_surface_name() -> None:
     missing = [
         package.relative_to(_MODULES_DIR)
         for package in _TEMPLATE_PACKAGES
-        if not (package / "integration_service.py").is_file()
+        if package.name not in _NO_CROSS_MODULE_SURFACE and not (package / "integration_service.py").is_file()
     ]
     assert not missing, (
         "Every independently extractable package must publish behavior through "
         f"integration_service.py; missing: {', '.join(map(str, missing))}"
     )
+
+
+def test_exempt_packages_publish_no_surface() -> None:
+    """An exemption is for a package with no surface; delete it once one exists."""
+    stale = [
+        name
+        for name in _NO_CROSS_MODULE_SURFACE
+        if (_MODULES_DIR / "activities" / name / "integration_service.py").is_file()
+    ]
+    assert not stale, f"Remove from _NO_CROSS_MODULE_SURFACE, they now have a surface: {', '.join(stale)}"
 
 
 def test_every_persistence_package_declares_its_models() -> None:
