@@ -35,7 +35,7 @@ Note:
 
 from typing import Protocol
 
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_file_import.adapter as adapter
 import modules.activities.activity_file_import.fit_utils as fit_utils
 import modules.activities.activity_file_import.gpx_utils as gpx_utils
@@ -51,7 +51,7 @@ class FileParser(Protocol):
         user_id: int,
         activity_name: str | None = None,
         default_timezone: str | None = None,
-    ) -> activities_contracts.ParsedFile:
+    ) -> activity_contracts.ParsedFile:
         """Parse the file at ``path`` for ``user_id``.
 
         ``default_timezone`` is the athlete's own IANA timezone, used only when the
@@ -76,7 +76,7 @@ def _parse_gpx(
     user_id: int,
     activity_name: str | None = None,
     default_timezone: str | None = None,
-) -> activities_contracts.ParsedFile:
+) -> activity_contracts.ParsedFile:
     """Adapter: parse a GPX file into the single activity it describes.
 
     Args:
@@ -89,7 +89,7 @@ def _parse_gpx(
         The parsed file.
     """
     parsed_info = dict(gpx_utils.parse_gpx_file(path, user_id, activity_name, default_timezone))
-    return activities_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
+    return activity_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
 
 
 def _parse_tcx(
@@ -97,7 +97,7 @@ def _parse_tcx(
     user_id: int,
     activity_name: str | None = None,
     default_timezone: str | None = None,
-) -> activities_contracts.ParsedFile:
+) -> activity_contracts.ParsedFile:
     """Adapter: parse a TCX file into the single activity it describes.
 
     Args:
@@ -110,7 +110,7 @@ def _parse_tcx(
         The parsed file.
     """
     parsed_info = tcx_utils.parse_tcx_file(path, user_id, activity_name, default_timezone)
-    return activities_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
+    return activity_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
 
 
 def _parse_fit(
@@ -118,7 +118,7 @@ def _parse_fit(
     user_id: int,
     activity_name: str | None = None,
     default_timezone: str | None = None,
-) -> activities_contracts.ParsedFile:
+) -> activity_contracts.ParsedFile:
     """Adapter: parse a FIT file into the one *or more* activities it describes.
 
     FIT's first stage is owner- and timezone-agnostic; splitting the records into
@@ -139,7 +139,7 @@ def _parse_fit(
     payload = fit_utils.parse_fit_file(path, activity_name)
     sessions = fit_utils.split_records_by_activity(payload)
     parsed_infos = fit_utils.create_activity_objects(sessions, user_id, default_timezone)
-    return activities_contracts.ParsedFile(
+    return activity_contracts.ParsedFile(
         activities=[adapter.parsed_info_to_parsed_activity(parsed_info) for parsed_info in parsed_infos],
         components={"exercise_titles": payload.get("exercise_titles")},
     )

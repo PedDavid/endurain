@@ -41,17 +41,6 @@ class ActivitySetsBase(BaseModel):
     )
 
 
-class ActivitySetsCreate(ActivitySetsBase):
-    """
-    Schema for creating activity workout sets.
-
-    Attributes:
-        activity_id: Parent activity ID.
-    """
-
-    activity_id: StrictInt
-
-
 class ActivitySetsRead(ActivitySetsBase):
     """
     Schema for reading activity workout sets.

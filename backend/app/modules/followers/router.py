@@ -14,13 +14,6 @@ import modules.followers.schema as followers_schema
 import modules.followers.service as followers_service
 import modules.users.users.dependencies as users_dependencies
 
-# Default page size when a list request omits pagination.
-_DEFAULT_NUM_RECORDS = core_pagination.DEFAULT_NUM_RECORDS
-# Hard cap on the client-requested page size, bounding query and serialization
-# cost per request (defense against resource exhaustion). Shared with the
-# activities router so the two template modules cannot drift.
-_MAX_NUM_RECORDS = core_pagination.MAX_NUM_RECORDS
-
 # Define the API router
 router = APIRouter()
 
@@ -35,8 +28,7 @@ def list_user_followers(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
     accepted_only: Annotated[bool, Query()] = False,
 ) -> followers_schema.FollowRelationshipPage:
     """List a user's followers, with the matching total.
@@ -47,8 +39,8 @@ def list_user_followers(
         user_id,
         token_user_id,
         db,
-        page_number=page_number or 1,
-        num_records=num_records or _DEFAULT_NUM_RECORDS,
+        page_number=page.page_number,
+        num_records=page.num_records,
         accepted_only=accepted_only,
     )
 
@@ -63,8 +55,7 @@ def list_user_following(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
     accepted_only: Annotated[bool, Query()] = False,
 ) -> followers_schema.FollowRelationshipPage:
     """List who a user follows, with the matching total.
@@ -75,8 +66,8 @@ def list_user_following(
         user_id,
         token_user_id,
         db,
-        page_number=page_number or 1,
-        num_records=num_records or _DEFAULT_NUM_RECORDS,
+        page_number=page.page_number,
+        num_records=page.num_records,
         accepted_only=accepted_only,
     )
 
@@ -109,8 +100,7 @@ def list_follow_requests(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
 ) -> followers_schema.FollowRelationshipPage:
     """List the follow requests awaiting the authenticated user's decision.
 
@@ -120,8 +110,8 @@ def list_follow_requests(
     return followers_service.list_pending_requests(
         token_user_id,
         db,
-        page_number=page_number or 1,
-        num_records=num_records or _DEFAULT_NUM_RECORDS,
+        page_number=page.page_number,
+        num_records=page.num_records,
     )
 
 

@@ -16,25 +16,12 @@ rule used for runtime module composition, and for the same reason: the refresh
 job runs wherever it is claimed.
 """
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
-
-from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity_ingestion.contracts as ingestion_contracts
 
 logger = core_logger.get_logger(__name__)
-
-#: Fetch a user's activities recorded in ``[window_start, window_end]``, storing
-#: each through the ingestion seam and returning what it stored. Returns an empty
-#: list (or ``None``) when the user has not linked this provider — an unlinked
-#: integration is not an error.
-FetchWindow = Callable[
-    [int, datetime, datetime, Session],
-    Awaitable[list[activities_schema.Activity] | None],
-]
 
 
 @dataclass(frozen=True)
@@ -48,7 +35,7 @@ class ActivityProvider:
     """
 
     name: str
-    fetch_window: FetchWindow
+    fetch_window: ingestion_contracts.FetchWindow
 
 
 _providers: dict[str, ActivityProvider] = {}

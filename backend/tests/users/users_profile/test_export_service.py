@@ -807,7 +807,7 @@ class TestExportServiceCollectUserActivitiesEdgeCases:
                 patch.object(profile_utils, "write_json_to_zip"),
                 patch.object(service, "_collect_and_write_activity_components"),
                 patch.object(
-                    profile_export_service.contributor_registry,
+                    profile_export_service.activities_contributor_registry,
                     "profile_global_contributors",
                     return_value=(contributor,),
                 ),
@@ -839,7 +839,7 @@ class TestExportServiceCollectUserActivitiesEdgeCases:
                 patch.object(profile_utils, "write_json_to_zip"),
                 patch.object(service, "_collect_and_write_activity_components"),
                 patch.object(
-                    profile_export_service.contributor_registry,
+                    profile_export_service.activities_contributor_registry,
                     "profile_global_contributors",
                     return_value=(contributor,),
                 ),

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
 import core.logger as core_logger
+import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.models as activity_sets_models
 import modules.activities.activity_sets.schema as activity_sets_schema
 import modules.activities.activity_sets.serializers as activity_sets_serializers
@@ -106,7 +107,7 @@ def get_activities_sets(
 
 @core_decorators.handle_db_errors
 def create_activity_sets(
-    activity_sets: list[activity_sets_schema.ActivitySetsCreate | list],
+    activity_sets: list[activity_sets_contracts.ActivitySetsCreate | list],
     activity_id: int,
     db: Session,
 ) -> None:

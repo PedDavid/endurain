@@ -7,6 +7,8 @@ and persistence projections into the stream service without leaking ORM rows.
 
 from dataclasses import dataclass, field
 
+import modules.activities.activity_streams.schema as activity_streams_schema
+
 
 @dataclass(frozen=True)
 class ParsedStream:
@@ -43,3 +45,12 @@ class HrStreamForScoring:
     owner_id: int
     waypoints: list[dict] = field(default_factory=list)
     total_timer_time: float | None = None
+
+
+class ActivityStreamsCreate(activity_streams_schema.ActivityStreamsBase):
+    """
+    A parsed or archived stream to persist for an activity.
+
+    Inherits all fields from ``ActivityStreamsBase``. Internal: it never reaches
+    a client, so it is not part of ``schema``.
+    """

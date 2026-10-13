@@ -21,7 +21,7 @@ intermediate dict.
 """
 
 import core.logger as core_logger
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 
@@ -44,7 +44,7 @@ _STREAM_MAPPING: dict[int, tuple[str, str]] = {
 
 def parsed_info_to_parsed_activity(
     parsed_info: dict,
-) -> activities_contracts.ParsedActivity:
+) -> activity_contracts.ParsedActivity:
     """Convert a parser output dict into a :class:`ParsedActivity`.
 
     Provenance (:class:`ImportSource`) is deliberately *not* set here: a parser
@@ -77,7 +77,7 @@ def parsed_info_to_parsed_activity(
         "sets": parsed_info.get("sets"),
         "workout_steps": parsed_info.get("workout_steps"),
     }
-    parsed = activities_contracts.ParsedActivity(
+    parsed = activity_contracts.ParsedActivity(
         activity=parsed_info["activity"],
         components=components,
     )

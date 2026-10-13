@@ -36,7 +36,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
-            result = ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
+            result = ingestion_jobs.accept_upload(7, *_upload(), "storage", db)
 
         assert result == "job-view"
         # The row is staged, not committed, so it lands in the same transaction
@@ -60,7 +60,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
-            ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload(), "storage", db)
 
         # Same client contract either way — only the executor differs.
         publish.assert_not_called()
@@ -79,7 +79,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             pytest.raises(core_exceptions.UnsupportedFormatError),
         ):
-            ingestion_jobs.accept_upload(7, *_upload("ride.txt"), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload("ride.txt"), "storage", db)
 
         create.assert_not_called()
 
@@ -99,7 +99,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
             pytest.raises(RuntimeError),
         ):
-            ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload(), "storage", db)
 
         discard.assert_called_once_with("abc.gpx", ANY)
 

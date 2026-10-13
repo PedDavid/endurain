@@ -689,7 +689,7 @@ class TestImportServiceActivityComponents:
         new_activity = MagicMock(id=10, user_id=1)
 
         with patch.object(
-            profile_import_service.contributor_registry,
+            profile_import_service.activities_contributor_registry,
             "profile_activity_contributors",
             return_value=(contributor,),
         ):
@@ -715,7 +715,7 @@ class TestImportServiceActivityComponents:
         new_activity = MagicMock(id=10, user_id=1)
 
         with patch.object(
-            profile_import_service.contributor_registry,
+            profile_import_service.activities_contributor_registry,
             "profile_activity_contributors",
             return_value=(contributor,),
         ):
@@ -743,7 +743,7 @@ class TestImportServiceActivityComponents:
 
         with (
             patch.object(
-                profile_import_service.contributor_registry,
+                profile_import_service.activities_contributor_registry,
                 "profile_global_contributors",
                 return_value=(contributor,),
             ),
@@ -1075,7 +1075,7 @@ class TestImportServiceActivityComponentsMedia:
         records = [{"activity_id": 1, "media_path": "1_photo.jpg", "media_type": 1}]
         with (
             patch.object(
-                profile_import_service.contributor_registry,
+                profile_import_service.activities_contributor_registry,
                 "profile_activity_contributors",
                 return_value=(contributor,),
             ),
@@ -1111,7 +1111,7 @@ class TestImportServiceActivityComponentsMedia:
         contributor = media_integration.profile_contributor()
         with (
             patch.object(
-                profile_import_service.contributor_registry,
+                profile_import_service.activities_contributor_registry,
                 "profile_activity_contributors",
                 return_value=(contributor,),
             ),
@@ -1142,7 +1142,7 @@ class TestImportServiceActivityComponentsMedia:
         contributor = media_integration.profile_contributor()
         with (
             patch.object(
-                profile_import_service.contributor_registry,
+                profile_import_service.activities_contributor_registry,
                 "profile_activity_contributors",
                 return_value=(contributor,),
             ),
@@ -1172,7 +1172,7 @@ class TestImportServiceActivityComponentsMedia:
         contributor = media_integration.profile_contributor()
         with (
             patch.object(
-                profile_import_service.contributor_registry,
+                profile_import_service.activities_contributor_registry,
                 "profile_activity_contributors",
                 return_value=(contributor,),
             ),

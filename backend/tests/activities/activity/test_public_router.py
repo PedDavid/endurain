@@ -56,7 +56,7 @@ class TestReadPublicActivity:
         "modules.activities.activity.service.server_settings_integration.public_shareable_links_enabled",
         return_value=True,
     )
-    @patch("modules.activities.activity.service.activities_crud.get_activity_by_id_if_is_public")
+    @patch("modules.activities.activity.service.activity_crud.get_activity_by_id_if_is_public")
     def test_success(self, mock_get, _mock_settings, mock_db):
         client = TestClient(_build_app(mock_db))
         mock_get.return_value = _valid_activity()
@@ -69,7 +69,7 @@ class TestReadPublicActivity:
         "modules.activities.activity.service.server_settings_integration.public_shareable_links_enabled",
         return_value=True,
     )
-    @patch("modules.activities.activity.service.activities_crud.get_activity_by_id_if_is_public")
+    @patch("modules.activities.activity.service.activity_crud.get_activity_by_id_if_is_public")
     def test_not_found(self, mock_get, _mock_settings, mock_db):
         client = TestClient(_build_app(mock_db))
         mock_get.return_value = None
@@ -84,7 +84,7 @@ class TestReadPublicActivity:
         "modules.activities.activity.service.server_settings_integration.public_shareable_links_enabled",
         return_value=False,
     )
-    @patch("modules.activities.activity.service.activities_crud.get_activity_by_id_if_is_public")
+    @patch("modules.activities.activity.service.activity_crud.get_activity_by_id_if_is_public")
     def test_disabled_shareable_links_never_touch_persistence(self, mock_get, _mock_settings, mock_db):
         client = TestClient(_build_app(mock_db))
 

@@ -9,7 +9,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.strava.activity_utils as strava_activity_utils
 
@@ -21,7 +21,7 @@ async def _fetch_window(
     window_start: datetime,
     window_end: datetime,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """
     Fetch and store a user's Strava activities recorded in the given window.
 

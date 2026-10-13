@@ -31,12 +31,12 @@ import core.logger as core_logger
 import core.pagination as core_pagination
 import core.sanitization as core_sanitization
 import core.timezone as core_timezone
-import modules.activities.activity.constants as activities_constants
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.models as activities_models
-import modules.activities.activity.query as activities_query
-import modules.activities.activity.schema as activities_schema
-import modules.activities.activity.serializers as activities_serializers
+import modules.activities.activity.constants as activity_constants
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.models as activity_models
+import modules.activities.activity.query as activity_query
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity.serializers as activity_serializers
 
 logger = core_logger.get_logger(__name__)
 
@@ -44,31 +44,31 @@ logger = core_logger.get_logger(__name__)
 # vocabulary in ``constants`` rather than restated, so a key the transport layer
 # accepts always has an ordering here.
 SORT_MAP: dict[str, tuple[Any, ...]] = {
-    key: tuple(getattr(activities_models.Activity, name) for name in column_names)
-    for key, column_names in activities_constants.ACTIVITY_SORT_FIELDS.items()
+    key: tuple(getattr(activity_models.Activity, name) for name in column_names)
+    for key, column_names in activity_constants.ACTIVITY_SORT_FIELDS.items()
 }
 
-_DEFAULT_SORT_COLUMNS = SORT_MAP[activities_constants.DEFAULT_ACTIVITY_SORT_FIELD]
+_DEFAULT_SORT_COLUMNS = SORT_MAP[activity_constants.DEFAULT_ACTIVITY_SORT_FIELD]
 
 # Sorts below every real value, so NULLs land last.
 _NULL_SORT_SENTINEL = -999999
 
 # Columns that need COALESCE-with-sentinel so NULLs sort last
 _NUMERIC_SORT_COLUMNS = {
-    activities_models.Activity.distance,
-    activities_models.Activity.total_timer_time,
-    activities_models.Activity.calories,
-    activities_models.Activity.elevation_gain,
-    activities_models.Activity.pace,
-    activities_models.Activity.average_hr,
+    activity_models.Activity.distance,
+    activity_models.Activity.total_timer_time,
+    activity_models.Activity.calories,
+    activity_models.Activity.elevation_gain,
+    activity_models.Activity.pace,
+    activity_models.Activity.average_hr,
 }
 
 # Text columns coalesced to "" so an unset place name orders with the empty ones
 # instead of wherever the backend happens to put NULL.
 _TEXT_SORT_COLUMNS = {
-    activities_models.Activity.country,
-    activities_models.Activity.city,
-    activities_models.Activity.town,
+    activity_models.Activity.country,
+    activity_models.Activity.city,
+    activity_models.Activity.town,
 }
 
 
@@ -102,7 +102,7 @@ def _is_not_live_strava_api_activity():
     Returns:
         The SQL predicate.
     """
-    return activities_models.Activity.strava_activity_id.is_(None)
+    return activity_models.Activity.strava_activity_id.is_(None)
 
 
 def _visible_to_requester_condition(followee_ids: Sequence[int] | None):
@@ -126,17 +126,17 @@ def _visible_to_requester_condition(followee_ids: Sequence[int] | None):
         SQLAlchemy condition limiting rows to public or accepted
         follower-visible activities.
     """
-    visibility_conditions = [activities_models.Activity.visibility == 0]
+    visibility_conditions = [activity_models.Activity.visibility == 0]
     if followee_ids:
         visibility_conditions.append(
             and_(
-                activities_models.Activity.visibility == 1,
-                activities_models.Activity.user_id.in_(followee_ids),
+                activity_models.Activity.visibility == 1,
+                activity_models.Activity.user_id.in_(followee_ids),
             )
         )
 
     return and_(
-        activities_models.Activity.is_hidden.is_(False),
+        activity_models.Activity.is_hidden.is_(False),
         _is_not_live_strava_api_activity(),
         or_(*visibility_conditions),
     )
@@ -169,7 +169,7 @@ def _apply_activity_visibility_filter(
 @core_decorators.handle_db_errors
 def get_all_activities(
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Return every activity in the database, serialized.
 
     Note:
@@ -185,16 +185,16 @@ def get_all_activities(
     Raises:
         ProcessingError: On database error.
     """
-    activities = db.execute(select(activities_models.Activity)).scalars().all()
+    activities = db.execute(select(activity_models.Activity)).scalars().all()
     if not activities:
         return None
-    return [activities_serializers.serialize_activity(a) for a in activities]
+    return [activity_serializers.to_read_schema(a) for a in activities]
 
 
 @core_decorators.handle_db_errors
 def get_all_activities_for_migration(
     db: Session,
-) -> list[activities_contracts.ActivityMigrationRef]:
+) -> list[activity_contracts.ActivityMigrationRef]:
     """Return a lightweight reference for every activity (migration use only).
 
     Projects only the identity, owner, provider ids, and time bounds the
@@ -209,9 +209,9 @@ def get_all_activities_for_migration(
     Raises:
         ProcessingError: On database error.
     """
-    activities = db.execute(select(activities_models.Activity)).scalars().all()
+    activities = db.execute(select(activity_models.Activity)).scalars().all()
     return [
-        activities_contracts.ActivityMigrationRef(
+        activity_contracts.ActivityMigrationRef(
             id=activity.id,
             user_id=activity.user_id,
             start_time=activity.start_time,
@@ -233,7 +233,7 @@ def get_user_activities(
     name_search: str | None = None,
     user_is_owner: bool = True,
     followee_ids: Sequence[int] | None = None,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get activities owned by a user (with optional filters).
 
     Args:
@@ -254,25 +254,25 @@ def get_user_activities(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(activities_models.Activity.user_id == user_id)
+    stmt = select(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
     stmt = _apply_activity_visibility_filter(
         stmt,
         user_is_owner=user_is_owner,
         followee_ids=followee_ids,
     )
     if activity_type:
-        stmt = stmt.where(activities_models.Activity.activity_type == activity_type)
+        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
     # Date filters are evaluated in each activity's own timezone, so a
     # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activities_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
+    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
     if name_search:
-        stmt = stmt.where(activities_query.name_search_condition(name_search))
-    stmt = stmt.order_by(desc(activities_models.Activity.start_time))
+        stmt = stmt.where(activity_query.name_search_condition(name_search))
+    stmt = stmt.order_by(desc(activity_models.Activity.start_time))
 
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
         force_non_owner=not user_is_owner,
@@ -313,23 +313,19 @@ def count_user_activities(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = (
-        select(func.count())
-        .select_from(activities_models.Activity)
-        .where(activities_models.Activity.user_id == user_id)
-    )
+    stmt = select(func.count()).select_from(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
     stmt = _apply_activity_visibility_filter(
         stmt,
         user_is_owner=user_is_owner,
         followee_ids=followee_ids,
     )
     if activity_type:
-        stmt = stmt.where(activities_models.Activity.activity_type == activity_type)
+        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
     # Date filters are evaluated in each activity's own timezone, so a
     # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activities_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
+    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
     if name_search:
-        stmt = stmt.where(activities_query.name_search_condition(name_search))
+        stmt = stmt.where(activity_query.name_search_condition(name_search))
     count = db.execute(stmt).scalar()
     return count or 0
 
@@ -337,7 +333,7 @@ def count_user_activities(
 @core_decorators.handle_db_errors
 def get_user_activities_by_user_id_and_garminconnect_gear_set(
     user_id: int, db: Session
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get activities for a user that have a Garmin gear ID.
 
     Args:
@@ -351,17 +347,17 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.garminconnect_gear_id.isnot(None),
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.garminconnect_gear_id.isnot(None),
         )
-        .order_by(desc(activities_models.Activity.start_time))
+        .order_by(desc(activity_models.Activity.start_time))
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
     )
@@ -381,7 +377,7 @@ def get_user_activities_with_pagination(
     sort_order: str | None = None,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get a page of user activities with filters and sorting.
 
     Args:
@@ -406,8 +402,8 @@ def get_user_activities_with_pagination(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
     )
     stmt = _apply_activity_visibility_filter(
         stmt,
@@ -415,12 +411,12 @@ def get_user_activities_with_pagination(
         followee_ids=followee_ids,
     )
     if activity_type:
-        stmt = stmt.where(activities_models.Activity.activity_type == activity_type)
+        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
     # Date filters are evaluated in each activity's own timezone, so a
     # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activities_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
+    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
     if name_search:
-        stmt = stmt.where(activities_query.name_search_condition(name_search))
+        stmt = stmt.where(activity_query.name_search_condition(name_search))
 
     stmt = stmt.order_by(*_sort_order_by(sort_by, sort_order))
 
@@ -429,7 +425,7 @@ def get_user_activities_with_pagination(
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
         force_non_owner=not user_is_owner,
@@ -451,14 +447,14 @@ def get_distinct_activity_types_for_user(user_id: int, db: Session) -> dict[int,
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity.activity_type)
-        .where(activities_models.Activity.user_id == user_id)
+        select(activity_models.Activity.activity_type)
+        .where(activity_models.Activity.user_id == user_id)
         .distinct()
-        .order_by(activities_models.Activity.activity_type)
+        .order_by(activity_models.Activity.activity_type)
     )
     type_ids = db.execute(stmt).scalars().all()
     return {
-        type_id: activities_constants.ACTIVITY_ID_TO_NAME.get(type_id, "Unknown")
+        type_id: activity_constants.ACTIVITY_ID_TO_NAME.get(type_id, "Unknown")
         for type_id in type_ids
         if type_id is not None
     }
@@ -472,7 +468,7 @@ def get_user_activities_per_timeframe(
     db: Session,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get a user's activities within a date range.
 
     Args:
@@ -492,12 +488,12 @@ def get_user_activities_per_timeframe(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            *activities_query.local_date_range_conditions(start.date(), end.date(), end_exclusive=False),
+            activity_models.Activity.user_id == user_id,
+            *activity_query.local_date_range_conditions(start.date(), end.date(), end_exclusive=False),
         )
-        .order_by(desc(activities_models.Activity.start_time))
+        .order_by(desc(activity_models.Activity.start_time))
     )
     stmt = _apply_activity_visibility_filter(
         stmt,
@@ -507,7 +503,7 @@ def get_user_activities_per_timeframe(
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
         force_non_owner=not user_is_owner,
@@ -524,7 +520,7 @@ def get_user_activities_per_timeframe_and_activity_types(
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
     exclude_hidden: bool = False,
-) -> list[activities_schema.Activity]:
+) -> list[activity_schema.Activity]:
     """Get a user's activities within a date range by types.
 
     Args:
@@ -547,16 +543,16 @@ def get_user_activities_per_timeframe_and_activity_types(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.activity_type.in_(activity_types),
-            *activities_query.local_date_range_conditions(start.date(), end.date(), end_exclusive=False),
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.activity_type.in_(activity_types),
+            *activity_query.local_date_range_conditions(start.date(), end.date(), end_exclusive=False),
         )
-        .order_by(desc(activities_models.Activity.start_time))
+        .order_by(desc(activity_models.Activity.start_time))
     )
     if exclude_hidden:
-        stmt = stmt.where(activities_models.Activity.is_hidden.is_(False))
+        stmt = stmt.where(activity_models.Activity.is_hidden.is_(False))
     stmt = _apply_activity_visibility_filter(
         stmt,
         user_is_owner=user_is_owner,
@@ -565,7 +561,7 @@ def get_user_activities_per_timeframe_and_activity_types(
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return []
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
         force_non_owner=not user_is_owner,
@@ -578,7 +574,7 @@ def get_following_feed_after(
     after: tuple[datetime, int] | None,
     num_records: int,
     db: Session,
-) -> list[activities_contracts.ActivityFeedEntry]:
+) -> list[activity_contracts.ActivityFeedEntry]:
     """Get the next keyset slice of the following feed.
 
     Ordered by ``(start_time DESC, id DESC)``. ``id`` is part of the key because
@@ -597,28 +593,28 @@ def get_following_feed_after(
     """
     if not followee_ids:
         return []
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id.in_(followee_ids),
-        activities_models.Activity.visibility.in_([0, 1]),
-        activities_models.Activity.is_hidden.is_(False),
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id.in_(followee_ids),
+        activity_models.Activity.visibility.in_([0, 1]),
+        activity_models.Activity.is_hidden.is_(False),
         _is_not_live_strava_api_activity(),
     )
     if after is not None:
         last_start_time, last_id = after
         # Row-value comparison: strictly older, or same instant with a lower id.
         stmt = stmt.where(
-            tuple_(activities_models.Activity.start_time, activities_models.Activity.id)
+            tuple_(activity_models.Activity.start_time, activity_models.Activity.id)
             < tuple_(literal(last_start_time), literal(last_id))
         )
-    stmt = stmt.order_by(desc(activities_models.Activity.start_time), desc(activities_models.Activity.id)).limit(
+    stmt = stmt.order_by(desc(activity_models.Activity.start_time), desc(activity_models.Activity.id)).limit(
         num_records
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return []
-    masked = activities_serializers.serialize_and_mask(list(activities), force_non_owner=True)
+    masked = activity_serializers.serialize_and_mask(list(activities), force_non_owner=True)
     return [
-        activities_contracts.ActivityFeedEntry(
+        activity_contracts.ActivityFeedEntry(
             activity=item,
             cursor_start_time=orm_activity.start_time,
             cursor_id=orm_activity.id,
@@ -648,10 +644,10 @@ def get_gear_activities_count_by_user_id(
     """
     stmt = (
         select(func.count())
-        .select_from(activities_models.Activity)
+        .select_from(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.gear_id == gear_id,
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.gear_id == gear_id,
         )
     )
     count = db.execute(stmt).scalar()
@@ -661,7 +657,7 @@ def get_gear_activities_count_by_user_id(
 @core_decorators.handle_db_errors
 def get_user_activities_by_gear_id_and_user_id(
     user_id: int, gear_id: int, db: Session
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get all activities for a gear owned by a user.
 
     Args:
@@ -676,17 +672,17 @@ def get_user_activities_by_gear_id_and_user_id(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.gear_id == gear_id,
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.gear_id == gear_id,
         )
-        .order_by(desc(activities_models.Activity.start_time))
+        .order_by(desc(activity_models.Activity.start_time))
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
     )
@@ -699,7 +695,7 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
     page_number: int,
     num_records: int,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Get a page of activities for a gear owned by a user.
 
     Args:
@@ -716,26 +712,26 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.gear_id == gear_id,
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.gear_id == gear_id,
         )
-        .order_by(desc(activities_models.Activity.start_time))
+        .order_by(desc(activity_models.Activity.start_time))
         .offset((page_number - 1) * num_records)
         .limit(num_records)
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
         return None
-    return activities_serializers.serialize_and_mask(
+    return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
     )
 
 
 @core_decorators.handle_db_errors
-def sum_gear_usage(gear_id: int, db: Session) -> activities_contracts.ActivityUsageTotals:
+def sum_gear_usage(gear_id: int, db: Session) -> activity_contracts.ActivityUsageTotals:
     """Total distance and moving time recorded against a gear.
 
     Lives here rather than in the gears module so the activities table is only
@@ -752,19 +748,19 @@ def sum_gear_usage(gear_id: int, db: Session) -> activities_contracts.ActivityUs
         ProcessingError: On database error.
     """
     stmt = select(
-        func.coalesce(func.sum(activities_models.Activity.distance), 0),
-        func.coalesce(func.sum(activities_models.Activity.total_timer_time), 0),
-    ).where(activities_models.Activity.gear_id == gear_id)
+        func.coalesce(func.sum(activity_models.Activity.distance), 0),
+        func.coalesce(func.sum(activity_models.Activity.total_timer_time), 0),
+    ).where(activity_models.Activity.gear_id == gear_id)
     distance, moving_time = db.execute(stmt).one()
-    return activities_contracts.ActivityUsageTotals(distance=float(distance), time=float(moving_time))
+    return activity_contracts.ActivityUsageTotals(distance=float(distance), time=float(moving_time))
 
 
 @core_decorators.handle_db_errors
 def sum_gear_usage_by_window(
     gear_id: int,
-    windows: Sequence[activities_contracts.GearUsageWindow],
+    windows: Sequence[activity_contracts.GearUsageWindow],
     db: Session,
-) -> dict[int, activities_contracts.ActivityUsageTotals]:
+) -> dict[int, activity_contracts.ActivityUsageTotals]:
     """Total distance and moving time per date window for one gear.
 
     Answers "how far has each component of this gear been ridden?" in a single
@@ -788,23 +784,23 @@ def sum_gear_usage_by_window(
     if not windows:
         return {}
 
-    local_date = func.date(activities_query.local_start_time_expression())
+    local_date = func.date(activity_query.local_start_time_expression())
 
     columns = []
     for window in windows:
         in_window = local_date >= window.start_date
         if window.end_date is not None:
             in_window = and_(in_window, local_date <= window.end_date)
-        columns.append(func.coalesce(func.sum(case((in_window, activities_models.Activity.distance), else_=0)), 0))
+        columns.append(func.coalesce(func.sum(case((in_window, activity_models.Activity.distance), else_=0)), 0))
         columns.append(
-            func.coalesce(func.sum(case((in_window, activities_models.Activity.total_timer_time), else_=0)), 0)
+            func.coalesce(func.sum(case((in_window, activity_models.Activity.total_timer_time), else_=0)), 0)
         )
 
-    stmt = select(*columns).where(activities_models.Activity.gear_id == gear_id)
+    stmt = select(*columns).where(activity_models.Activity.gear_id == gear_id)
     row = db.execute(stmt).one()
 
     return {
-        window.key: activities_contracts.ActivityUsageTotals(
+        window.key: activity_contracts.ActivityUsageTotals(
             distance=float(row[index * 2]),
             time=float(row[index * 2 + 1]),
         )
@@ -815,7 +811,7 @@ def sum_gear_usage_by_window(
 @core_decorators.handle_db_errors
 def get_activity_by_id_from_user_id_or_has_visibility(
     activity_id: int, user_id: int, db: Session, followee_ids: Sequence[int] | None = None
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Get an activity by ID if owned or visible to the user.
 
     Args:
@@ -831,26 +827,26 @@ def get_activity_by_id_from_user_id_or_has_visibility(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
+    stmt = select(activity_models.Activity).where(
         or_(
-            activities_models.Activity.user_id == user_id,
+            activity_models.Activity.user_id == user_id,
             _visible_to_requester_condition(followee_ids),
         ),
-        activities_models.Activity.id == activity_id,
+        activity_models.Activity.id == activity_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    schema = activities_serializers.serialize_activity(activity)
+    schema = activity_serializers.to_read_schema(activity)
     is_owner = activity.user_id == user_id
-    activities_serializers.apply_visibility_mask(schema, is_owner=is_owner)
+    activity_serializers.apply_visibility_mask(schema, is_owner=is_owner)
     return schema
 
 
 @core_decorators.handle_db_errors
 def get_viewable_activity_by_id_for_user(
     activity_id: int, user_id: int, db: Session, followee_ids: Sequence[int] | None = None
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return an activity (unmasked) iff the user may view it — child-resource authz gate.
 
     Enforces the same visibility rule as
@@ -879,21 +875,21 @@ def get_viewable_activity_by_id_for_user(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
+    stmt = select(activity_models.Activity).where(
         or_(
-            activities_models.Activity.user_id == user_id,
+            activity_models.Activity.user_id == user_id,
             _visible_to_requester_condition(followee_ids),
         ),
-        activities_models.Activity.id == activity_id,
+        activity_models.Activity.id == activity_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activities_schema.Activity | None:
+def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_schema.Activity | None:
     """Get an activity by ID if it is publicly shareable.
 
     Answers only the row-level question. Whether the server allows public
@@ -910,17 +906,17 @@ def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activities
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.visibility == 0,
-        activities_models.Activity.is_hidden.is_(False),
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.visibility == 0,
+        activity_models.Activity.is_hidden.is_(False),
         _is_not_live_strava_api_activity(),
-        activities_models.Activity.id == activity_id,
+        activity_models.Activity.id == activity_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    schema = activities_serializers.serialize_activity(activity)
-    activities_serializers.apply_visibility_mask(schema, is_owner=False)
+    schema = activity_serializers.to_read_schema(activity)
+    activity_serializers.apply_visibility_mask(schema, is_owner=False)
     return schema
 
 
@@ -929,7 +925,7 @@ def get_public_activity_for_child_read(
     db: Session,
     *,
     hide_attr: str,
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return a publicly readable activity for an unauthenticated child-resource read.
 
     The single public gate for activity sub-resources (laps / sets / workout
@@ -974,7 +970,7 @@ def get_public_activity_for_child_read(
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id(activity_id: int, db: Session) -> activities_schema.Activity | None:
+def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activity | None:
     """Get an activity by ID without permission checks.
 
     Args:
@@ -987,19 +983,19 @@ def get_activity_by_id(activity_id: int, db: Session) -> activities_schema.Activ
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.id == activity_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.id == activity_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
 def get_activity_by_start_time(
     start_time: str | datetime, user_id: int, db: Session
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Get a user's activity matching a specific start time.
 
     Args:
@@ -1017,18 +1013,18 @@ def get_activity_by_start_time(
         start_time = datetime.fromisoformat(start_time)
     if start_time.tzinfo is None:
         start_time = start_time.replace(tzinfo=UTC)
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.start_time == start_time,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.start_time == start_time,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> activities_schema.Activity | None:
+def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> activity_schema.Activity | None:
     """Get a user's activity by its idempotency dedup key.
 
     Used by the ingestion seam to make re-import of an already-ingested activity
@@ -1045,38 +1041,21 @@ def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> acti
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.dedup_key == dedup_key,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.dedup_key == dedup_key,
     )
     activity = db.execute(stmt).scalars().first()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
-
-
-def _to_scoring_context(row) -> activities_contracts.ActivityScoringContext:
-    """Convert one activity projection row to its scoring context.
-
-    Args:
-        row: The activity projection row.
-
-    Returns:
-        The scoring context.
-    """
-    activity_id, owner_id, total_timer_time = row
-    return activities_contracts.ActivityScoringContext(
-        activity_id=activity_id,
-        owner_id=owner_id,
-        total_timer_time=float(total_timer_time) if total_timer_time is not None else None,
-    )
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
 def get_activity_scoring_context(
     activity_id: int,
     db: Session,
-) -> activities_contracts.ActivityScoringContext | None:
+) -> activity_contracts.ActivityScoringContext | None:
     """Return parent columns needed to score an activity's streams.
 
     Args:
@@ -1087,19 +1066,19 @@ def get_activity_scoring_context(
         Parent columns needed to score an activity's streams.
     """
     stmt = select(
-        activities_models.Activity.id,
-        activities_models.Activity.user_id,
-        activities_models.Activity.total_timer_time,
-    ).where(activities_models.Activity.id == activity_id)
+        activity_models.Activity.id,
+        activity_models.Activity.user_id,
+        activity_models.Activity.total_timer_time,
+    ).where(activity_models.Activity.id == activity_id)
     row = db.execute(stmt).first()
-    return _to_scoring_context(row) if row is not None else None
+    return activity_serializers.to_scoring_context(row) if row is not None else None
 
 
 @core_decorators.handle_db_errors
 def get_activity_scoring_contexts(
     activity_ids: list[int],
     db: Session,
-) -> dict[int, activities_contracts.ActivityScoringContext]:
+) -> dict[int, activity_contracts.ActivityScoringContext]:
     """Return scoring contexts keyed by activity id.
 
     Args:
@@ -1112,11 +1091,11 @@ def get_activity_scoring_contexts(
     if not activity_ids:
         return {}
     stmt = select(
-        activities_models.Activity.id,
-        activities_models.Activity.user_id,
-        activities_models.Activity.total_timer_time,
-    ).where(activities_models.Activity.id.in_(activity_ids))
-    contexts = (_to_scoring_context(row) for row in db.execute(stmt).all())
+        activity_models.Activity.id,
+        activity_models.Activity.user_id,
+        activity_models.Activity.total_timer_time,
+    ).where(activity_models.Activity.id.in_(activity_ids))
+    contexts = (activity_serializers.to_scoring_context(row) for row in db.execute(stmt).all())
     return {context.activity_id: context for context in contexts}
 
 
@@ -1127,7 +1106,7 @@ def list_user_activity_scoring_contexts(
     *,
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityScoringContext]:
+) -> list[activity_contracts.ActivityScoringContext]:
     """Return an id-ordered batch of one user's activity scoring contexts.
 
     Args:
@@ -1141,22 +1120,22 @@ def list_user_activity_scoring_contexts(
     """
     stmt = (
         select(
-            activities_models.Activity.id,
-            activities_models.Activity.user_id,
-            activities_models.Activity.total_timer_time,
+            activity_models.Activity.id,
+            activity_models.Activity.user_id,
+            activity_models.Activity.total_timer_time,
         )
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.id > after_id,
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.id > after_id,
         )
-        .order_by(activities_models.Activity.id)
+        .order_by(activity_models.Activity.id)
         .limit(batch_size)
     )
-    return [_to_scoring_context(row) for row in db.execute(stmt).all()]
+    return [activity_serializers.to_scoring_context(row) for row in db.execute(stmt).all()]
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session) -> activities_schema.Activity | None:
+def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session) -> activity_schema.Activity | None:
     """Get a user's activity by ID.
 
     Args:
@@ -1170,20 +1149,20 @@ def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session)
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.id == activity_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.id == activity_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
 def get_activity_by_strava_id_from_user_id(
     activity_strava_id: int, user_id: int, db: Session
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Get a user's activity by its Strava activity ID.
 
     Args:
@@ -1197,20 +1176,20 @@ def get_activity_by_strava_id_from_user_id(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.strava_activity_id == activity_strava_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.strava_activity_id == activity_strava_id,
     )
     activity = db.execute(stmt).scalar_one_or_none()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
 def get_activity_by_garminconnect_id_from_user_id(
     activity_garminconnect_id: int, user_id: int, db: Session
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Get a user's activity by its Garmin Connect activity ID.
 
     Args:
@@ -1224,23 +1203,23 @@ def get_activity_by_garminconnect_id_from_user_id(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.garminconnect_activity_id == activity_garminconnect_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.garminconnect_activity_id == activity_garminconnect_id,
     )
     activity = db.execute(stmt).scalars().first()
     if not activity:
         return None
-    return activities_serializers.serialize_activity(activity)
+    return activity_serializers.to_read_schema(activity)
 
 
 @core_decorators.handle_db_errors
 def create_activity(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     db: Session,
     *,
     dedup_key: str | None = None,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Stage a new activity; duplicate start-times are marked hidden.
 
     Pure persistence: notifications and derived work (thumbnails, HR zones) are
@@ -1278,7 +1257,7 @@ def create_activity(
 
     activity_start_time_exists = get_activity_by_start_time(normalized_start_time, activity.user_id, db)
 
-    new_activity = activities_serializers.deserialize_activity(activity)
+    new_activity = activity_serializers.to_orm(activity)
     # Flagged on the ORM row rather than on the caller's input: ``create_activity``
     # takes the write contract and must not mutate it (nor could it set the read
     # model's ``id``/``created_at`` there — those fields do not exist on the
@@ -1301,7 +1280,7 @@ def create_activity(
     # declared ``ActivityCore -> Activity`` signature true: the generated id and
     # ``created_at`` belong to the read model, which the ingestion contract
     # deliberately does not carry.
-    created = activities_serializers.serialize_activity(new_activity)
+    created = activity_serializers.to_read_schema(new_activity)
 
     return created
 
@@ -1325,7 +1304,7 @@ def set_activity_thumbnail_path(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(activities_models.Activity.id == activity_id)
+    stmt = select(activity_models.Activity).where(activity_models.Activity.id == activity_id)
     db_activity = db.execute(stmt).scalar_one_or_none()
     if db_activity is None:
         logger.warning(
@@ -1364,7 +1343,7 @@ def update_activity_location(
     Raises:
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(activities_models.Activity.id == activity_id)
+    stmt = select(activity_models.Activity).where(activity_models.Activity.id == activity_id)
     db_activity = db.execute(stmt).scalar_one_or_none()
     if db_activity is None:
         logger.warning(
@@ -1383,7 +1362,7 @@ def update_activity_location(
 def get_activities_missing_location(
     db: Session,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
-) -> list[activities_contracts.ActivityLocationRef]:
+) -> list[activity_contracts.ActivityLocationRef]:
     """Return references to activities that have no resolved location.
 
     Rows where ``city``, ``town`` and ``country`` are all NULL — candidates for
@@ -1402,17 +1381,17 @@ def get_activities_missing_location(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity.id)
+        select(activity_models.Activity.id)
         .where(
-            activities_models.Activity.city.is_(None),
-            activities_models.Activity.town.is_(None),
-            activities_models.Activity.country.is_(None),
+            activity_models.Activity.city.is_(None),
+            activity_models.Activity.town.is_(None),
+            activity_models.Activity.country.is_(None),
         )
-        .order_by(activities_models.Activity.id)
+        .order_by(activity_models.Activity.id)
         .limit(limit)
     )
     ids = db.execute(stmt).scalars().all()
-    return [activities_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
+    return [activity_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
 
 
 @core_decorators.handle_db_errors
@@ -1428,7 +1407,7 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
     Raises:
         ProcessingError: On database error.
     """
-    db.execute(sa_update(activities_models.Activity).values(map_thumbnail_path=None))
+    db.execute(sa_update(activity_models.Activity).values(map_thumbnail_path=None))
 
 
 @core_decorators.handle_db_errors
@@ -1436,7 +1415,7 @@ def get_activities_with_thumbnail(
     db: Session,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityThumbnailRef]:
+) -> list[activity_contracts.ActivityThumbnailRef]:
     """Return references to activities that have a map thumbnail.
 
     Ordered by id and paged via ``after_id`` so the thumbnail reconciliation pass
@@ -1455,16 +1434,16 @@ def get_activities_with_thumbnail(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
+        select(activity_models.Activity.id, activity_models.Activity.map_thumbnail_path)
         .where(
-            activities_models.Activity.map_thumbnail_path.isnot(None),
-            activities_models.Activity.id > after_id,
+            activity_models.Activity.map_thumbnail_path.isnot(None),
+            activity_models.Activity.id > after_id,
         )
-        .order_by(activities_models.Activity.id)
+        .order_by(activity_models.Activity.id)
         .limit(limit)
     )
     return [
-        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
+        activity_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
         for row in db.execute(stmt)
     ]
 
@@ -1474,7 +1453,7 @@ def get_activities_without_thumbnail(
     db: Session,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityThumbnailRef]:
+) -> list[activity_contracts.ActivityThumbnailRef]:
     """Return references to activities that have no map thumbnail.
 
     Ordered by id and paged via ``after_id``. The caller advances the cursor
@@ -1494,16 +1473,16 @@ def get_activities_without_thumbnail(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity.id, activities_models.Activity.map_thumbnail_path)
+        select(activity_models.Activity.id, activity_models.Activity.map_thumbnail_path)
         .where(
-            activities_models.Activity.map_thumbnail_path.is_(None),
-            activities_models.Activity.id > after_id,
+            activity_models.Activity.map_thumbnail_path.is_(None),
+            activity_models.Activity.id > after_id,
         )
-        .order_by(activities_models.Activity.id)
+        .order_by(activity_models.Activity.id)
         .limit(limit)
     )
     return [
-        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
+        activity_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
         for row in db.execute(stmt)
     ]
 
@@ -1513,7 +1492,7 @@ def get_activities_with_legacy_thumbnail_path(
     db: Session,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
-) -> list[activities_contracts.ActivityThumbnailRef]:
+) -> list[activity_contracts.ActivityThumbnailRef]:
     """Return references to activities whose thumbnail value is a legacy filesystem path.
 
     Legacy values are absolute paths (they contain a ``/`` separator); the new
@@ -1534,18 +1513,18 @@ def get_activities_with_legacy_thumbnail_path(
         ProcessingError: On database error.
     """
     stmt = (
-        select(activities_models.Activity)
+        select(activity_models.Activity)
         .where(
-            activities_models.Activity.map_thumbnail_path.isnot(None),
-            activities_models.Activity.map_thumbnail_path.like("%/%"),
-            activities_models.Activity.id > after_id,
+            activity_models.Activity.map_thumbnail_path.isnot(None),
+            activity_models.Activity.map_thumbnail_path.like("%/%"),
+            activity_models.Activity.id > after_id,
         )
-        .order_by(activities_models.Activity.id)
+        .order_by(activity_models.Activity.id)
         .limit(limit)
     )
     rows = db.execute(stmt).scalars().all()
     return [
-        activities_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path) for row in rows
+        activity_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path) for row in rows
     ]
 
 
@@ -1553,9 +1532,9 @@ def get_activities_with_legacy_thumbnail_path(
 def edit_activity(
     user_id: int,
     activity_id: int,
-    activity_attributes: activities_schema.ActivityEdit | activities_schema.Activity,
+    activity_attributes: activity_schema.ActivityEdit | activity_schema.Activity,
     db: Session,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Stage partial updates to a user's activity.
 
     Args:
@@ -1572,9 +1551,9 @@ def edit_activity(
         NotFoundError: When the activity is missing.
         ProcessingError: On database error.
     """
-    stmt = select(activities_models.Activity).where(
-        activities_models.Activity.user_id == user_id,
-        activities_models.Activity.id == activity_id,
+    stmt = select(activity_models.Activity).where(
+        activity_models.Activity.user_id == user_id,
+        activity_models.Activity.id == activity_id,
     )
     db_activity = db.execute(stmt).scalar_one_or_none()
     if db_activity is None:
@@ -1604,7 +1583,7 @@ def edit_activity(
     # otherwise hand out a stale ETag.
     db.flush()
     db.refresh(db_activity)
-    return activities_serializers.serialize_activity(db_activity)
+    return activity_serializers.to_read_schema(db_activity)
 
 
 @core_decorators.handle_db_errors
@@ -1624,12 +1603,12 @@ def edit_user_activities_visibility(user_id: int, visibility: int, db: Session) 
         ProcessingError: On database error.
     """
     stmt = (
-        sa_update(activities_models.Activity)
-        .where(activities_models.Activity.user_id == user_id)
+        sa_update(activity_models.Activity)
+        .where(activity_models.Activity.user_id == user_id)
         # Core UPDATEs bypass the ORM version bump, so an ETag would survive a
         # change it should have invalidated.
-        .values(visibility=visibility, version=activities_models.Activity.version + 1)
-        .returning(activities_models.Activity.id)
+        .values(visibility=visibility, version=activity_models.Activity.version + 1)
+        .returning(activity_models.Activity.id)
     )
     return [row_id for (row_id,) in db.execute(stmt).all()]
 
@@ -1670,13 +1649,13 @@ def bulk_set_activities_gear_id(
     updated_ids: list[int] = []
     for gear_id, activity_ids in by_gear.items():
         stmt = (
-            sa_update(activities_models.Activity)
+            sa_update(activity_models.Activity)
             .where(
-                activities_models.Activity.user_id == user_id,
-                activities_models.Activity.id.in_(activity_ids),
+                activity_models.Activity.user_id == user_id,
+                activity_models.Activity.id.in_(activity_ids),
             )
-            .values(gear_id=gear_id, version=activities_models.Activity.version + 1)
-            .returning(activities_models.Activity.id)
+            .values(gear_id=gear_id, version=activity_models.Activity.version + 1)
+            .returning(activity_models.Activity.id)
         )
         updated_ids.extend(row_id for (row_id,) in db.execute(stmt).all())
     return updated_ids
@@ -1705,9 +1684,9 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
         NotFoundError: When the activity is missing or not owned by ``user_id``.
         ProcessingError: On database error.
     """
-    stmt = sa_delete(activities_models.Activity).where(
-        activities_models.Activity.id == activity_id,
-        activities_models.Activity.user_id == user_id,
+    stmt = sa_delete(activity_models.Activity).where(
+        activity_models.Activity.id == activity_id,
+        activity_models.Activity.user_id == user_id,
     )
     result = cast("CursorResult[Any]", db.execute(stmt))
     if result.rowcount == 0:
@@ -1731,12 +1710,12 @@ def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int
         ProcessingError: On database error.
     """
     stmt = (
-        sa_delete(activities_models.Activity)
+        sa_delete(activity_models.Activity)
         .where(
-            activities_models.Activity.user_id == user_id,
-            activities_models.Activity.strava_activity_id.isnot(None),
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.strava_activity_id.isnot(None),
         )
-        .returning(activities_models.Activity.id)
+        .returning(activity_models.Activity.id)
     )
     return [row_id for (row_id,) in db.execute(stmt).all()]
 
@@ -1762,8 +1741,8 @@ def delete_all_activities_for_user(user_id: int, db: Session) -> list[int]:
         ProcessingError: On database error.
     """
     stmt = (
-        sa_delete(activities_models.Activity)
-        .where(activities_models.Activity.user_id == user_id)
-        .returning(activities_models.Activity.id)
+        sa_delete(activity_models.Activity)
+        .where(activity_models.Activity.user_id == user_id)
+        .returning(activity_models.Activity.id)
     )
     return [row_id for (row_id,) in db.execute(stmt).all()]

@@ -51,7 +51,7 @@ def reverse_geocode(
     return geocoding.reverse(latitude, longitude)
 
 
-def geocode_and_store_activity_location(activity_id: int, db: Session, geocoding: GeocodingProvider) -> bool:
+def geocode_and_store_activity_location(activity_id: int, geocoding: GeocodingProvider, db: Session) -> bool:
     """Resolve and persist a created activity's location from its GPS stream.
 
     Loads the activity's first GPS waypoint, reverse-geocodes it, and writes
@@ -60,8 +60,8 @@ def geocode_and_store_activity_location(activity_id: int, db: Session, geocoding
 
     Args:
         activity_id: The activity to geocode.
-        db: Database session.
         geocoding: The platform geocoding provider.
+        db: Database session.
 
     Returns:
         True when a location was resolved and stored, else False.
@@ -95,7 +95,7 @@ def geocode_and_store_activity_location(activity_id: int, db: Session, geocoding
     return True
 
 
-def backfill_missing_activity_locations(db: Session, geocoding: GeocodingProvider) -> int:
+def backfill_missing_activity_locations(geocoding: GeocodingProvider, db: Session) -> int:
     """Resolve locations for GPS activities that still have none.
 
     Reconciliation net for the ``activity.created`` geocoding subscriber: it lists
@@ -104,8 +104,8 @@ def backfill_missing_activity_locations(db: Session, geocoding: GeocodingProvide
     stream are skipped.
 
     Args:
-        db: Database session.
         geocoding: The platform geocoding provider.
+        db: Database session.
 
     Returns:
         The number of activities whose location was resolved and stored.

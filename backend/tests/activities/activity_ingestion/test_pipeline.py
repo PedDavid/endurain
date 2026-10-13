@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import core.exceptions as core_exceptions
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_ingestion.contracts as sources
 import modules.activities.activity_ingestion.pipeline_service as pipeline
 
@@ -123,8 +123,8 @@ class TestRetainSourceFile:
 
 class TestParsedFileContract:
     def test_defaults_to_no_activities(self):
-        assert activities_contracts.ParsedFile().activities == []
-        assert activities_contracts.ParsedFile().components == {}
+        assert activity_contracts.ParsedFile().activities == []
+        assert activity_contracts.ParsedFile().components == {}
 
 
 class TestStoreActivitiesFromFile:
@@ -140,12 +140,12 @@ class TestStoreActivitiesFromFile:
             patch.object(
                 pipeline,
                 "parse_file",
-                return_value=activities_contracts.ParsedFile(
+                return_value=activity_contracts.ParsedFile(
                     components={"exercise_titles": [{"exercise_name": "Press"}]}
                 ),
             ),
             patch.object(
-                pipeline.contributor_registry,
+                pipeline.activities_contributor_registry,
                 "get_file_ingestion_contributor",
                 return_value=contributor,
             ) as get_contributor,
@@ -177,7 +177,7 @@ class TestStoreActivitiesFromFile:
             patch.object(
                 pipeline,
                 "parse_file",
-                return_value=activities_contracts.ParsedFile(components={"unknown": [{}]}),
+                return_value=activity_contracts.ParsedFile(components={"unknown": [{}]}),
             ),
             pytest.raises(core_exceptions.ProcessingError, match="unknown"),
         ):
@@ -200,7 +200,7 @@ class TestStoreActivitiesFromFile:
         with (
             patch.object(pipeline.users_integration, "get_user"),
             patch.object(pipeline.users_integration, "get_privacy_settings"),
-            patch.object(pipeline, "parse_file", return_value=activities_contracts.ParsedFile()),
+            patch.object(pipeline, "parse_file", return_value=activity_contracts.ParsedFile()),
             patch.object(pipeline.core_file_uploads, "sha256_file", return_value="hash"),
             patch.object(pipeline.activity_file_storage_integration, "store_activity_file_for_ids") as store,
         ):

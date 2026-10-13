@@ -19,14 +19,15 @@ from sqlalchemy import func
 
 import core.sanitization as core_sanitization
 import core.timezone as core_timezone
-import modules.activities.activity.models as activities_models
-import modules.activities.activity.schema as activities_schema
-import modules.activities.contributor_registry as activity_contributor_registry
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.models as activity_models
+import modules.activities.activity.schema as activity_schema
+import modules.activities.contributor_registry as activities_contributor_registry
 
 
-def serialize_activity(
-    activity: activities_models.Activity,
-) -> activities_schema.Activity:
+def to_read_schema(
+    activity: activity_models.Activity,
+) -> activity_schema.Activity:
     """
     Convert an ORM Activity to its API schema.
 
@@ -38,7 +39,7 @@ def serialize_activity(
     Returns:
         An Activity schema.
     """
-    schema = activities_schema.Activity.model_validate(activity)
+    schema = activity_schema.Activity.model_validate(activity)
 
     # The DB stores the thumbnail's storage key; resolve it to a servable URL
     # (a signed, token-gated app route locally, or a presigned URL for object
@@ -46,7 +47,7 @@ def serialize_activity(
     # derives its work from this row and so may not be imported from here.
     # Visibility masking below strips this for non-owners of a hidden map, so
     # only permitted viewers ever receive the signed token.
-    schema.map_thumbnail_path = activity_contributor_registry.resolve_thumbnail_url(
+    schema.map_thumbnail_path = activities_contributor_registry.resolve_thumbnail_url(
         activity.map_thumbnail_path,
         activity.id,
     )
@@ -55,11 +56,11 @@ def serialize_activity(
 
 
 def apply_visibility_mask(
-    schema: activities_schema.Activity,
+    schema: activity_schema.Activity,
     *,
     is_owner: bool,
     mask_private_notes: bool = True,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Mask hidden activity fields for non-owners.
 
     Mutates and returns the provided Pydantic schema instance.
@@ -101,12 +102,12 @@ def apply_visibility_mask(
 
 
 def serialize_and_mask(
-    activities: list[activities_models.Activity],
+    activities: list[activity_models.Activity],
     *,
     requester_user_id: int | None = None,
     force_non_owner: bool = False,
     mask_private_notes: bool = True,
-) -> list[activities_schema.Activity]:
+) -> list[activity_schema.Activity]:
     """Serialize ORM rows and apply visibility masking.
 
     Args:
@@ -123,9 +124,9 @@ def serialize_and_mask(
         List of Activity schema instances with visibility
         masking applied.
     """
-    result: list[activities_schema.Activity] = []
+    result: list[activity_schema.Activity] = []
     for orm_activity in activities:
-        schema = serialize_activity(orm_activity)
+        schema = to_read_schema(orm_activity)
         is_owner = not force_non_owner and requester_user_id is not None and orm_activity.user_id == requester_user_id
         apply_visibility_mask(
             schema,
@@ -136,9 +137,9 @@ def serialize_and_mask(
     return result
 
 
-def deserialize_activity(
-    activity: activities_schema.ActivityBase,
-) -> activities_models.Activity:
+def to_orm(
+    activity: activity_schema.ActivityBase,
+) -> activity_models.Activity:
     """Build the ORM row a write persists from its API schema.
 
     Args:
@@ -156,7 +157,7 @@ def deserialize_activity(
     sanitized_private_notes = core_sanitization.sanitize_markdown(activity.private_notes)
 
     # Create a new activity object
-    new_activity = activities_models.Activity(
+    new_activity = activity_models.Activity(
         user_id=activity.user_id,
         description=sanitized_description,
         private_notes=sanitized_private_notes,
@@ -215,3 +216,20 @@ def deserialize_activity(
     )
 
     return new_activity
+
+
+def to_scoring_context(row) -> activity_contracts.ActivityScoringContext:
+    """Convert one activity projection row to its scoring context.
+
+    Args:
+        row: The activity projection row.
+
+    Returns:
+        The scoring context.
+    """
+    activity_id, owner_id, total_timer_time = row
+    return activity_contracts.ActivityScoringContext(
+        activity_id=activity_id,
+        owner_id=owner_id,
+        total_timer_time=float(total_timer_time) if total_timer_time is not None else None,
+    )

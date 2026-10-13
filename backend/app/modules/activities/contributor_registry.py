@@ -1,15 +1,15 @@
 """Process-local registry for installed activity package contributors."""
 
-import modules.activities.contributors as activity_contributors
+import modules.activities.contributors as activities_contributors
 
-_activity_ingestion: dict[str, activity_contributors.ActivityIngestionContributor] = {}
-_file_ingestion: dict[str, activity_contributors.FileIngestionContributor] = {}
-_profile_activity: dict[str, activity_contributors.ProfileActivityContributor] = {}
-_profile_global: dict[str, activity_contributors.ProfileGlobalContributor] = {}
-_thumbnail_url_resolver: activity_contributors.ThumbnailUrlResolver | None = None
+_activity_ingestion: dict[str, activities_contributors.ActivityIngestionContributor] = {}
+_file_ingestion: dict[str, activities_contributors.FileIngestionContributor] = {}
+_profile_activity: dict[str, activities_contributors.ProfileActivityContributor] = {}
+_profile_global: dict[str, activities_contributors.ProfileGlobalContributor] = {}
+_thumbnail_url_resolver: activities_contributors.ThumbnailUrlResolver | None = None
 
 
-def register_activity_ingestion(contributor: activity_contributors.ActivityIngestionContributor) -> None:
+def register_activity_ingestion(contributor: activities_contributors.ActivityIngestionContributor) -> None:
     """Register or replace an activity-ingestion contributor by key.
 
     Args:
@@ -21,7 +21,7 @@ def register_activity_ingestion(contributor: activity_contributors.ActivityInges
     _activity_ingestion[contributor.key] = contributor
 
 
-def register_file_ingestion(contributor: activity_contributors.FileIngestionContributor) -> None:
+def register_file_ingestion(contributor: activities_contributors.FileIngestionContributor) -> None:
     """Register or replace a file-ingestion contributor by key.
 
     Args:
@@ -33,7 +33,7 @@ def register_file_ingestion(contributor: activity_contributors.FileIngestionCont
     _file_ingestion[contributor.key] = contributor
 
 
-def register_profile_activity(contributor: activity_contributors.ProfileActivityContributor) -> None:
+def register_profile_activity(contributor: activities_contributors.ProfileActivityContributor) -> None:
     """Register or replace an activity-scoped profile contributor by key.
 
     Args:
@@ -45,7 +45,7 @@ def register_profile_activity(contributor: activity_contributors.ProfileActivity
     _profile_activity[contributor.key] = contributor
 
 
-def register_profile_global(contributor: activity_contributors.ProfileGlobalContributor) -> None:
+def register_profile_global(contributor: activities_contributors.ProfileGlobalContributor) -> None:
     """Register or replace a global profile contributor by key.
 
     Args:
@@ -57,7 +57,7 @@ def register_profile_global(contributor: activity_contributors.ProfileGlobalCont
     _profile_global[contributor.key] = contributor
 
 
-def activity_ingestion_contributors() -> tuple[activity_contributors.ActivityIngestionContributor, ...]:
+def activity_ingestion_contributors() -> tuple[activities_contributors.ActivityIngestionContributor, ...]:
     """Return activity-ingestion contributors in registration order.
 
     Returns:
@@ -66,7 +66,7 @@ def activity_ingestion_contributors() -> tuple[activity_contributors.ActivityIng
     return tuple(_activity_ingestion.values())
 
 
-def file_ingestion_contributors() -> tuple[activity_contributors.FileIngestionContributor, ...]:
+def file_ingestion_contributors() -> tuple[activities_contributors.FileIngestionContributor, ...]:
     """Return file-ingestion contributors in registration order.
 
     Returns:
@@ -75,7 +75,7 @@ def file_ingestion_contributors() -> tuple[activity_contributors.FileIngestionCo
     return tuple(_file_ingestion.values())
 
 
-def profile_activity_contributors() -> tuple[activity_contributors.ProfileActivityContributor, ...]:
+def profile_activity_contributors() -> tuple[activities_contributors.ProfileActivityContributor, ...]:
     """Return activity-scoped profile contributors in registration order.
 
     Returns:
@@ -84,7 +84,7 @@ def profile_activity_contributors() -> tuple[activity_contributors.ProfileActivi
     return tuple(_profile_activity.values())
 
 
-def profile_global_contributors() -> tuple[activity_contributors.ProfileGlobalContributor, ...]:
+def profile_global_contributors() -> tuple[activities_contributors.ProfileGlobalContributor, ...]:
     """Return global profile contributors in registration order.
 
     Returns:
@@ -95,7 +95,7 @@ def profile_global_contributors() -> tuple[activity_contributors.ProfileGlobalCo
 
 def get_activity_ingestion_contributor(
     key: str,
-) -> activity_contributors.ActivityIngestionContributor | None:
+) -> activities_contributors.ActivityIngestionContributor | None:
     """Return the activity-ingestion contributor registered for a key.
 
     Args:
@@ -107,7 +107,7 @@ def get_activity_ingestion_contributor(
     return _activity_ingestion.get(key)
 
 
-def get_file_ingestion_contributor(key: str) -> activity_contributors.FileIngestionContributor | None:
+def get_file_ingestion_contributor(key: str) -> activities_contributors.FileIngestionContributor | None:
     """Return the file-ingestion contributor registered for a key.
 
     Args:
@@ -119,7 +119,7 @@ def get_file_ingestion_contributor(key: str) -> activity_contributors.FileIngest
     return _file_ingestion.get(key)
 
 
-def register_thumbnail_url_resolver(resolver: activity_contributors.ThumbnailUrlResolver) -> None:
+def register_thumbnail_url_resolver(resolver: activities_contributors.ThumbnailUrlResolver) -> None:
     """Install the resolver that turns a stored thumbnail key into a servable URL.
 
     Args:

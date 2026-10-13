@@ -10,9 +10,9 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 import core.database as core_database
-import modules.activities.activity.dependencies as activities_dependencies
-import modules.activities.activity.schema as activities_schema
-import modules.activities.activity.service as activities_service
+import modules.activities.activity.dependencies as activity_dependencies
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity.service as activity_service
 
 # Define the API router
 router = APIRouter()
@@ -20,11 +20,11 @@ router = APIRouter()
 
 @router.get(
     "/{activity_id}",
-    response_model=activities_schema.Activity,
+    response_model=activity_schema.Activity,
 )
 def read_public_activities_activity_from_id(
     activity_id: int,
-    _validate_activity_id: Annotated[Callable, Depends(activities_dependencies.validate_activity_id)],
+    _validate_activity_id: Annotated[Callable, Depends(activity_dependencies.validate_activity_id)],
     db: Annotated[
         Session,
         Depends(core_database.get_db),
@@ -37,4 +37,4 @@ def read_public_activities_activity_from_id(
     used to enumerate which activity ids exist. It previously returned
     ``200 null``, which is neither a resource nor an error.
     """
-    return activities_service.get_public_activity(activity_id, db)
+    return activity_service.get_public_activity(activity_id, db)

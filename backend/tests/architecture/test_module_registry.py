@@ -7,7 +7,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 import module_registry as runtime_module_registry
 import modules.activities.activity.events as activity_events
 import modules.activities.activity_ingestion.events as ingestion_events
-import modules.activities.contributor_registry as activity_contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 
 _EXPECTED_CREATED_SUBSCRIBERS = {
     "activity_thumbnail.generate",
@@ -33,21 +33,25 @@ class TestRuntimeModuleRegistry:
         runtime_module_registry.configure_activity_contributors()
         runtime_module_registry.configure_activity_contributors()
 
-        assert {item.key for item in activity_contributor_registry.activity_ingestion_contributors()} == {
+        assert {item.key for item in activities_contributor_registry.activity_ingestion_contributors()} == {
             "laps",
             "sets",
             "streams",
             "workout_steps",
         }
-        assert {item.key for item in activity_contributor_registry.file_ingestion_contributors()} == {"exercise_titles"}
-        assert {item.key for item in activity_contributor_registry.profile_activity_contributors()} == {
+        assert {item.key for item in activities_contributor_registry.file_ingestion_contributors()} == {
+            "exercise_titles"
+        }
+        assert {item.key for item in activities_contributor_registry.profile_activity_contributors()} == {
             "laps",
             "sets",
             "streams",
             "workout_steps",
             "media",
         }
-        assert {item.key for item in activity_contributor_registry.profile_global_contributors()} == {"exercise_titles"}
+        assert {item.key for item in activities_contributor_registry.profile_global_contributors()} == {
+            "exercise_titles"
+        }
 
     def test_installs_the_thumbnail_url_resolver(self):
         """Without it every serialized activity silently loses its thumbnail URL.
@@ -56,13 +60,13 @@ class TestRuntimeModuleRegistry:
         thumbnail package, so a missing registration is not an import error — it
         is a null URL on every activity in the API.
         """
-        activity_contributor_registry.clear()
-        assert activity_contributor_registry.resolve_thumbnail_url("42.webp", 42) is None
+        activities_contributor_registry.clear()
+        assert activities_contributor_registry.resolve_thumbnail_url("42.webp", 42) is None
 
         runtime_module_registry.configure_activity_contributors()
 
-        assert activity_contributor_registry.resolve_thumbnail_url("42.webp", 42) is not None
-        assert activity_contributor_registry.resolve_thumbnail_url(None, 42) is None
+        assert activities_contributor_registry.resolve_thumbnail_url("42.webp", 42) is not None
+        assert activities_contributor_registry.resolve_thumbnail_url(None, 42) is None
 
     def test_registers_every_activity_bus_subscriber(self):
         events = MagicMock()

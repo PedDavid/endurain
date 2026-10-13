@@ -25,7 +25,7 @@ import modules.activities.activity_thumbnail.integration_service as activity_thu
 import modules.activities.activity_thumbnail.scheduled_jobs as thumbnail_jobs
 import modules.activities.activity_thumbnail.subscriber_registry as thumbnail_subscribers
 import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
-import modules.activities.contributor_registry as activity_contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.notifications.subscriber_registry as notification_subscribers
 
 RegisterBus = Callable[[EventBusProvider], None]
@@ -126,15 +126,17 @@ MODULES: tuple[RuntimeModule, ...] = (
 
 def configure_activity_contributors() -> None:
     """Install activity package contributors from the composition root."""
-    activity_contributor_registry.clear()
+    activities_contributor_registry.clear()
     for ingestion_contributor in (
         activity_laps_integration.ingestion_contributor(),
         activity_sets_integration.ingestion_contributor(),
         activity_streams_integration.ingestion_contributor(),
         activity_workout_steps_integration.ingestion_contributor(),
     ):
-        activity_contributor_registry.register_activity_ingestion(ingestion_contributor)
-    activity_contributor_registry.register_file_ingestion(activity_exercise_titles_integration.ingestion_contributor())
+        activities_contributor_registry.register_activity_ingestion(ingestion_contributor)
+    activities_contributor_registry.register_file_ingestion(
+        activity_exercise_titles_integration.ingestion_contributor()
+    )
     for profile_contributor in (
         activity_laps_integration.profile_contributor(),
         activity_sets_integration.profile_contributor(),
@@ -142,11 +144,11 @@ def configure_activity_contributors() -> None:
         activity_workout_steps_integration.profile_contributor(),
         activity_media_integration.profile_contributor(),
     ):
-        activity_contributor_registry.register_profile_activity(profile_contributor)
-    activity_contributor_registry.register_profile_global(
+        activities_contributor_registry.register_profile_activity(profile_contributor)
+    activities_contributor_registry.register_profile_global(
         activity_exercise_titles_integration.profile_global_contributor()
     )
-    activity_contributor_registry.register_thumbnail_url_resolver(activity_thumbnail_integration.thumbnail_url)
+    activities_contributor_registry.register_thumbnail_url_resolver(activity_thumbnail_integration.thumbnail_url)
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:

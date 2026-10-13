@@ -8,8 +8,8 @@ import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
-import modules.activities.activity.constants as activities_constants
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.constants as activity_constants
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_file_import.fit_frames as fit_frames
 import modules.activities.activity_file_import.utils as activity_file_import_utils
 import modules.activities.computation as activities_computation
@@ -60,7 +60,7 @@ def create_activity_objects(
 
             if session_record["session"]["activity_type"]:
                 # Set the activity type based on the session record
-                activity_type = activities_constants.define_activity_type(session_record["session"]["activity_type"])
+                activity_type = activity_constants.define_activity_type(session_record["session"]["activity_type"])
 
             if session_record["activity_name"] and session_record["activity_name"] != "Workout":
                 activity_name = session_record["activity_name"]
@@ -89,7 +89,7 @@ def create_activity_objects(
                 session_record["lengths"],
             )
 
-            if activity_type not in activities_constants.VIRTUAL_ACTIVITY_TYPES:
+            if activity_type not in activity_constants.VIRTUAL_ACTIVITY_TYPES:
                 if session_record["is_lat_lon_set"]:
                     session_timezone = activity_file_import_utils.resolve_timezone_from_lat_lon(
                         session_record["lat_lon_waypoints"][0]["lat"],
@@ -178,7 +178,7 @@ def create_activity_objects(
                 if ele_loss is None and computed_loss:
                     ele_loss = round(computed_loss)
 
-            activity = activities_contracts.ActivityCore(
+            activity = activity_contracts.ActivityCore(
                 user_id=user_id,
                 name=activity_name,
                 distance=(round(resolved_distance) if resolved_distance else 0),

@@ -10,10 +10,11 @@ import core.database as core_database
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
+import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.schema as activity_streams_schema
 import modules.activities.activity_streams.service as activity_streams_service
-import modules.activities.contributors as activity_contributors
+import modules.activities.contributors as activities_contributors
 
 logger = core_logger.get_logger(__name__)
 
@@ -35,7 +36,7 @@ def _list_streams_for_activities(
 
 
 def _store_streams(
-    streams: list[activity_streams_schema.ActivityStreamsCreate],
+    streams: list[activity_streams_contracts.ActivityStreamsCreate],
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
@@ -70,7 +71,7 @@ def _persist_ingestion_component(
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store streams before the activity has an id")
     streams = [
-        activity_streams_schema.ActivityStreamsCreate(
+        activity_streams_contracts.ActivityStreamsCreate(
             activity_id=activity.id,
             stream_type=stream.stream_type,
             stream_waypoints=stream.stream_waypoints,
@@ -81,13 +82,13 @@ def _persist_ingestion_component(
     _store_streams(streams, activity, db)
 
 
-def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
+def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
     """Return the activity-streams ingestion contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ActivityIngestionContributor(
+    return activities_contributors.ActivityIngestionContributor(
         key="streams",
         persist=_persist_ingestion_component,
     )
@@ -113,27 +114,27 @@ def _restore_profile_records(
     if new_activity.id is None:
         return 0
 
-    streams: list[activity_streams_schema.ActivityStreamsCreate] = []
+    streams: list[activity_streams_contracts.ActivityStreamsCreate] = []
     for record in records:
         if record.get("activity_id") != original_activity_id:
             continue
         data = dict(record)
         data.pop("id", None)
         data["activity_id"] = new_activity.id
-        streams.append(activity_streams_schema.ActivityStreamsCreate.model_validate(data))
+        streams.append(activity_streams_contracts.ActivityStreamsCreate.model_validate(data))
 
     if streams:
         _store_streams(streams, new_activity, db)
     return len(streams)
 
 
-def profile_contributor() -> activity_contributors.ProfileActivityContributor:
+def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     """Return the activity-streams profile contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ProfileActivityContributor(
+    return activities_contributors.ProfileActivityContributor(
         key="streams",
         archive_path="data/activity_streams.json",
         count_key="activity_streams",

@@ -40,7 +40,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
         ):
-            result = bulk_import_service.start_bulk_import(3, db, MagicMock())
+            result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
         # One pollable handle per file, not one per batch: each file is retried,
         # dead-lettered and completed independently, so there is no shared
@@ -51,7 +51,7 @@ class TestStartBulkImport:
         publish.assert_called_once()
         assert [job_id for job_id, _path in publish.call_args.args[0]] == [job.id for job in result]
         assert publish.call_args.args[1] == 3
-        assert publish.call_args.args[3] is db
+        assert publish.call_args.args[4] is db
         submit.assert_not_called()
 
     def test_enqueue_failure_propagates(self):
@@ -76,7 +76,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
             pytest.raises(SQLAlchemyError),
         ):
-            bulk_import_service.start_bulk_import(3, db, MagicMock())
+            bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
     def test_falls_back_to_threadpool_when_jobs_disabled(self):
         db = MagicMock()
@@ -90,7 +90,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
         ):
-            result = bulk_import_service.start_bulk_import(3, db, MagicMock())
+            result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
         assert len(result) == 1
         publish.assert_not_called()
@@ -112,7 +112,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
         ):
-            assert bulk_import_service.start_bulk_import(3, db, MagicMock()) == []
+            assert bulk_import_service.start_bulk_import(3, MagicMock(), db) == []
 
         # Nothing valid to queue -> an empty batch is still published so the
         # request commits exactly once either way.

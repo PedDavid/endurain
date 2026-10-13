@@ -63,6 +63,29 @@ class PageParams:
     num_records: int
 
 
+def list_page_params(
+    page_number: Annotated[int | None, Query(ge=1)] = None,
+    num_records: Annotated[int | None, Query(ge=1, le=MAX_NUM_RECORDS)] = None,
+) -> PageParams:
+    """
+    Resolve the paging window for a browse-list route.
+
+    The browse-list counterpart of :func:`child_page_params`: same bounds, but an
+    omitted size means the small default window rather than the cap.
+
+    Args:
+        page_number: Requested 1-based page, or None when omitted.
+        num_records: Requested page size, or None when omitted.
+
+    Returns:
+        The resolved window.
+
+    Raises:
+        None.
+    """
+    return PageParams(page_number or 1, num_records or DEFAULT_NUM_RECORDS)
+
+
 def child_page_params(
     page_number: Annotated[int | None, Query(ge=1)] = None,
     num_records: Annotated[int | None, Query(ge=1, le=MAX_NUM_RECORDS)] = None,

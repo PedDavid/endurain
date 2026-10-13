@@ -8,7 +8,7 @@ import core.exceptions as core_exceptions
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_laps.crud as activity_laps_crud
 import modules.activities.activity_laps.schema as activity_laps_schema
-import modules.activities.contributors as activity_contributors
+import modules.activities.contributors as activities_contributors
 
 
 def _list_laps_for_activities(
@@ -65,13 +65,13 @@ def _persist_ingestion_component(
     _store_laps(data, activity.id, db)
 
 
-def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
+def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
     """Return the activity-laps ingestion contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ActivityIngestionContributor(
+    return activities_contributors.ActivityIngestionContributor(
         key="laps",
         persist=_persist_ingestion_component,
     )
@@ -112,13 +112,13 @@ def _restore_profile_records(
     return len(laps)
 
 
-def profile_contributor() -> activity_contributors.ProfileActivityContributor:
+def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     """Return the activity-laps profile contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ProfileActivityContributor(
+    return activities_contributors.ProfileActivityContributor(
         key="laps",
         archive_path="data/activity_laps.json",
         count_key="activity_laps",

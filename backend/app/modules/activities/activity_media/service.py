@@ -170,8 +170,8 @@ def _persist_media_bytes(
     activity_id: int,
     original_filename: str | None,
     data: bytes,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """Store validated image bytes, no-op'ing a byte-for-byte repeat.
 
@@ -184,8 +184,8 @@ def _persist_media_bytes(
         activity_id: The activity to attach the media to.
         original_filename: Source filename, used only for its extension.
         data: Validated image bytes.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         The stored record — freshly created, or the existing one when the exact
@@ -292,8 +292,8 @@ def read_activity_media_blob(
     activity_id: int,
     media_id: int,
     token: str,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> tuple[bytes, str]:
     """Read one media blob for the token-gated serve route.
 
@@ -306,8 +306,8 @@ def read_activity_media_blob(
         activity_id: The activity from the request path.
         media_id: The media record from the request path.
         token: The signed access token minted at serialization time.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         A ``(data, content_type)`` tuple.
@@ -346,8 +346,8 @@ def store_activity_media(
     user_id: int,
     original_filename: str | None,
     data: bytes,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> activity_media_schema.ActivityMedia:
     """Persist an uploaded image and register it against an activity.
 
@@ -361,8 +361,8 @@ def store_activity_media(
         user_id: The authenticated user, who must own the activity.
         original_filename: The uploaded filename, used only for its extension.
         data: The validated image bytes.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         The created media record, carrying its signed servable URL. The same
@@ -376,7 +376,7 @@ def store_activity_media(
     """
     _require_owned_activity(activity_id, user_id, db)
 
-    created = _persist_media_bytes(activity_id, original_filename, data, db, storage)
+    created = _persist_media_bytes(activity_id, original_filename, data, storage, db)
 
     logger.info(
         "Stored activity media",
@@ -389,8 +389,8 @@ def store_activity_media_bytes(
     activity_id: int,
     original_filename: str | None,
     data: bytes,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """Register already-validated image bytes as media for an activity.
 
@@ -408,8 +408,8 @@ def store_activity_media_bytes(
         activity_id: The activity to attach the media to.
         original_filename: The source filename, used only for its extension.
         data: The validated image bytes.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         The stored record — freshly created, or the existing one when a
@@ -418,7 +418,7 @@ def store_activity_media_bytes(
     Raises:
         UnsupportedMediaTypeError: For an unsupported extension.
     """
-    created = _persist_media_bytes(activity_id, original_filename, data, db, storage)
+    created = _persist_media_bytes(activity_id, original_filename, data, storage, db)
     logger.info(
         "Stored activity media from a server-side import",
         extra=core_logger.context(activity_id=activity_id, media_id=created.id),
@@ -430,8 +430,8 @@ def delete_activity_media(
     activity_id: int,
     media_id: int,
     user_id: int,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> None:
     """Delete one of the user's media records and its stored blob.
 
@@ -441,8 +441,8 @@ def delete_activity_media(
             activity's URL.
         media_id: The media record to delete.
         user_id: The authenticated user, who must own the owning activity.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         None.

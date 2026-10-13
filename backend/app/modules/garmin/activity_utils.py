@@ -8,7 +8,7 @@ import core.config as core_config
 import core.file_uploads as file_uploads
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.garmin.gear_utils as garmin_gear_utils
 import modules.garmin.utils as garmin_utils
@@ -28,7 +28,7 @@ async def fetch_and_process_activities_by_dates(
     user_id: int,
     ws_manager: websocket_manager.WebSocketManager,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     try:
         # Fetch Garmin Connect activities for the specified date range
         # Run in a thread pool to avoid blocking the asyncio event loop with
@@ -62,7 +62,7 @@ async def fetch_and_process_activities_by_dates(
         # Return 0 to indicate no activities were processed
         return None
 
-    parsed_activities: list[activities_schema.Activity] = []
+    parsed_activities: list[activity_schema.Activity] = []
 
     # Download activities
     for activity in garmin_activities:
@@ -234,7 +234,7 @@ async def get_user_garminconnect_activities_by_dates(
     user_id: int,
     ws_manager: websocket_manager.WebSocketManager,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     try:
         # Get the Garmin Connect client for the user
         garminconnect_client = get_user_garminconnect_client(user_id, db)

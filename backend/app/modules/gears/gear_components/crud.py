@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.integration_service as activity_integration
 import modules.gears.gear_components.models as gear_components_models
 import modules.gears.gear_components.schema as gear_components_schema
@@ -306,7 +306,7 @@ def get_components_activity_stats(
         gear_components_models.GearComponents.gear_id == gear_id,
     )
     windows = [
-        activities_contracts.GearUsageWindow(
+        activity_contracts.GearUsageWindow(
             key=row.id,
             start_date=row.purchase_date,
             end_date=row.retired_date,

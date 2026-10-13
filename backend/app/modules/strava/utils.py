@@ -10,7 +10,7 @@ from stravalib.exc import Fault as StravaFault
 import core.cryptography as core_cryptography
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.users.users.crud as users_crud
 import modules.users.users_integrations.crud as user_integrations_crud
 import modules.users.users_integrations.schema as user_integrations_schema
@@ -212,7 +212,7 @@ def refresh_user_strava_token(user_id: int, db: Session, is_startup: bool = Fals
         logger.info(f"User {user_id}: No Strava token found. Will skip processing")
 
 
-def fetch_and_validate_activity(activity_id: int, user_id: int, db: Session) -> activities_schema.Activity | None:
+def fetch_and_validate_activity(activity_id: int, user_id: int, db: Session) -> activity_schema.Activity | None:
     # Get the activity by Strava ID from the user
     activity_db = activity_integration.get_activity_by_strava_id(activity_id, user_id, db)
 

@@ -28,18 +28,12 @@ import core.database as core_database
 import core.etag as core_etag
 import core.pagination as core_pagination
 import core.rate_limit as core_rate_limit
-import modules.activities.activity.dependencies as activities_dependencies
-import modules.activities.activity.schema as activities_schema
-import modules.activities.activity.service as activities_service
+import modules.activities.activity.dependencies as activity_dependencies
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity.service as activity_service
 import modules.auth.dependencies as auth_dependencies
 import modules.gears.gear.dependencies as gears_dependencies
 import modules.users.users.dependencies as users_dependencies
-
-# Default page size when a list request omits pagination.
-_DEFAULT_NUM_RECORDS = core_pagination.DEFAULT_NUM_RECORDS
-# Hard cap on the client-requested page size, bounding query and
-# serialization cost per request (defense against resource exhaustion).
-_MAX_NUM_RECORDS = core_pagination.MAX_NUM_RECORDS
 
 # Define the API router
 router = APIRouter()
@@ -47,30 +41,29 @@ router = APIRouter()
 
 @router.get(
     "",
-    response_model=activities_schema.ActivityPage,
+    response_model=activity_schema.ActivityPage,
 )
 def list_own_activities(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    _validate_activity_type: Annotated[Callable, Depends(activities_dependencies.validate_activity_type)],
-    _validate_sort_by: Annotated[Callable, Depends(activities_dependencies.validate_sort_by)],
-    _validate_sort_order: Annotated[Callable, Depends(activities_dependencies.validate_sort_order)],
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
+    _validate_activity_type: Annotated[Callable, Depends(activity_dependencies.validate_activity_type)],
+    _validate_sort_by: Annotated[Callable, Depends(activity_dependencies.validate_sort_by)],
+    _validate_sort_order: Annotated[Callable, Depends(activity_dependencies.validate_sort_order)],
     activity_type: Annotated[int | None, Query(alias="type")] = None,
     start_date: Annotated[date | None, Query()] = None,
     end_date: Annotated[date | None, Query()] = None,
     name_search: Annotated[str | None, Query(alias="name")] = None,
     sort_by: Annotated[str | None, Query()] = None,
     sort_order: Annotated[str | None, Query()] = None,
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
 ):
     """List the authenticated user's activities, with the matching total."""
-    return activities_service.page_user_activities(
+    return activity_service.page_user_activities(
         token_user_id,
         token_user_id,
-        page_number or 1,
-        num_records or _DEFAULT_NUM_RECORDS,
+        page.page_number,
+        page.num_records,
         db,
         activity_type=activity_type,
         start_date=start_date,
@@ -91,33 +84,33 @@ def list_activity_types(
     db: Annotated[Session, Depends(core_database.get_db)],
 ) -> dict[int, str]:
     """Return the distinct activity types the user has recorded, keyed by type code."""
-    return activities_service.list_activity_types(token_user_id, db)
+    return activity_service.list_activity_types(token_user_id, db)
 
 
 @router.get(
     "/feed",
-    response_model=activities_schema.ActivityFeedPage,
+    response_model=activity_schema.ActivityFeedPage,
 )
 def list_following_feed(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
     cursor: Annotated[str | None, Query()] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
+    num_records: Annotated[int | None, Query(ge=1, le=core_pagination.MAX_NUM_RECORDS)] = None,
 ):
     """List a keyset slice of the authenticated user's following feed."""
-    return activities_service.scroll_following_feed(
+    return activity_service.scroll_following_feed(
         token_user_id,
         token_user_id,
         cursor,
-        num_records or _DEFAULT_NUM_RECORDS,
+        num_records or core_pagination.DEFAULT_NUM_RECORDS,
         db,
     )
 
 
 @router.get(
     "/gears/{gear_id}",
-    response_model=activities_schema.ActivityPage,
+    response_model=activity_schema.ActivityPage,
 )
 def list_gear_activities(
     gear_id: int,
@@ -125,22 +118,21 @@ def list_gear_activities(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
 ):
     """List the authenticated user's activities for a gear, with the matching total."""
-    return activities_service.page_gear_activities(
+    return activity_service.page_gear_activities(
         token_user_id,
         gear_id,
-        page_number or 1,
-        num_records or _DEFAULT_NUM_RECORDS,
+        page.page_number,
+        page.num_records,
         db,
     )
 
 
 @router.get(
     "/users/{user_id}/stats",
-    response_model=activities_schema.ActivityStats,
+    response_model=activity_schema.ActivityStats,
 )
 def read_user_activity_stats(
     user_id: int,
@@ -159,14 +151,14 @@ def read_user_activity_stats(
             ),
         ),
     ] = None,
-) -> activities_schema.ActivityStats:
+) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current ``week`` or ``month``."""
-    return activities_service.period_stats(user_id, period, token_user_id, db, anchor_date)
+    return activity_service.period_stats(user_id, period, token_user_id, db, anchor_date)
 
 
 @router.get(
     "/users/{user_id}",
-    response_model=activities_schema.ActivityPage,
+    response_model=activity_schema.ActivityPage,
 )
 def list_user_activities(
     user_id: int,
@@ -174,24 +166,23 @@ def list_user_activities(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-    _validate_activity_type: Annotated[Callable, Depends(activities_dependencies.validate_activity_type)],
-    _validate_sort_by: Annotated[Callable, Depends(activities_dependencies.validate_sort_by)],
-    _validate_sort_order: Annotated[Callable, Depends(activities_dependencies.validate_sort_order)],
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
+    _validate_activity_type: Annotated[Callable, Depends(activity_dependencies.validate_activity_type)],
+    _validate_sort_by: Annotated[Callable, Depends(activity_dependencies.validate_sort_by)],
+    _validate_sort_order: Annotated[Callable, Depends(activity_dependencies.validate_sort_order)],
     activity_type: Annotated[int | None, Query(alias="type")] = None,
     start_date: Annotated[date | None, Query()] = None,
     end_date: Annotated[date | None, Query()] = None,
     name_search: Annotated[str | None, Query(alias="name")] = None,
     sort_by: Annotated[str | None, Query()] = None,
     sort_order: Annotated[str | None, Query()] = None,
-    page_number: Annotated[int | None, Query(ge=1)] = None,
-    num_records: Annotated[int | None, Query(ge=1, le=_MAX_NUM_RECORDS)] = None,
 ):
     """List another user's visible activities, with the matching total."""
-    return activities_service.page_user_activities(
+    return activity_service.page_user_activities(
         user_id,
         token_user_id,
-        page_number or 1,
-        num_records or _DEFAULT_NUM_RECORDS,
+        page.page_number,
+        page.num_records,
         db,
         activity_type=activity_type,
         start_date=start_date,
@@ -204,12 +195,12 @@ def list_user_activities(
 
 @router.patch(
     "",
-    response_model=activities_schema.VisibilityUpdateResponse,
+    response_model=activity_schema.VisibilityUpdateResponse,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def edit_activities(
     request: Request,
-    body: activities_schema.ActivitiesBulkEdit,
+    body: activity_schema.ActivitiesBulkEdit,
     token_user_id: Annotated[
         int,
         Depends(auth_dependencies.get_sub_from_access_token),
@@ -219,7 +210,7 @@ def edit_activities(
         Session,
         Depends(core_database.get_db),
     ],
-) -> activities_schema.VisibilityUpdateResponse:
+) -> activity_schema.VisibilityUpdateResponse:
     """Apply a bulk edit across all of the authenticated user's activities.
 
     A PATCH on the collection with the change in the body, rather than the
@@ -230,8 +221,8 @@ def edit_activities(
 
     Rejected as invalid input when the body asks for no change at all.
     """
-    updated = activities_service.bulk_edit_activities(token_user_id, body, db)
-    return activities_schema.VisibilityUpdateResponse(
+    updated = activity_service.bulk_edit_activities(token_user_id, body, db)
+    return activity_schema.VisibilityUpdateResponse(
         detail=f"Visibility changed to {body.visibility} for all user activities",
         updated=updated,
     )
@@ -239,11 +230,11 @@ def edit_activities(
 
 @router.get(
     "/{activity_id}",
-    response_model=activities_schema.Activity,
+    response_model=activity_schema.Activity,
 )
 def read_activity(
     activity_id: int,
-    _validate_activity_id: Annotated[Callable, Depends(activities_dependencies.validate_activity_id)],
+    _validate_activity_id: Annotated[Callable, Depends(activity_dependencies.validate_activity_id)],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[
         int,
@@ -256,7 +247,7 @@ def read_activity(
     response: Response,
 ):
     """Read a single activity the requester owns or is permitted to see."""
-    activity = activities_service.get_activity(activity_id, token_user_id, db)
+    activity = activity_service.get_activity(activity_id, token_user_id, db)
     if activity.version is not None:
         # The tag the client echoes back in If-Match when it later saves.
         response.headers["ETag"] = core_etag.format_etag(activity.version)
@@ -265,14 +256,14 @@ def read_activity(
 
 @router.patch(
     "/{activity_id}",
-    response_model=activities_schema.Activity,
+    response_model=activity_schema.Activity,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def edit_activity(
     request: Request,
     activity_id: int,
-    _validate_activity_id: Annotated[Callable, Depends(activities_dependencies.validate_activity_id)],
-    activity_attributes: activities_schema.ActivityEdit,
+    _validate_activity_id: Annotated[Callable, Depends(activity_dependencies.validate_activity_id)],
+    activity_attributes: activity_schema.ActivityEdit,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
     token_user_id: Annotated[
         int,
@@ -291,7 +282,7 @@ def edit_activity(
     a stale tag is refused with 412 rather than silently overwriting whoever
     saved in between.
     """
-    activity = activities_service.edit_activity(activity_id, token_user_id, activity_attributes, db, if_match)
+    activity = activity_service.edit_activity(activity_id, token_user_id, activity_attributes, db, if_match)
     if activity.version is not None:
         response.headers["ETag"] = core_etag.format_etag(activity.version)
     return activity
@@ -306,7 +297,7 @@ def edit_activity(
 def delete_activity(
     request: Request,
     activity_id: int,
-    _validate_activity_id: Annotated[Callable, Depends(activities_dependencies.validate_activity_id)],
+    _validate_activity_id: Annotated[Callable, Depends(activity_dependencies.validate_activity_id)],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
     token_user_id: Annotated[
         int,
@@ -323,4 +314,4 @@ def delete_activity(
     return ``200`` with a confirmation sentence, which is a representation of
     nothing: the resource is gone, and the status already says so.
     """
-    activities_service.delete_activity(activity_id, token_user_id, db)
+    activity_service.delete_activity(activity_id, token_user_id, db)

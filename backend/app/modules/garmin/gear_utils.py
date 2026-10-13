@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.garmin.utils as garmin_utils
 import modules.gears.gear.crud as gears_crud
 import modules.gears.gear.schema as gears_schema
@@ -62,7 +62,7 @@ def process_gear(gear, user_id: int, db: Session) -> gears_schema.GearCreate | N
 
 
 def match_gear_for_activity(
-    activity: activities_schema.Activity,
+    activity: activity_schema.Activity,
     gears: list[gears_schema.GearRead],
 ) -> int | None:
     """Return the local gear ID matching this activity's Garmin gear, else None."""

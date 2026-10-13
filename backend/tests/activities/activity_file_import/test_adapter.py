@@ -6,12 +6,12 @@ The adapter builds ``ParsedStream`` objects (without an ``activity_id`` — that
 later by ``ingestion_service.store_parsed_activity``).
 """
 
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 
 
-def _activity() -> activities_schema.Activity:
+def _activity() -> activity_schema.Activity:
     """A minimal valid Activity (the ingestion contract's activity type)."""
-    return activities_schema.Activity(distance=0, name="test", activity_type=1)
+    return activity_schema.Activity(distance=0, name="test", activity_type=1)
 
 
 class TestParsedInfoToParsedActivity:

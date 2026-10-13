@@ -15,7 +15,7 @@ import core.database as core_database
 import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
-import modules.activities.activity_media.dependencies as activities_media_dependencies
+import modules.activities.activity_media.dependencies as activity_media_dependencies
 import modules.activities.activity_media.schema as activity_media_schema
 import modules.activities.activity_media.service as activity_media_service
 import modules.auth.dependencies as auth_dependencies
@@ -96,7 +96,7 @@ def upload_media(
     # The route is synchronous and runs on a worker thread, so the blocking read
     # never touches the event loop.
     data = core_file_uploads.read_validated_upload_sync(file, kind=core_file_uploads.UploadKind.IMAGE)
-    return activity_media_service.store_activity_media(activity_id, token_user_id, file.filename, data, db, storage)
+    return activity_media_service.store_activity_media(activity_id, token_user_id, file.filename, data, storage, db)
 
 
 @router.delete(
@@ -109,7 +109,7 @@ def delete_activity_media(
     request: Request,
     activity_id: int,
     media_id: int,
-    _validate_id: Annotated[Callable, Depends(activities_media_dependencies.validate_media_id)],
+    _validate_id: Annotated[Callable, Depends(activity_media_dependencies.validate_media_id)],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
     token_user_id: Annotated[
         int,
@@ -130,4 +130,4 @@ def delete_activity_media(
     Not found when the media is missing, does not belong to this activity, or its
     activity is not the caller's.
     """
-    activity_media_service.delete_activity_media(activity_id, media_id, token_user_id, db, storage)
+    activity_media_service.delete_activity_media(activity_id, media_id, token_user_id, storage, db)

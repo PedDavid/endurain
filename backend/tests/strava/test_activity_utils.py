@@ -144,18 +144,18 @@ class TestSaveActivityStreamsLaps:
 
     def test_builds_parsed_activity_and_delegates_to_seam(self, monkeypatch):
         """Only set streams are forwarded; laps and Strava provenance are carried."""
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
 
         captured: dict = {}
 
         def _fake_store(parsed, db):
             captured["parsed"] = parsed
             captured["db"] = db
-            return activities_schema.Activity(id=42, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.Activity(id=42, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
-        activity = activities_schema.Activity(
+        activity = activity_schema.Activity(
             user_id=1, distance=1000, name="Ride", activity_type=1, strava_activity_id=555
         )
         stream_data = [
@@ -178,17 +178,17 @@ class TestSaveActivityStreamsLaps:
 
     def test_handles_empty_streams_and_no_laps(self, monkeypatch):
         """Empty stream_data and None laps yield an empty-stream, no-lap ParsedActivity."""
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
 
         captured: dict = {}
 
         def _fake_store(parsed, db):
             captured["parsed"] = parsed
-            return activities_schema.Activity(id=1, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.Activity(id=1, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
-        activity = activities_schema.Activity(user_id=1, distance=0, name="X", activity_type=1)
+        activity = activity_schema.Activity(user_id=1, distance=0, name="X", activity_type=1)
         activity_utils.save_activity_streams_laps(activity, [], None, Mock())
 
         parsed = captured["parsed"]
@@ -210,7 +210,7 @@ class TestProcessActivityOffTheEventLoop:
         ``asyncio.to_thread`` was called keeps this honest for any offloading
         mechanism.
         """
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
 
         loop_thread_id = threading.get_ident()
         threads: dict[str, int] = {}
@@ -227,7 +227,7 @@ class TestProcessActivityOffTheEventLoop:
 
         def _fake_save(*args, **kwargs):
             threads["persist"] = threading.get_ident()
-            return activities_schema.Activity(id=7, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.Activity(id=7, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils, "parse_activity", _fake_parse)
         monkeypatch.setattr(activity_utils, "save_activity_streams_laps", _fake_save)

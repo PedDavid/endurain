@@ -3,8 +3,8 @@
 import jasil.runtime as platform_runtime
 
 import core.database as core_database
-import modules.activities.activity_thumbnail.service as thumbnail_service
-import modules.activities.activity_thumbnail.signing as thumbnail_signing
+import modules.activities.activity_thumbnail.service as activity_thumbnail_service
+import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
 
 
 def thumbnail_url(key: str | None, activity_id: int) -> str | None:
@@ -17,7 +17,7 @@ def thumbnail_url(key: str | None, activity_id: int) -> str | None:
     Returns:
         The URL, or None when there is no thumbnail.
     """
-    return thumbnail_signing.thumbnail_url(key, activity_id)
+    return activity_thumbnail_signing.thumbnail_url(key, activity_id)
 
 
 def generate_missing_thumbnails() -> None:
@@ -31,7 +31,7 @@ def generate_missing_thumbnails() -> None:
     """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
-        thumbnail_service.generate_missing_activity_thumbnails(platform.storage, platform.lock, db)
+        activity_thumbnail_service.generate_missing_activity_thumbnails(platform.storage, platform.lock, db)
 
 
 def regenerate_all_thumbnails() -> None:
@@ -42,4 +42,4 @@ def regenerate_all_thumbnails() -> None:
     """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
-        thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)
+        activity_thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)

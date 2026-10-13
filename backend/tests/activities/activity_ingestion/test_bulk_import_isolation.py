@@ -105,7 +105,7 @@ class TestBulkImportScoping:
             patch.object(bulk_import_service, "_enqueue_bulk_import_files"),
             patch.object(bulk_import_service.os, "listdir", return_value=[]),
         ):
-            bulk_import_service.start_bulk_import(3, db, MagicMock())
+            bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
         # Resolved from the token's user, never from client input.
         resolve.assert_called_once_with(3)
@@ -124,7 +124,7 @@ class TestBulkImportScoping:
             patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job"),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
         ):
-            bulk_import_service.start_bulk_import(3, db, MagicMock())
+            bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
         queued = [path for _job_id, path in publish.call_args.args[0]]
         assert queued == [os.path.join(str(user_dir), "ride.gpx")]

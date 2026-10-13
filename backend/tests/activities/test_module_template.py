@@ -12,7 +12,7 @@ import pytest
 
 import model_registry as app_model_registry
 import module_registry as runtime_module_registry
-import modules.activities.contributor_registry as activity_contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.activities.model_registry as activities_model_registry
 import modules.followers.model_registry as followers_model_registry
 
@@ -158,10 +158,10 @@ def test_installed_activity_contributor_keys_are_unique_per_kind() -> None:
     """App composition installs every stable contributor key exactly once."""
     runtime_module_registry.configure_activity_contributors()
     groups = (
-        activity_contributor_registry.activity_ingestion_contributors(),
-        activity_contributor_registry.file_ingestion_contributors(),
-        activity_contributor_registry.profile_activity_contributors(),
-        activity_contributor_registry.profile_global_contributors(),
+        activities_contributor_registry.activity_ingestion_contributors(),
+        activities_contributor_registry.file_ingestion_contributors(),
+        activities_contributor_registry.profile_activity_contributors(),
+        activities_contributor_registry.profile_global_contributors(),
     )
     for group in groups:
         keys = [contributor.key for contributor in group]

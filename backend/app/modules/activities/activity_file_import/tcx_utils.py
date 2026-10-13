@@ -9,8 +9,8 @@ import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
-import modules.activities.activity.constants as activities_constants
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.constants as activity_constants
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_file_import.utils as activity_file_import_utils
 import modules.activities.computation as activities_computation
 
@@ -244,7 +244,7 @@ def _build_activity(
     avg_power: float | None,
     max_power: float | None,
     norm_power: float | None,
-) -> activities_contracts.ActivityCore:
+) -> activity_contracts.ActivityCore:
     """
     Construct an ActivityCore ingestion contract from parsed TCX data.
 
@@ -282,7 +282,7 @@ def _build_activity(
     if start_time is None or end_time is None:
         raise core_exceptions.InvalidInputError("Invalid TCX file - no activity start or end time found")
 
-    return activities_contracts.ActivityCore(
+    return activity_contracts.ActivityCore(
         user_id=user_id,
         name=activity_name,
         distance=distance,
@@ -348,7 +348,7 @@ def parse_tcx_file(
         max_power: float | None = None
         norm_power: float | None = None
 
-        activity_type = activities_constants.define_activity_type(tcx_file.activity_type)
+        activity_type = activity_constants.define_activity_type(tcx_file.activity_type)
 
         laps = _parse_laps(tcx_file)
         waypoints = _extract_waypoints(trackpoints, tcx_file)

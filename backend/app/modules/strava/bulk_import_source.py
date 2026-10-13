@@ -23,8 +23,8 @@ from sqlalchemy.orm import Session
 
 import core.config as core_config
 import core.logger as core_logger
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.strava.bulk_import_utils as strava_bulk_import_utils
 
@@ -76,7 +76,7 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
 
     def should_import(
         self,
-        activity: activities_contracts.ActivityCore,
+        activity: activity_contracts.ActivityCore,
         activity_metadata: dict,
         *,
         activities_in_file: int,
@@ -114,7 +114,7 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
 
     def import_side_artifacts(
         self,
-        created_activities: list[activities_schema.Activity],
+        created_activities: list[activity_schema.Activity],
         file_base_name: str,
         db: Session,
     ) -> None:

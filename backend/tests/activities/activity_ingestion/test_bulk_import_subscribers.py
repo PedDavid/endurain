@@ -49,7 +49,7 @@ class TestPublishBulkImportFile:
             patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing") as publish,
             patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
         ):
-            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
         assert publish.call_args.kwargs["schema_version"] == (ingestion_events.BulkImportFilePayload.SCHEMA_VERSION)
 
@@ -77,7 +77,7 @@ class TestPublishBulkImportFile:
             patch.object(ingestion_service.staging, "stage_file", side_effect=["k1", "k2"]) as stage,
         ):
             ingestion_service._enqueue_bulk_import_files(
-                [("job-1", "/tmp/x.gpx"), ("job-2", "/tmp/y.fit")], 3, "2026-07-21", db, "storage"
+                [("job-1", "/tmp/x.gpx"), ("job-2", "/tmp/y.fit")], 3, "2026-07-21", "storage", db
             )
 
         assert stage.call_count == 2
@@ -112,7 +112,7 @@ class TestPublishBulkImportFile:
             patch.object(ingestion_service.staging, "settle") as settle,
             patch.object(ingestion_service.staging, "unstage") as unstage,
         ):
-            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
         settle.assert_called_once_with([("k1", "/tmp/x.gpx")], 3)
         unstage.assert_not_called()
@@ -131,7 +131,7 @@ class TestPublishBulkImportFile:
             patch.object(ingestion_service.staging, "unstage") as unstage,
             pytest.raises(RuntimeError),
         ):
-            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
         settle.assert_not_called()
         unstage.assert_called_once_with(["k1"], "storage")
@@ -148,7 +148,7 @@ class TestPublishBulkImportFile:
             ),
             pytest.raises(RuntimeError),
         ):
-            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", db, "storage")
+            ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
 
 class TestProcessBulkImportFileForEvent:

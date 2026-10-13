@@ -19,7 +19,7 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
-            result = ingestion_jobs.accept_refresh(7, db, "storage")
+            result = ingestion_jobs.accept_refresh(7, "storage", db)
 
         assert result == "job-view"
         assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
@@ -40,7 +40,7 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
         ):
-            ingestion_jobs.accept_refresh(7, db, "storage")
+            ingestion_jobs.accept_refresh(7, "storage", db)
 
         # Same client contract either way — only the executor differs.
         publish.assert_not_called()
@@ -55,7 +55,7 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing"),
         ):
-            ingestion_jobs.accept_refresh(7, db, "storage")
+            ingestion_jobs.accept_refresh(7, "storage", db)
 
         assert "filename" not in create.call_args.kwargs
         assert "staged_key" not in create.call_args.kwargs

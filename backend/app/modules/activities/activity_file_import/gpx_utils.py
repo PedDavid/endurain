@@ -13,8 +13,8 @@ import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
-import modules.activities.activity.constants as activities_constants
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.constants as activity_constants
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_file_import.utils as activity_file_import_utils
 import modules.activities.computation as activities_computation
 
@@ -110,7 +110,7 @@ class ParsedGpxData(TypedDict):
         laps: List of computed lap metrics.
     """
 
-    activity: activities_contracts.ActivityCore
+    activity: activity_contracts.ActivityCore
     is_elevation_set: bool
     ele_waypoints: list[dict]
     is_power_set: bool
@@ -437,7 +437,7 @@ def _compute_derived_metrics(
         state.last_waypoint_time,
     )
 
-    state.activity_type = activities_constants.define_activity_type(
+    state.activity_type = activity_constants.define_activity_type(
         str(state.activity_type),
     )
 
@@ -466,7 +466,7 @@ def _compute_derived_metrics(
             state.normalized_power,
         ) = activity_file_import_utils.calculate_power_metrics(state.power_waypoints)
 
-    if state.activity_type not in activities_constants.VIRTUAL_ACTIVITY_TYPES and state.is_lat_lon_set:
+    if state.activity_type not in activity_constants.VIRTUAL_ACTIVITY_TYPES and state.is_lat_lon_set:
         state.timezone = activity_file_import_utils.resolve_timezone_from_lat_lon(
             state.lat_lon_waypoints[0]["lat"],
             state.lat_lon_waypoints[0]["lon"],
@@ -477,7 +477,7 @@ def _compute_derived_metrics(
 def _build_activity_schema(
     state: ParseState,
     user_id: int,
-) -> activities_contracts.ActivityCore:
+) -> activity_contracts.ActivityCore:
     """
     Build an ActivityCore ingestion contract from parsed state.
 
@@ -495,7 +495,7 @@ def _build_activity_schema(
     if state.first_waypoint_time is None or state.last_waypoint_time is None:
         raise core_exceptions.ProcessingError("Missing waypoint timestamps in GPX parse state")
     elapsed = (state.last_waypoint_time - state.first_waypoint_time).total_seconds()
-    return activities_contracts.ActivityCore(
+    return activity_contracts.ActivityCore(
         user_id=user_id,
         name=state.activity_name,
         description=state.activity_description,

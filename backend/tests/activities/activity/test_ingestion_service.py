@@ -27,8 +27,8 @@ def _parsed(**overrides):
 
 class TestStoreParsedActivity:
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_stores_activity_and_component(self, mock_crud, mock_registry, mock_pub):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -51,8 +51,8 @@ class TestStoreParsedActivity:
         assert mock_pub.publish_activity_created.call_args.args[:2] == (7, 3)
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_no_components_skips_contributor_lookup(self, mock_crud, mock_registry, mock_pub):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -63,8 +63,8 @@ class TestStoreParsedActivity:
         mock_registry.get_activity_ingestion_contributor.assert_not_called()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_persists_each_non_null_component(self, mock_crud, mock_registry, mock_pub):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -86,7 +86,7 @@ class TestStoreParsedActivity:
             contributor.persist.assert_called_once_with(components[key], created, db)
         assert mock_registry.get_activity_ingestion_contributor.call_count == 3
 
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_raises_when_activity_none(self, mock_crud):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -96,7 +96,7 @@ class TestStoreParsedActivity:
             ingestion_service.store_parsed_activity(_parsed(), MagicMock())
         assert exc.value.status_code == 500
 
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_raises_when_id_none(self, mock_crud):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -107,8 +107,8 @@ class TestStoreParsedActivity:
         assert exc.value.status_code == 500
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_persists_components_and_activity_without_committing(self, mock_crud, mock_registry, mock_pub):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -130,8 +130,8 @@ class TestStoreParsedActivity:
         assert mock_pub.publish_activity_created.call_args.kwargs["commit"] is db.commit
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_database_error_from_a_component_propagates_untranslated(self, mock_crud, mock_registry, mock_pub):
         from sqlalchemy.exc import SQLAlchemyError
 
@@ -152,7 +152,7 @@ class TestStoreParsedActivity:
         # No event is published for a store that never committed.
         mock_pub.publish_activity_created.assert_not_called()
 
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_unknown_component_fails_closed_before_activity_creation(self, mock_crud):
         import modules.activities.activity.ingestion_service as ingestion_service
 
@@ -164,7 +164,7 @@ class TestStoreParsedActivity:
         mock_crud.create_activity.assert_not_called()
         db.rollback.assert_called_once()
 
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_unknown_component_fails_before_dedup_noop(self, mock_crud):
         import modules.activities.activity.contracts as schema
         import modules.activities.activity.ingestion_service as ingestion_service
@@ -183,8 +183,8 @@ class TestStoreParsedActivity:
         db.rollback.assert_called_once()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.contributor_registry")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activities_contributor_registry")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_noop_when_dedup_key_already_ingested(self, mock_crud, mock_registry, mock_pub):
         import modules.activities.activity.contracts as schema
         import modules.activities.activity.ingestion_service as ingestion_service
@@ -211,7 +211,7 @@ class TestStoreParsedActivity:
         mock_pub.publish_activity_created.assert_not_called()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_losing_the_insert_race_returns_the_winner(self, mock_crud, mock_pub):
         """The pre-insert dedup check is read-then-write, so concurrent imports race.
 
@@ -241,7 +241,7 @@ class TestStoreParsedActivity:
         mock_pub.publish_activity_created.assert_not_called()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_an_unrelated_integrity_error_still_fails(self, mock_crud, mock_pub):
         """A constraint violation that is not the dedup race must not be swallowed."""
         import sqlalchemy.exc
@@ -265,7 +265,7 @@ class TestStoreParsedActivity:
         db.rollback.assert_called_once()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_integrity_error_without_a_dedup_key_still_fails(self, mock_crud, mock_pub):
         """With no dedup key there is no race to recover from."""
         import sqlalchemy.exc
@@ -286,7 +286,7 @@ class TestStoreParsedActivity:
         db.rollback.assert_called_once()
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_derives_and_passes_strava_dedup_key(self, mock_crud, mock_pub):
         import modules.activities.activity.contracts as schema
         import modules.activities.activity.ingestion_service as ingestion_service
@@ -306,7 +306,7 @@ class TestStoreParsedActivity:
         assert mock_crud.create_activity.call_args.kwargs["dedup_key"] == "strava:123"
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_derives_garmin_dedup_key_when_no_strava(self, mock_crud, mock_pub):
         import modules.activities.activity.contracts as schema
         import modules.activities.activity.ingestion_service as ingestion_service
@@ -322,7 +322,7 @@ class TestStoreParsedActivity:
         assert mock_crud.create_activity.call_args.kwargs["dedup_key"] == "garmin:456"
 
     @patch("modules.activities.activity.ingestion_service.activity_event_publishers")
-    @patch("modules.activities.activity.ingestion_service.activities_crud")
+    @patch("modules.activities.activity.ingestion_service.activity_crud")
     def test_noop_on_existing_content_hash(self, mock_crud, mock_pub):
         from datetime import UTC, datetime
 

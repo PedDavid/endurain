@@ -38,7 +38,7 @@ import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.hashing as core_hashing
 import core.logger as core_logger
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.pipeline_service as pipeline
 
@@ -206,9 +206,9 @@ def discard_received_upload(received: ReceivedUpload) -> None:
 def process_staged_upload(
     token_user_id: int,
     staged_key: str,
-    db: Session,
     storage: platform_providers.StorageProvider,
-) -> list[activities_schema.Activity] | None:
+    db: Session,
+) -> list[activity_schema.Activity] | None:
     """Decompress, parse and persist a previously staged upload.
 
     Runs on a background worker, on any node: the bytes come back from the
@@ -220,8 +220,8 @@ def process_staged_upload(
     Args:
         token_user_id: The user the activities belong to.
         staged_key: Key returned by :func:`stage_uploaded_activity_file`.
-        db: Database session.
         storage: The blob-storage provider.
+        db: Database session.
 
     Returns:
         List of created Activity schemas, or None if no activity

@@ -22,14 +22,25 @@ dependency runs one way and adding a second export format means adding a subclas
 rather than another branch in here.
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 import core.config as core_config
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.schema as activity_schema
+
+#: Fetch a user's activities recorded in ``[window_start, window_end]``, storing
+#: each through the ingestion seam and returning what it stored. Returns an empty
+#: list (or ``None``) when the user has not linked this provider — an unlinked
+#: integration is not an error.
+FetchWindow = Callable[
+    [int, datetime, datetime, Session],
+    Awaitable[list[activity_schema.Activity] | None],
+]
 
 
 def build_import_record(import_initiated_time: str, source_label: str = "Basic bulk import") -> dict[str, Any]:
@@ -50,7 +61,7 @@ def build_import_record(import_initiated_time: str, source_label: str = "Basic b
 
 
 def apply_bulk_import_metadata(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     activity_metadata: dict,
 ) -> None:
     """Apply a bulk import's supplemental metadata to a parsed activity, in place.
@@ -162,7 +173,7 @@ class BulkImportSource:
 
     def should_import(
         self,
-        activity: activities_contracts.ActivityCore,
+        activity: activity_contracts.ActivityCore,
         activity_metadata: dict,
         *,
         activities_in_file: int,
@@ -182,7 +193,7 @@ class BulkImportSource:
 
     def apply_metadata(
         self,
-        activity: activities_contracts.ActivityCore,
+        activity: activity_contracts.ActivityCore,
         activity_metadata: dict,
     ) -> None:
         """Apply this import's supplemental metadata to a parsed activity, in place.
@@ -198,7 +209,7 @@ class BulkImportSource:
 
     def import_side_artifacts(
         self,
-        created_activities: list[activities_schema.Activity],
+        created_activities: list[activity_schema.Activity],
         file_base_name: str,
         db: Session,
     ) -> None:

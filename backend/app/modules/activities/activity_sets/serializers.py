@@ -5,6 +5,7 @@
 
 from pydantic import BaseModel
 
+import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.models as activity_sets_models
 import modules.activities.activity_sets.schema as activity_sets_schema
 
@@ -44,7 +45,7 @@ def _extract_value(
 
 
 def to_orm(
-    activity_set: activity_sets_schema.ActivitySetsCreate | list,
+    activity_set: activity_sets_contracts.ActivitySetsCreate | list,
     activity_id: int,
 ) -> activity_sets_models.ActivitySets:
     """

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.pipeline_service as pipeline
 
@@ -34,9 +34,9 @@ def store_bulk_import_file(
     user_id: int,
     file_path: str,
     import_initiated_time: str | None,
-    db: Session,
     storage: platform_providers.StorageProvider,
-) -> list[activities_schema.Activity] | None:
+    db: Session,
+) -> list[activity_schema.Activity] | None:
     """Import one bulk-import file, **raising** on failure (the durable job body).
 
     The per-file body of the durable bulk-import job: it validates, decompresses,
@@ -49,8 +49,8 @@ def store_bulk_import_file(
         user_id: ID of the user performing the import.
         file_path: Absolute path to the activity file to parse.
         import_initiated_time: ISO timestamp of when the bulk import was initiated.
-        db: SQLAlchemy database session.
         storage: The blob-storage provider the source file is retained in.
+        db: SQLAlchemy database session.
 
     Returns:
         List of created activity schema objects.
@@ -93,11 +93,11 @@ def _move_failed_file_to_error_directory(source: ingestion_contracts.BulkImportS
 def store_activity_file(
     token_user_id: int,
     file_path: str,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
     *,
     source: ingestion_contracts.IngestionSource,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Validate an on-disk activity file and persist it, returning ``None`` on failure.
 
     Thin entry point for background ingestion (Garmin sync, Strava/generic bulk
@@ -114,8 +114,8 @@ def store_activity_file(
     Args:
         token_user_id: ID of the authenticated user performing the import.
         file_path: Absolute path to the activity file to parse.
-        db: SQLAlchemy database session.
         storage: The blob-storage provider the source file is retained in.
+        db: SQLAlchemy database session.
         source: Where the file came from, and any source-specific metadata.
 
     Returns:

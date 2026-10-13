@@ -12,18 +12,18 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import core.logger as core_logger
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.crud as activities_crud
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.crud as activity_crud
 import modules.activities.activity.event_publishers as activity_event_publishers
-import modules.activities.activity.schema as activities_schema
-import modules.activities.contributor_registry as contributor_registry
+import modules.activities.activity.schema as activity_schema
+import modules.activities.contributor_registry as activities_contributor_registry
 
 logger = core_logger.get_logger(__name__)
 
 
 def _derive_dedup_key(
-    activity: activities_schema.ActivityBase,
-    source: activities_contracts.ImportSource | None,
+    activity: activity_schema.ActivityBase,
+    source: activity_contracts.ImportSource | None,
 ) -> str | None:
     """Derive a stable idempotency key for an activity.
 
@@ -66,9 +66,9 @@ def _derive_dedup_key(
 
 
 def store_parsed_activity(
-    parsed: activities_contracts.ParsedActivity,
+    parsed: activity_contracts.ParsedActivity,
     db: Session,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Persist a parsed activity and its children, then publish ``activity.created``.
 
     Args:
@@ -99,13 +99,13 @@ def store_parsed_activity(
         for key, data in parsed.components.items():
             if data is None:
                 continue
-            contributor = contributor_registry.get_activity_ingestion_contributor(key)
+            contributor = activities_contributor_registry.get_activity_ingestion_contributor(key)
             if contributor is None:
                 raise core_exceptions.ProcessingError(f"No activity ingestion contributor registered for '{key}'")
             component_work.append((contributor, data))
 
         if dedup_key is not None and parsed.activity.user_id is not None:
-            existing = activities_crud.get_activity_by_dedup_key(dedup_key, parsed.activity.user_id, db)
+            existing = activity_crud.get_activity_by_dedup_key(dedup_key, parsed.activity.user_id, db)
             if existing is not None:
                 logger.info(
                     "Skipping re-import: dedup key already ingested",
@@ -117,7 +117,7 @@ def store_parsed_activity(
                 )
                 return existing
 
-        created_activity = activities_crud.create_activity(parsed.activity, db, dedup_key=dedup_key)
+        created_activity = activity_crud.create_activity(parsed.activity, db, dedup_key=dedup_key)
 
         if created_activity is None or created_activity.id is None:
             logger.error(
@@ -182,7 +182,7 @@ def store_parsed_activity(
             )
             raise core_exceptions.ProcessingError("Error creating activity") from err
 
-        winner = activities_crud.get_activity_by_dedup_key(dedup_key, parsed.activity.user_id, db)
+        winner = activity_crud.get_activity_by_dedup_key(dedup_key, parsed.activity.user_id, db)
         if winner is None:
             # The integrity error was not the dedup race (some other constraint).
             logger.error(

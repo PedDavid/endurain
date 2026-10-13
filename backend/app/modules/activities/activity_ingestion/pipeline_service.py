@@ -31,14 +31,14 @@ import core.config as core_config
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_file_import.integration_service as activity_file_import_integration
 import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.enrichment_service as enrichment_service
-import modules.activities.contributor_registry as contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
@@ -50,7 +50,7 @@ def parse_file(
     filename: str,
     activity_name: str | None = None,
     default_timezone: str | None = None,
-) -> activities_contracts.ParsedFile | None:
+) -> activity_contracts.ParsedFile | None:
     """Parse one activity file into its activities.
 
     Args:
@@ -153,7 +153,7 @@ def store_activities_from_file(
     source: ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
     garmin_connect_activity_id: str | None = None,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Parse a validated, on-disk activity file and persist its activities.
 
     The single ingestion core shared by every source. By the time it runs the file
@@ -226,7 +226,7 @@ def store_activities_from_file(
     for key, data in parsed_file.components.items():
         if data is None:
             continue
-        contributor = contributor_registry.get_file_ingestion_contributor(key)
+        contributor = activities_contributor_registry.get_file_ingestion_contributor(key)
         if contributor is None:
             raise core_exceptions.ProcessingError(f"No file ingestion contributor registered for '{key}'")
         file_component_work.append((contributor, data))
@@ -245,13 +245,13 @@ def store_activities_from_file(
     # provider activity id, so their stable identity for idempotency is the
     # SHA-256 of the (already-decompressed) file. Garmin syncs key off the
     # provider id instead, so skip the hash there.
-    import_source = activities_contracts.ImportSource(
+    import_source = activity_contracts.ImportSource(
         kind=source.kind,
         content_hash=None if garmin_source else core_file_uploads.sha256_file(file_path),
     )
     garmin_activity_id = int(garmin_connect_activity_id) if garmin_connect_activity_id else None
 
-    created_activities: list[activities_schema.Activity] = []
+    created_activities: list[activity_schema.Activity] = []
     for parsed in parsed_file.activities:
         # Re-attach owner privacy defaults, gear, and Garmin ids before the
         # bulk-import metadata can override the gear.
@@ -297,7 +297,7 @@ def store_activities_from_file(
 
 def _finish_bulk_import_file(
     source: ingestion_contracts.BulkImportSource,
-    created_activities: list[activities_schema.Activity],
+    created_activities: list[activity_schema.Activity],
     file_base_name: str,
     db: Session,
 ) -> None:
@@ -341,7 +341,7 @@ def validate_prepare_and_store_file(
     *,
     source: ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
 
     The shared raising core behind both the swallowing background entry

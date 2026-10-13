@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import modules.activities.activity.schema as activity_schema
+import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.crud as activity_sets_crud
 import modules.activities.activity_sets.schema as activity_sets_schema
-import modules.activities.contributors as activity_contributors
+import modules.activities.contributors as activities_contributors
 
 
 def _list_sets_for_activities(
@@ -29,7 +30,7 @@ def _list_sets_for_activities(
 
 
 def _store_sets(
-    sets: Sequence[activity_sets_schema.ActivitySetsCreate | list],
+    sets: Sequence[activity_sets_contracts.ActivitySetsCreate | list],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -66,13 +67,13 @@ def _persist_ingestion_component(
     _store_sets(data, activity.id, db)
 
 
-def ingestion_contributor() -> activity_contributors.ActivityIngestionContributor:
+def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
     """Return the activity-sets ingestion contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ActivityIngestionContributor(
+    return activities_contributors.ActivityIngestionContributor(
         key="sets",
         persist=_persist_ingestion_component,
     )
@@ -98,27 +99,27 @@ def _restore_profile_records(
     if new_activity.id is None:
         return 0
 
-    sets: list[activity_sets_schema.ActivitySetsCreate] = []
+    sets: list[activity_sets_contracts.ActivitySetsCreate] = []
     for record in records:
         if record.get("activity_id") != original_activity_id:
             continue
         data = dict(record)
         data.pop("id", None)
         data["activity_id"] = new_activity.id
-        sets.append(activity_sets_schema.ActivitySetsCreate.model_validate(data))
+        sets.append(activity_sets_contracts.ActivitySetsCreate.model_validate(data))
 
     if sets:
         _store_sets(sets, new_activity.id, db)
     return len(sets)
 
 
-def profile_contributor() -> activity_contributors.ProfileActivityContributor:
+def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     """Return the activity-sets profile contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ProfileActivityContributor(
+    return activities_contributors.ProfileActivityContributor(
         key="sets",
         archive_path="data/activity_sets.json",
         count_key="activity_sets",

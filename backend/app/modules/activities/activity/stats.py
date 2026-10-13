@@ -5,7 +5,7 @@ Split out of ``utils.py``: pure computation over already-serialized
 """
 
 import core.logger as core_logger
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 from modules.activities.activity.constants import ACTIVITY_TYPES_BY_SPORT
 
 logger = core_logger.get_logger(__name__)
@@ -20,8 +20,8 @@ _SPORT_BY_ACTIVITY_TYPE: dict[int, str] = {
 
 
 def calculate_activity_stats(
-    activities: list[activities_schema.Activity],
-) -> activities_schema.ActivityStats:
+    activities: list[activity_schema.Activity],
+) -> activity_schema.ActivityStats:
     """Aggregate distance (m), time (s), and calories per sport type.
 
     Args:
@@ -30,7 +30,7 @@ def calculate_activity_stats(
     Returns:
         ActivityStats with per-sport distance, time, and calories totals.
     """
-    stats = activities_schema.ActivityStats()
+    stats = activity_schema.ActivityStats()
 
     if activities is None:
         return stats

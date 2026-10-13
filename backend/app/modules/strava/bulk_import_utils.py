@@ -15,8 +15,8 @@ import core.file_uploads as file_uploads
 import core.logger as core_logger
 import core.text_imports as core_text_imports
 import core.timezone as core_timezone
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
 import modules.auth.dependencies as auth_dependencies
@@ -398,7 +398,7 @@ def build_import_dictionary(
 
 
 def does_activity_start_time_match_the_data_in_strava_activities_csv(
-    activity: activities_contracts.ActivityCore,  # A parsed activity about to be added to Endurain
+    activity: activity_contracts.ActivityCore,  # A parsed activity about to be added to Endurain
     activity_metadata_dict: dict,  # A dictionary containing parsed information from a Strava activities.csv file
 ) -> bool:
     """
@@ -429,7 +429,7 @@ def does_activity_start_time_match_the_data_in_strava_activities_csv(
 
 def import_media_from_strava_bulk_export(
     strava_activities: dict,
-    created_activity: activities_schema.Activity,
+    created_activity: activity_schema.Activity,
     file_base_name: str,
     db: Annotated[
         Session,

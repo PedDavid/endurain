@@ -12,7 +12,7 @@ class TestCreateActivitySets:
     @patch("modules.activities.activity_sets.crud.activity_sets_models.ActivitySets")
     def test_success(self, mock_sets_model, mock_db):
         import modules.activities.activity_sets.crud as crud
-        from modules.activities.activity_sets.schema import ActivitySetsCreate
+        from modules.activities.activity_sets.contracts import ActivitySetsCreate
 
         mock_sets_model.return_value = MagicMock()
         sets = [
@@ -33,7 +33,7 @@ class TestCreateActivitySets:
     @patch("modules.activities.activity_sets.crud.activity_sets_models.ActivitySets")
     def test_db_error(self, mock_sets_model, mock_db):
         import modules.activities.activity_sets.crud as crud
-        from modules.activities.activity_sets.schema import ActivitySetsCreate
+        from modules.activities.activity_sets.contracts import ActivitySetsCreate
 
         mock_sets_model.return_value = MagicMock()
         mock_db.flush.side_effect = SQLAlchemyError("err")

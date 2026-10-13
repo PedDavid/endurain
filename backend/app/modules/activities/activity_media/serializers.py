@@ -7,7 +7,7 @@ import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.models as activity_media_models
 
 
-def to_record(
+def to_read_schema(
     orm_media: activity_media_models.ActivityMedia,
 ) -> activity_media_contracts.ActivityMediaRecord:
     """

@@ -26,7 +26,7 @@ import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
-import modules.activities.contributor_registry as contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.gears.gear.crud as gear_crud
 import modules.gears.gear_components.crud as gear_components_crud
 import modules.health.health_targets.crud as health_targets_crud
@@ -237,7 +237,7 @@ class ExportService:
 
     def _collect_and_write_global_activity_components(self, zipf: zipfile.ZipFile) -> None:
         """Collect and write file-global activity package records once."""
-        for contributor in contributor_registry.profile_global_contributors():
+        for contributor in activities_contributor_registry.profile_global_contributors():
             try:
                 records = contributor.export(self.db)
                 record_dicts = [users_profile_utils.sqlalchemy_obj_to_dict(record) for record in records]
@@ -293,7 +293,7 @@ class ExportService:
         # Process activity IDs in smaller batches to reduce memory usage
         batch_size = self.performance_config.batch_size // 2  # Smaller batches for components
 
-        for contributor in contributor_registry.profile_activity_contributors():
+        for contributor in activities_contributor_registry.profile_activity_contributors():
             # For large splittable components, write in chunks during collection
             if contributor.split:
                 self._collect_and_write_component_chunked(

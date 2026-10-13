@@ -71,8 +71,8 @@ def accept_upload(
     token_user_id: int,
     filename: str | None,
     save_upload: upload_entry.UploadSaver,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
     *,
     idempotency_key: str | None = None,
 ) -> activity_ingestion_schema.ActivityIngestionJob:
@@ -97,8 +97,8 @@ def accept_upload(
         token_user_id: Authenticated user ID.
         filename: The client-supplied filename.
         save_upload: Validates the request's upload and streams it to disk.
-        db: Database session.
         storage: The blob-storage provider the upload is staged in.
+        db: Database session.
         idempotency_key: Client-supplied key identifying this request.
 
     Returns:
@@ -252,8 +252,8 @@ def get_job(
 
 def accept_refresh(
     token_user_id: int,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> activity_ingestion_schema.ActivityIngestionJob:
     """Queue a provider refresh for background execution.
 
@@ -266,8 +266,8 @@ def accept_refresh(
 
     Args:
         token_user_id: Authenticated user ID.
-        db: Database session.
         storage: The blob-storage provider handed to the in-process fallback.
+        db: Database session.
 
     Returns:
         The accepted refresh job, in the pending state.
@@ -383,7 +383,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
 
     with core_database.SessionLocal() as db:
         try:
-            created = upload_entry.process_staged_upload(user_id, staged_key, db, storage)
+            created = upload_entry.process_staged_upload(user_id, staged_key, storage, db)
         except (
             core_exceptions.UnsupportedFormatError,
             core_exceptions.InvalidInputError,
@@ -631,8 +631,8 @@ def _collect_importable_files(user_id: int, bulk_import_dir: str) -> list[str]:
 
 def start_bulk_import(
     user_id: int,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> list[activity_ingestion_schema.ActivityIngestionJob]:
     """Queue every importable file in a user's drop directory.
 
@@ -660,8 +660,8 @@ def start_bulk_import(
 
     Args:
         user_id: The owner whose directory to import.
-        db: Database session, used to stage the durable jobs.
         storage: The blob-storage provider dropped files are staged in.
+        db: Database session, used to stage the durable jobs.
 
     Returns:
         The accepted jobs, one per queued file, in the pending state.
@@ -703,7 +703,7 @@ def start_bulk_import(
 
         if core_config.settings.JOBS_ENABLED:
             _enqueue_bulk_import_files(
-                [(job.id, file_path) for job, file_path in jobs], user_id, import_time, db, storage
+                [(job.id, file_path) for job, file_path in jobs], user_id, import_time, storage, db
             )
         else:
             db.commit()
@@ -729,8 +729,8 @@ def _enqueue_bulk_import_files(
     queued_files: list[tuple[str, str]],
     user_id: int,
     import_initiated_time: str,
-    db: Session,
     storage: platform_providers.StorageProvider,
+    db: Session,
 ) -> None:
     """Stage each dropped file and enqueue one durable job per file, in one transaction.
 
@@ -752,8 +752,8 @@ def _enqueue_bulk_import_files(
             rows.
         user_id: ID of the user performing the import.
         import_initiated_time: ISO timestamp of when the bulk import was initiated.
-        db: The request's database session (the outbox rows are staged on it).
         storage: The blob-storage provider the files are staged in.
+        db: The request's database session (the outbox rows are staged on it).
 
     Returns:
         None.
@@ -832,8 +832,8 @@ def process_all_files_sync(
             activities = bulk_entry_service.store_activity_file(
                 user_id,
                 file_path,
-                db,
                 storage,
+                db,
                 source=ingestion_contracts.BulkImportSource(
                     import_initiated_time=import_initiated_time, user_id=user_id
                 ),

@@ -11,7 +11,7 @@ import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.crud as activity_media_crud
 import modules.activities.activity_media.service as activity_media_service
-import modules.activities.contributors as activity_contributors
+import modules.activities.contributors as activities_contributors
 
 logger = core_logger.get_logger(__name__)
 
@@ -97,13 +97,13 @@ def _restore_profile_records(
     return len(media)
 
 
-def profile_contributor() -> activity_contributors.ProfileActivityContributor:
+def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     """Return the activity-media profile contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ProfileActivityContributor(
+    return activities_contributors.ProfileActivityContributor(
         key="media",
         archive_path="data/activity_media.json",
         count_key="activity_media",
@@ -134,7 +134,7 @@ def attach_media_bytes(
         The stored media record.
     """
     storage = platform_runtime.get_active_platform().storage
-    return activity_media_service.store_activity_media_bytes(activity_id, original_filename, data, db, storage)
+    return activity_media_service.store_activity_media_bytes(activity_id, original_filename, data, storage, db)
 
 
 def list_media_blobs(

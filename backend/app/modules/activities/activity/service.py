@@ -25,10 +25,10 @@ import core.etag as core_etag
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
-import modules.activities.activity.crud as activities_crud
+import modules.activities.activity.crud as activity_crud
 import modules.activities.activity.event_publishers as activity_event_publishers
-import modules.activities.activity.schema as activities_schema
-import modules.activities.activity.stats as activities_stats
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity.stats as activity_stats
 import modules.followers.integration_service as followers_integration
 import modules.server_settings.integration_service as server_settings_integration
 import modules.users.users.integration_service as users_integration
@@ -61,7 +61,7 @@ def get_activities_in_timeframe(
     end: datetime,
     requester_user_id: int,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Return a user's activities in ``[start, end]`` scoped to the requester.
 
     The owner sees all of their activities; any other requester sees only the
@@ -89,8 +89,8 @@ def get_activities_in_timeframe(
         ),
     )
     if is_owner:
-        return activities_crud.get_user_activities_per_timeframe(user_id, start, end, db, True)
-    return activities_crud.get_user_activities_per_timeframe(
+        return activity_crud.get_user_activities_per_timeframe(user_id, start, end, db, True)
+    return activity_crud.get_user_activities_per_timeframe(
         user_id,
         start,
         end,
@@ -185,7 +185,7 @@ def week_stats(
     requester_user_id: int,
     db: Session,
     anchor: date | None = None,
-) -> activities_schema.ActivityStats:
+) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current-week activities.
 
     Args:
@@ -200,8 +200,8 @@ def week_stats(
     start, end = _week_bounds(requester_user_id, db, 0, anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
-        return activities_stats.calculate_activity_stats(activities)
-    return activities_schema.ActivityStats()
+        return activity_stats.calculate_activity_stats(activities)
+    return activity_schema.ActivityStats()
 
 
 def month_stats(
@@ -209,7 +209,7 @@ def month_stats(
     requester_user_id: int,
     db: Session,
     anchor: date | None = None,
-) -> activities_schema.ActivityStats:
+) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current-month activities.
 
     Args:
@@ -224,8 +224,8 @@ def month_stats(
     start, end = _month_bounds(requester_user_id, db, anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
-        return activities_stats.calculate_activity_stats(activities)
-    return activities_schema.ActivityStats()
+        return activity_stats.calculate_activity_stats(activities)
+    return activity_schema.ActivityStats()
 
 
 def period_stats(
@@ -234,7 +234,7 @@ def period_stats(
     requester_user_id: int,
     db: Session,
     anchor: date | None = None,
-) -> activities_schema.ActivityStats:
+) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's ``week`` or ``month`` (default week).
 
     Args:
@@ -279,7 +279,7 @@ def count_user_activities(
     Returns:
         The number of matching activities.
     """
-    return activities_crud.count_user_activities(
+    return activity_crud.count_user_activities(
         user_id=user_id,
         db=db,
         activity_type=activity_type,
@@ -295,7 +295,7 @@ def list_gear_activities(
     page_number: int | None,
     num_records: int | None,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """List a user's activities for a gear (paginated when page/size are given).
 
     Args:
@@ -309,10 +309,10 @@ def list_gear_activities(
         The gear's activities, or None when none can be read.
     """
     if page_number is not None and num_records is not None:
-        return activities_crud.get_user_activities_by_gear_id_and_user_id_with_pagination(
+        return activity_crud.get_user_activities_by_gear_id_and_user_id_with_pagination(
             user_id, gear_id, page_number, num_records, db
         )
-    return activities_crud.get_user_activities_by_gear_id_and_user_id(user_id, gear_id, db)
+    return activity_crud.get_user_activities_by_gear_id_and_user_id(user_id, gear_id, db)
 
 
 def _count_gear_activities(user_id: int, gear_id: int, db: Session) -> int:
@@ -326,7 +326,7 @@ def _count_gear_activities(user_id: int, gear_id: int, db: Session) -> int:
     Returns:
         The number of the gear's activities.
     """
-    return activities_crud.get_gear_activities_count_by_user_id(user_id, gear_id, db)
+    return activity_crud.get_gear_activities_count_by_user_id(user_id, gear_id, db)
 
 
 def list_user_activities_paginated(
@@ -342,7 +342,7 @@ def list_user_activities_paginated(
     name_search: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """List a user's activities (filtered, paginated) scoped to the requester.
 
     The owner sees all of their activities; any other requester sees only the
@@ -365,7 +365,7 @@ def list_user_activities_paginated(
     Returns:
         The visible activities on this page, or None when none can be read.
     """
-    activities = activities_crud.get_user_activities_with_pagination(
+    activities = activity_crud.get_user_activities_with_pagination(
         user_id=user_id,
         db=db,
         page_number=page_number,
@@ -432,7 +432,7 @@ def page_user_activities(
     name_search: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-) -> activities_schema.ActivityPage:
+) -> activity_schema.ActivityPage:
     """Return one page of a user's activities together with the matching total.
 
     Args:
@@ -465,7 +465,7 @@ def page_user_activities(
         sort_by=sort_by,
         sort_order=sort_order,
     )
-    total = activities_crud.count_user_activities(
+    total = activity_crud.count_user_activities(
         user_id=user_id,
         db=db,
         activity_type=activity_type,
@@ -475,7 +475,7 @@ def page_user_activities(
         user_is_owner=(user_id == requester_user_id),
         followee_ids=_followees_of(requester_user_id, db),
     )
-    return activities_schema.ActivityPage.build(items, total, page_number, num_records)
+    return activity_schema.ActivityPage.build(items, total, page_number, num_records)
 
 
 def scroll_following_feed(
@@ -484,7 +484,7 @@ def scroll_following_feed(
     cursor: str | None,
     num_records: int,
     db: Session,
-) -> activities_schema.ActivityFeedPage:
+) -> activity_schema.ActivityFeedPage:
     """Return one keyset slice of the requester's following feed.
 
     Args:
@@ -502,7 +502,7 @@ def scroll_following_feed(
     after = core_pagination.decode_cursor(cursor) if cursor else None
     # Over-fetch by one: the extra row proves another slice exists without a
     # second query, and is dropped before serialising.
-    entries = activities_crud.get_following_feed_after(followee_ids, after, num_records + 1, db)
+    entries = activity_crud.get_following_feed_after(followee_ids, after, num_records + 1, db)
     has_more = len(entries) > num_records
     page_entries = entries[:num_records]
     items = [entry.activity for entry in page_entries]
@@ -520,7 +520,7 @@ def scroll_following_feed(
             has_more=has_more,
         ),
     )
-    return activities_schema.ActivityFeedPage(items=items, num_records=num_records, next_cursor=next_cursor)
+    return activity_schema.ActivityFeedPage(items=items, num_records=num_records, next_cursor=next_cursor)
 
 
 def page_gear_activities(
@@ -529,7 +529,7 @@ def page_gear_activities(
     page_number: int,
     num_records: int,
     db: Session,
-) -> activities_schema.ActivityPage:
+) -> activity_schema.ActivityPage:
     """Return one page of a user's activities for a gear with the matching total.
 
     Args:
@@ -544,7 +544,7 @@ def page_gear_activities(
     """
     items = list_gear_activities(user_id, gear_id, page_number, num_records, db)
     total = _count_gear_activities(user_id, gear_id, db)
-    return activities_schema.ActivityPage.build(items, total, page_number, num_records)
+    return activity_schema.ActivityPage.build(items, total, page_number, num_records)
 
 
 # ---------------------------------------------------------------------------
@@ -562,10 +562,10 @@ def list_activity_types(user_id: int, db: Session) -> dict[int, str]:
     Returns:
         The distinct activity types a user has recorded, keyed by type code.
     """
-    return activities_crud.get_distinct_activity_types_for_user(user_id, db)
+    return activity_crud.get_distinct_activity_types_for_user(user_id, db)
 
 
-def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activities_schema.Activity:
+def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activity_schema.Activity:
     """Return an activity the requester owns or is permitted to see.
 
     Args:
@@ -581,7 +581,7 @@ def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activ
             caller — indistinguishable on purpose, so the endpoint cannot be used
             to enumerate activity ids.
     """
-    activity = activities_crud.get_activity_by_id_from_user_id_or_has_visibility(
+    activity = activity_crud.get_activity_by_id_from_user_id_or_has_visibility(
         activity_id, requester_user_id, db, _followees_of(requester_user_id, db)
     )
     if activity is None:
@@ -593,7 +593,7 @@ def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activ
     return activity
 
 
-def get_public_activity(activity_id: int, db: Session) -> activities_schema.Activity:
+def get_public_activity(activity_id: int, db: Session) -> activity_schema.Activity:
     """Return a publicly shared activity.
 
     Args:
@@ -608,7 +608,7 @@ def get_public_activity(activity_id: int, db: Session) -> activities_schema.Acti
     """
     if not server_settings_integration.public_shareable_links_enabled(db):
         raise core_exceptions.NotFoundError("Activity not found")
-    activity = activities_crud.get_activity_by_id_if_is_public(activity_id, db)
+    activity = activity_crud.get_activity_by_id_if_is_public(activity_id, db)
     if activity is None:
         raise core_exceptions.NotFoundError("Activity not found")
     return activity
@@ -617,10 +617,10 @@ def get_public_activity(activity_id: int, db: Session) -> activities_schema.Acti
 def edit_activity(
     activity_id: int,
     user_id: int,
-    activity_attributes: activities_schema.ActivityEdit,
+    activity_attributes: activity_schema.ActivityEdit,
     db: Session,
     if_match: str | None = None,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Apply partial updates to one of the user's activities.
 
     The update is staged and the publisher owns the single
@@ -643,12 +643,12 @@ def edit_activity(
         extra=core_logger.context(activity_id=activity_id, user_id=user_id),
     )
     if if_match is not None:
-        current = activities_crud.get_activity_by_id_from_user_id(activity_id, user_id, db)
+        current = activity_crud.get_activity_by_id_from_user_id(activity_id, user_id, db)
         core_etag.require_if_match(if_match, current.version if current else None)
     # Only the fields the client actually sent; the CRUD applies the same set.
     changed_fields = [field for field in activity_attributes.model_dump(exclude_unset=True) if field != "id"]
     try:
-        updated = activities_crud.edit_activity(user_id, activity_id, activity_attributes, db)
+        updated = activity_crud.edit_activity(user_id, activity_id, activity_attributes, db)
     except StaleDataError as err:
         # The row changed between the precondition check and the flush, so the
         # check alone would have let this write through.
@@ -676,7 +676,7 @@ def edit_activity(
 
 def bulk_edit_activities(
     user_id: int,
-    body: activities_schema.ActivitiesBulkEdit,
+    body: activity_schema.ActivitiesBulkEdit,
     db: Session,
 ) -> int:
     """Apply a bulk edit across all of the user's activities.
@@ -700,7 +700,7 @@ def bulk_edit_activities(
     if body.visibility is None:
         raise core_exceptions.InvalidInputError("No supported field to update was provided")
 
-    updated_ids = activities_crud.edit_user_activities_visibility(user_id, body.visibility, db)
+    updated_ids = activity_crud.edit_user_activities_visibility(user_id, body.visibility, db)
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
@@ -738,7 +738,7 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
     Returns:
         None.
     """
-    activities_crud.delete_activity(activity_id, user_id, db)
+    activity_crud.delete_activity(activity_id, user_id, db)
     activity_event_publishers.publish_activity_deleted(activity_id, user_id, db, commit=db.commit)
     logger.info(
         "Deleted an activity",
@@ -769,7 +769,7 @@ def bulk_set_activities_gear(
     Returns:
         The number of activities updated.
     """
-    updated_ids = activities_crud.bulk_set_activities_gear_id(user_id, gear_assignments, db)
+    updated_ids = activity_crud.bulk_set_activities_gear_id(user_id, gear_assignments, db)
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
@@ -801,7 +801,7 @@ def delete_all_strava_activities(user_id: int, db: Session, *, source: str) -> i
     Returns:
         The number of activities deleted.
     """
-    deleted_ids = activities_crud.delete_all_strava_activities_for_user(user_id, db)
+    deleted_ids = activity_crud.delete_all_strava_activities_for_user(user_id, db)
     activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, commit=db.commit, source=source)
     # Irreversible and triggered from another module, so the count is recorded
     # here rather than left to the caller.
@@ -829,7 +829,7 @@ def delete_all_activities_for_user(user_id: int, db: Session, *, source: str) ->
     Returns:
         The number of activities deleted.
     """
-    deleted_ids = activities_crud.delete_all_activities_for_user(user_id, db)
+    deleted_ids = activity_crud.delete_all_activities_for_user(user_id, db)
     activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, commit=db.commit, source=source)
     logger.info(
         "Deleted all activities for user",
@@ -849,7 +849,7 @@ def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
     Returns:
         True when the activity exists and belongs to the user.
     """
-    return activities_crud.get_activity_by_id_from_user_id(activity_id, user_id, db) is not None
+    return activity_crud.get_activity_by_id_from_user_id(activity_id, user_id, db) is not None
 
 
 def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
@@ -869,7 +869,7 @@ def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
     Raises:
         ProcessingError: On database error.
     """
-    activities_crud.set_activity_thumbnail_path(activity_id, key, db)
+    activity_crud.set_activity_thumbnail_path(activity_id, key, db)
     db.commit()
 
 
@@ -885,7 +885,7 @@ def clear_all_thumbnail_keys(db: Session) -> None:
     Raises:
         ProcessingError: On database error.
     """
-    activities_crud.clear_all_activity_thumbnail_paths(db)
+    activity_crud.clear_all_activity_thumbnail_paths(db)
     db.commit()
 
 
@@ -912,7 +912,7 @@ def set_activity_location(
     Raises:
         ProcessingError: On database error.
     """
-    updated = activities_crud.update_activity_location(activity_id, city, town, country, db)
+    updated = activity_crud.update_activity_location(activity_id, city, town, country, db)
     if updated:
         db.commit()
     return updated

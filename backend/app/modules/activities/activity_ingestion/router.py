@@ -104,8 +104,8 @@ def create_activity_with_uploaded_file(
         token_user_id,
         file.filename,
         partial(core_file_uploads.save_validated_upload_sync, file),
-        db,
         storage,
+        db,
         idempotency_key=idempotency_key,
     )
 
@@ -179,7 +179,7 @@ def create_activity_with_bulk_import(
     Fails with a processing error if the directory cannot be read or the jobs
     cannot be queued.
     """
-    return ingestion_service.start_bulk_import(token_user_id, db, storage)
+    return ingestion_service.start_bulk_import(token_user_id, storage, db)
 
 
 @router.post(
@@ -217,4 +217,4 @@ def refresh_activities(
     class of bug rather than auditing for it: no provider code touches the loop
     any more.
     """
-    return ingestion_service.accept_refresh(token_user_id, db, storage)
+    return ingestion_service.accept_refresh(token_user_id, storage, db)

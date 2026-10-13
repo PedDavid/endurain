@@ -41,7 +41,7 @@ class TestUploadRoute:
                 idempotency_key="key-1",
             )
 
-        accept.assert_called_once_with(7, file.filename, ANY, db, "storage", idempotency_key="key-1")
+        accept.assert_called_once_with(7, file.filename, ANY, "storage", db, idempotency_key="key-1")
         # The service never sees the upload itself: only the shared writer, bound to it.
         save_upload = accept.call_args.args[2]
         assert save_upload.func is router.core_file_uploads.save_validated_upload_sync
@@ -141,7 +141,7 @@ class TestBulkImportRouteDelegates:
                 request=MagicMock(), token_user_id=3, _check_scopes=None, db=db, storage="storage"
             )
 
-        start.assert_called_once_with(3, db, "storage")
+        start.assert_called_once_with(3, "storage", db)
         # One pollable handle per queued file, so the caller can follow the
         # import instead of being handed a message it cannot act on.
         assert result == jobs

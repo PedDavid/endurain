@@ -48,7 +48,7 @@ def read_activity_media_file(
     to the activity, or no blob exists. A ``404`` rather than ``403`` avoids
     confirming the resource to an unauthorized caller.
     """
-    data, content_type = activity_media_service.read_activity_media_blob(activity_id, media_id, token, db, storage)
+    data, content_type = activity_media_service.read_activity_media_blob(activity_id, media_id, token, storage, db)
     return Response(
         content=data,
         media_type=content_type,

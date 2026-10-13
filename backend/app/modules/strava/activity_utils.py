@@ -9,10 +9,10 @@ from stravalib.exc import AccessUnauthorized
 import core.config as core_config
 import core.logger as core_logger
 import core.timezone as core_timezone
-import modules.activities.activity.constants as activities_constants
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.constants as activity_constants
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.computation as activities_computation
 import modules.gears.gear.crud as gears_crud
@@ -297,7 +297,7 @@ def parse_activity(
             gear_id = gear.id
 
     # Activity type
-    activity_type = activities_constants.define_activity_type(detailed_activity.sport_type.root)
+    activity_type = activity_constants.define_activity_type(detailed_activity.sport_type.root)
 
     if gear_id is None:
         gear_id = user_default_gear_utils.get_user_default_gear_by_activity_type(user_id, activity_type, db)
@@ -310,7 +310,7 @@ def parse_activity(
         )
 
     # Create the activity object
-    activity_to_store = activities_contracts.ActivityCore(
+    activity_to_store = activity_contracts.ActivityCore(
         user_id=user_id,
         name=detailed_activity.name,
         distance=round(detailed_activity.distance) if detailed_activity.distance else 0,
@@ -372,11 +372,11 @@ def parse_activity(
 
 
 def save_activity_streams_laps(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     stream_data: list,
     laps: list[dict] | None,
     db: Session,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Persist a Strava-parsed activity through the canonical ingestion seam.
 
     Strava is a thin adapter: it builds the
@@ -402,10 +402,10 @@ def save_activity_streams_laps(
         for is_set, stream_type, waypoints in (stream_data or [])
         if is_set
     ]
-    parsed = activities_contracts.ParsedActivity(
+    parsed = activity_contracts.ParsedActivity(
         activity=activity,
         components={"streams": parsed_streams, "laps": laps},
-        source=activities_contracts.ImportSource(
+        source=activity_contracts.ImportSource(
             kind="strava",
             provider_activity_id=activity.strava_activity_id,
             dedup_key=(f"strava:{activity.strava_activity_id}" if activity.strava_activity_id is not None else None),
@@ -773,7 +773,7 @@ async def get_user_strava_activities_by_dates(
     user_id: int,
     db: Session = None,
     is_startup: bool = False,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     close_session = False
     if db is None:
         # Create a new database session

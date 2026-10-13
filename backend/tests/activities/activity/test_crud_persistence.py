@@ -15,9 +15,9 @@ So these exercise the actual schema objects and a real session.
 import pytest
 from tests._helpers.db import create_sqlite_session
 
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.crud as activities_crud
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.crud as activity_crud
+import modules.activities.activity.schema as activity_schema
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ _PRIVACY_FLAGS = (
 )
 
 
-def _core(**overrides) -> activities_contracts.ActivityCore:
+def _core(**overrides) -> activity_contracts.ActivityCore:
     """Build the ingestion contract exactly as a parser/provider adapter does.
 
     The ``hide_*`` flags and the elapsed/timer times are NOT NULL on the table;
@@ -68,12 +68,12 @@ def _core(**overrides) -> activities_contracts.ActivityCore:
         **{flag: False for flag in _PRIVACY_FLAGS},
     }
     data.update(overrides)
-    return activities_contracts.ActivityCore(**data)
+    return activity_contracts.ActivityCore(**data)
 
 
 class TestCreateActivityReturnsTheReadModel:
     def test_returns_a_read_activity_with_the_generated_id(self, db):
-        created = activities_crud.create_activity(
+        created = activity_crud.create_activity(
             _core(garminconnect_activity_id=23749427619),
             db,
             dedup_key="garmin:23749427619:1",
@@ -81,7 +81,7 @@ class TestCreateActivityReturnsTheReadModel:
 
         # The declared ``ActivityCore -> Activity`` signature is now honoured: a
         # freshly serialized read schema, not the caller's input handed back.
-        assert isinstance(created, activities_schema.Activity)
+        assert isinstance(created, activity_schema.Activity)
         assert created.id is not None
         assert created.created_at is not None
         assert created.garminconnect_activity_id == 23749427619
@@ -95,7 +95,7 @@ class TestCreateActivityReturnsTheReadModel:
         """
         activity = _core()
 
-        activities_crud.create_activity(activity, db)
+        activity_crud.create_activity(activity, db)
 
         assert not hasattr(activity, "id")
         assert not hasattr(activity, "map_thumbnail_path")
@@ -108,7 +108,7 @@ class TestCreateActivityReturnsTheReadModel:
         """
         activity = _core(created_at="2020-01-01T00:00:00")
 
-        created = activities_crud.create_activity(activity, db)
+        created = activity_crud.create_activity(activity, db)
 
         assert created.created_at.year == 2020
         assert activity.created_at.year == 2020
@@ -116,8 +116,8 @@ class TestCreateActivityReturnsTheReadModel:
 
 class TestDuplicateStartTime:
     def test_second_activity_with_the_same_start_is_hidden(self, db):
-        first = activities_crud.create_activity(_core(), db)
-        second = activities_crud.create_activity(_core(name="Same start"), db)
+        first = activity_crud.create_activity(_core(), db)
+        second = activity_crud.create_activity(_core(name="Same start"), db)
 
         assert first.is_hidden is False
         # The flag is what the caller forwards to the notification subscriber so
@@ -125,10 +125,10 @@ class TestDuplicateStartTime:
         assert second.is_hidden is True
 
     def test_the_flag_lands_on_the_row_not_the_input(self, db):
-        activities_crud.create_activity(_core(), db)
+        activity_crud.create_activity(_core(), db)
         duplicate = _core(name="Same start")
 
-        created = activities_crud.create_activity(duplicate, db)
+        created = activity_crud.create_activity(duplicate, db)
 
         assert created.is_hidden is True
         # The write contract is not mutated on the way through.

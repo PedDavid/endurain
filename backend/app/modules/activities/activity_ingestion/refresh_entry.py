@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.provider_registry as provider_registry
 
 logger = core_logger.get_logger(__name__)
@@ -25,7 +25,7 @@ logger = core_logger.get_logger(__name__)
 _REFRESH_WINDOW = timedelta(days=1)
 
 
-async def sync_linked_providers(user_id: int, db: Session) -> list[activities_schema.Activity]:
+async def sync_linked_providers(user_id: int, db: Session) -> list[activity_schema.Activity]:
     """Fetch the recent window of activities from every registered provider.
 
     A provider that is not linked returns nothing rather than failing, so one
@@ -49,7 +49,7 @@ async def sync_linked_providers(user_id: int, db: Session) -> list[activities_sc
             extra=core_logger.context(user_id=user_id),
         )
 
-    activities: list[activities_schema.Activity] = []
+    activities: list[activity_schema.Activity] = []
     for provider in providers:
         try:
             produced = await provider.fetch_window(user_id, window_start, window_end, db)

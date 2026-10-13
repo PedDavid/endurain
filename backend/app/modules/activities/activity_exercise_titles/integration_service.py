@@ -6,9 +6,9 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity_exercise_titles.crud as exercise_titles_crud
-import modules.activities.activity_exercise_titles.schema as exercise_titles_schema
-import modules.activities.contributors as activity_contributors
+import modules.activities.activity_exercise_titles.crud as activity_exercise_titles_crud
+import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
+import modules.activities.contributors as activities_contributors
 
 logger = core_logger.get_logger(__name__)
 
@@ -23,16 +23,16 @@ def _persist_file_ingestion_component(data: Any, db: Session) -> None:
     Returns:
         None.
     """
-    exercise_titles_crud.create_activity_exercise_titles(data, db)
+    activity_exercise_titles_crud.create_activity_exercise_titles(data, db)
 
 
-def ingestion_contributor() -> activity_contributors.FileIngestionContributor:
+def ingestion_contributor() -> activities_contributors.FileIngestionContributor:
     """Return the exercise-title file-ingestion contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.FileIngestionContributor(
+    return activities_contributors.FileIngestionContributor(
         key="exercise_titles",
         persist=_persist_file_ingestion_component,
     )
@@ -48,7 +48,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
     Returns:
         The number of records restored.
     """
-    titles: list[exercise_titles_schema.ActivityExerciseTitles] = []
+    titles: list[activity_exercise_titles_schema.ActivityExerciseTitles] = []
     for record in records:
         if not isinstance(record, dict):
             logger.warning("Skipping non-object exercise-title profile record")
@@ -56,25 +56,25 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
         data = dict(record)
         data.pop("id", None)
         try:
-            titles.append(exercise_titles_schema.ActivityExerciseTitles.model_validate(data))
+            titles.append(activity_exercise_titles_schema.ActivityExerciseTitles.model_validate(data))
         except ValidationError as err:
             logger.warning("Skipping invalid exercise-title profile record", exc_info=err)
 
     if titles:
-        exercise_titles_crud.create_activity_exercise_titles(titles, db)
+        activity_exercise_titles_crud.create_activity_exercise_titles(titles, db)
     return len(titles)
 
 
-def profile_global_contributor() -> activity_contributors.ProfileGlobalContributor:
+def profile_global_contributor() -> activities_contributors.ProfileGlobalContributor:
     """Return the exercise-title global profile contribution.
 
     Returns:
         The contributor.
     """
-    return activity_contributors.ProfileGlobalContributor(
+    return activities_contributors.ProfileGlobalContributor(
         key="exercise_titles",
         archive_path="data/activity_exercise_titles.json",
         count_key="activity_exercise_titles",
-        export=exercise_titles_crud.get_activity_exercise_titles,
+        export=activity_exercise_titles_crud.get_activity_exercise_titles,
         restore=_restore_profile_records,
     )

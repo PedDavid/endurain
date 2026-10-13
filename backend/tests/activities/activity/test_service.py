@@ -38,7 +38,7 @@ def stub_requester_user():
 
 
 class TestGetActivitiesInTimeframe:
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_owner_gets_all(self, mock_crud):
         from modules.activities.activity import service
 
@@ -47,7 +47,7 @@ class TestGetActivitiesInTimeframe:
         # Owner path: is_owner=True, no requester scoping.
         mock_crud.get_user_activities_per_timeframe.assert_called_once_with(1, "s", "e", db, True)
 
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_requester_gets_visible(self, mock_crud):
         from modules.activities.activity import service
 
@@ -62,7 +62,7 @@ class TestGetActivitiesInTimeframe:
 
 
 class TestPeriodStats:
-    @patch("modules.activities.activity.service.activities_stats.calculate_activity_stats", return_value="stats")
+    @patch("modules.activities.activity.service.activity_stats.calculate_activity_stats", return_value="stats")
     @patch("modules.activities.activity.service.get_activities_in_timeframe", return_value=[MagicMock()])
     def test_week_stats_with_activities(self, mock_get, mock_calc):
         from modules.activities.activity import service
@@ -77,7 +77,7 @@ class TestPeriodStats:
 
         assert isinstance(service.week_stats(1, 1, MagicMock()), schema.ActivityStats)
 
-    @patch("modules.activities.activity.service.activities_stats.calculate_activity_stats", return_value="stats")
+    @patch("modules.activities.activity.service.activity_stats.calculate_activity_stats", return_value="stats")
     @patch("modules.activities.activity.service.get_activities_in_timeframe", return_value=[MagicMock()])
     def test_month_stats_with_activities(self, mock_get, mock_calc):
         from modules.activities.activity import service
@@ -94,7 +94,7 @@ class TestPeriodStats:
 
 class TestListUserActivitiesPaginated:
     @patch("modules.activities.activity.service.followers_integration.list_accepted_followee_ids", return_value=[])
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_owner_scoping(self, mock_crud, _mock_followers):
         from modules.activities.activity import service
 
@@ -104,7 +104,7 @@ class TestListUserActivitiesPaginated:
         assert kwargs["activity_type"] == 2
 
     @patch("modules.activities.activity.service.followers_integration.list_accepted_followee_ids", return_value=[9])
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_non_owner_scoping(self, mock_crud, _mock_followers):
         from modules.activities.activity import service
 
@@ -241,39 +241,39 @@ class TestEditPublishesUpdated:
     """An edit is a domain fact: without it consumers can only see create/delete."""
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_single_edit_publishes_only_the_fields_the_client_sent(self, mock_crud, mock_publishers):
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
 
         db = MagicMock()
-        service.edit_activity(5, 1, activities_schema.ActivityEdit(name="Run"), db)
+        service.edit_activity(5, 1, activity_schema.ActivityEdit(name="Run"), db)
 
         mock_crud.edit_activity.assert_called_once_with(1, 5, ANY, db)
         mock_publishers.publish_activity_updated.assert_called_once_with(5, 1, ["name"], db=db, commit=db.commit)
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_single_edit_lets_the_publisher_own_the_commit(self, mock_crud, mock_publishers):
         """Staged, not committed, so the outbox row joins the same transaction."""
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
 
         db = MagicMock()
-        service.edit_activity(5, 1, activities_schema.ActivityEdit(name="Run"), db)
+        service.edit_activity(5, 1, activity_schema.ActivityEdit(name="Run"), db)
 
         db.commit.assert_not_called()
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_bulk_edit_publishes_one_event_per_changed_row(self, mock_crud, mock_publishers):
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
 
         db = MagicMock()
         mock_crud.edit_user_activities_visibility.return_value = [4, 5, 6]
 
-        updated = service.bulk_edit_activities(1, activities_schema.ActivitiesBulkEdit(visibility=1), db)
+        updated = service.bulk_edit_activities(1, activity_schema.ActivitiesBulkEdit(visibility=1), db)
 
         assert updated == 3
         mock_publishers.publish_activities_updated.assert_called_once_with(
@@ -281,16 +281,16 @@ class TestEditPublishesUpdated:
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_a_stale_edit_rolls_back_and_publishes_nothing(self, mock_crud, mock_publishers):
-        import modules.activities.activity.schema as activities_schema
+        import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
 
         db = MagicMock()
         mock_crud.edit_activity.side_effect = StaleDataError()
 
         with pytest.raises(core_exceptions.PreconditionFailedError):
-            service.edit_activity(5, 1, activities_schema.ActivityEdit(name="Run"), db)
+            service.edit_activity(5, 1, activity_schema.ActivityEdit(name="Run"), db)
 
         db.rollback.assert_called_once()
         mock_publishers.publish_activity_updated.assert_not_called()
@@ -305,7 +305,7 @@ class TestCrossModuleWrites:
     """
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_bulk_set_activities_gear_publishes_one_event_per_row(self, mock_crud, mock_publishers):
         """A provider re-gearing activities is a change consumers must be able to see."""
         from modules.activities.activity import service
@@ -323,7 +323,7 @@ class TestCrossModuleWrites:
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_delete_all_strava_activities_publishes_cleanup_events(self, mock_crud, mock_publishers):
         from modules.activities.activity import service
 
@@ -339,7 +339,7 @@ class TestCrossModuleWrites:
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_delete_all_activities_for_user_publishes_cleanup_events(self, mock_crud, mock_publishers):
         """Account deletion must emit activity.deleted so stored blobs are reclaimed."""
         from modules.activities.activity import service
@@ -359,7 +359,7 @@ class TestCrossModuleWrites:
 class TestDerivedArtifactWrites:
     """The thumbnail and geocoding writes stage in CRUD and commit here."""
 
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_set_thumbnail_key_commits_after_staging(self, mock_crud):
         from modules.activities.activity.service import set_thumbnail_key
 
@@ -369,7 +369,7 @@ class TestDerivedArtifactWrites:
         mock_crud.set_activity_thumbnail_path.assert_called_once_with(7, "7.png", db)
         db.commit.assert_called_once()
 
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_clear_all_thumbnail_keys_commits(self, mock_crud):
         from modules.activities.activity.service import clear_all_thumbnail_keys
 
@@ -379,7 +379,7 @@ class TestDerivedArtifactWrites:
         mock_crud.clear_all_activity_thumbnail_paths.assert_called_once_with(db)
         db.commit.assert_called_once()
 
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_clear_all_thumbnail_keys_propagates_a_failure_without_committing(self, mock_crud):
         from modules.activities.activity.service import clear_all_thumbnail_keys
 
@@ -391,7 +391,7 @@ class TestDerivedArtifactWrites:
 
         db.commit.assert_not_called()
 
-    @patch("modules.activities.activity.service.activities_crud")
+    @patch("modules.activities.activity.service.activity_crud")
     def test_set_activity_location_commits_only_when_a_row_changed(self, mock_crud):
         from modules.activities.activity.service import set_activity_location
 

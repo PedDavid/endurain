@@ -17,7 +17,7 @@ from urllib.parse import unquote
 from sqlalchemy import func, or_
 
 import core.timezone as core_timezone
-import modules.activities.activity.models as activities_models
+import modules.activities.activity.models as activity_models
 
 #: Re-exported for the callers that reason about the widened pre-filter below.
 MAX_UTC_OFFSET = core_timezone.MAX_UTC_OFFSET
@@ -52,10 +52,10 @@ def name_search_condition(name_search: str):
     raw = unquote(name_search).replace("+", " ").lower()
     pattern = f"%{escape_like(raw)}%"
     return or_(
-        func.lower(activities_models.Activity.name).like(pattern, escape="\\"),
-        func.lower(activities_models.Activity.town).like(pattern, escape="\\"),
-        func.lower(activities_models.Activity.city).like(pattern, escape="\\"),
-        func.lower(activities_models.Activity.country).like(pattern, escape="\\"),
+        func.lower(activity_models.Activity.name).like(pattern, escape="\\"),
+        func.lower(activity_models.Activity.town).like(pattern, escape="\\"),
+        func.lower(activity_models.Activity.city).like(pattern, escape="\\"),
+        func.lower(activity_models.Activity.country).like(pattern, escape="\\"),
     )
 
 
@@ -79,8 +79,8 @@ def local_start_time_expression():
     """
     # ``timezone(zone, timestamptz) -> timestamp`` is Postgres' AT TIME ZONE.
     return func.timezone(
-        func.coalesce(activities_models.Activity.timezone, "UTC"),
-        activities_models.Activity.start_time,
+        func.coalesce(activity_models.Activity.timezone, "UTC"),
+        activity_models.Activity.start_time,
     )
 
 
@@ -112,12 +112,12 @@ def local_date_range_conditions(
 
     if start_date is not None:
         start_dt = datetime.combine(start_date, time.min)
-        conditions.append(activities_models.Activity.start_time >= start_dt.replace(tzinfo=UTC) - MAX_UTC_OFFSET)
+        conditions.append(activity_models.Activity.start_time >= start_dt.replace(tzinfo=UTC) - MAX_UTC_OFFSET)
         conditions.append(local >= start_dt)
 
     if end_date is not None:
         end_dt = datetime.combine(end_date if end_exclusive else end_date + timedelta(days=1), time.min)
-        conditions.append(activities_models.Activity.start_time < end_dt.replace(tzinfo=UTC) + MAX_UTC_OFFSET)
+        conditions.append(activity_models.Activity.start_time < end_dt.replace(tzinfo=UTC) + MAX_UTC_OFFSET)
         conditions.append(local < end_dt)
 
     return conditions

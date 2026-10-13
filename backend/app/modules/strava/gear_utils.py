@@ -8,7 +8,7 @@ import core.config as core_config
 import core.logger as core_logger
 import core.text_imports as core_text_imports
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.gears.gear.crud as gears_crud
 import modules.gears.gear.schema as gears_schema
 import modules.strava.athlete_utils as strava_athlete_utils
@@ -104,7 +104,7 @@ def process_gear(
 
 
 def match_gear_for_activity(
-    activity: activities_schema.Activity,
+    activity: activity_schema.Activity,
     gears: list[gears_schema.GearRead],
 ) -> int | None:
     """Return the local gear ID matching this activity's Strava gear, else None."""

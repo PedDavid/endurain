@@ -40,7 +40,7 @@ def get_all_activity_media(
         ProcessingError: If a database error occurs.
     """
     stmt = select(activity_media_models.ActivityMedia)
-    return [activity_media_serializers.to_record(media) for media in db.scalars(stmt).all()]
+    return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -65,7 +65,7 @@ def get_activity_media_by_id(
         activity_media_models.ActivityMedia.id == activity_media_id
     )
     media = db.scalars(stmt).first()
-    return activity_media_serializers.to_record(media) if media is not None else None
+    return activity_media_serializers.to_read_schema(media) if media is not None else None
 
 
 @core_decorators.handle_db_errors
@@ -92,7 +92,7 @@ def get_media_for_activity(
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.activity_id == activity_id
     )
-    return [activity_media_serializers.to_record(media) for media in db.scalars(stmt).all()]
+    return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -123,7 +123,7 @@ def get_activities_media(
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.activity_id.in_(activity_ids)
     )
-    return [activity_media_serializers.to_record(media) for media in db.scalars(stmt).all()]
+    return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -154,7 +154,7 @@ def get_activity_media_by_content_hash(
         activity_media_models.ActivityMedia.content_hash == content_hash,
     )
     media = db.scalars(stmt).first()
-    return activity_media_serializers.to_record(media) if media is not None else None
+    return activity_media_serializers.to_read_schema(media) if media is not None else None
 
 
 @core_decorators.handle_db_errors
@@ -191,7 +191,7 @@ def get_media_with_legacy_path(
         .order_by(activity_media_models.ActivityMedia.id)
         .limit(limit)
     )
-    return [activity_media_serializers.to_record(media) for media in db.scalars(stmt).all()]
+    return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -231,7 +231,7 @@ def create_activity_media(
         db.add(db_activity_media)
         db.flush()
         db.refresh(db_activity_media)
-        return activity_media_serializers.to_record(db_activity_media)
+        return activity_media_serializers.to_read_schema(db_activity_media)
     except IntegrityError as integrity_error:
         raise core_exceptions.ConflictError(
             "Duplicate entry error. Check if path/file name or content are unique."
@@ -305,7 +305,7 @@ def edit_activity_media_media_path(
     db_activity_media.media_path = media_path
     db.flush()
     db.refresh(db_activity_media)
-    return activity_media_serializers.to_record(db_activity_media)
+    return activity_media_serializers.to_read_schema(db_activity_media)
 
 
 @core_decorators.handle_db_errors

@@ -6,14 +6,14 @@ from unittest.mock import Mock
 
 from fastapi import HTTPException
 
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.strava.bulk_import_utils as bulk_import_utils
 from core.file_uploads import UploadKind
 
 
-def _activity(start_time: str) -> activities_contracts.ActivityCore:
+def _activity(start_time: str) -> activity_contracts.ActivityCore:
     """An ActivityCore as the FIT parser produces it (start_time coerced to aware UTC)."""
-    return activities_contracts.ActivityCore(
+    return activity_contracts.ActivityCore(
         user_id=1,
         name="Workout",
         distance=1000,

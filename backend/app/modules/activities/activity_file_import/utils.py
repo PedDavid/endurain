@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     # Annotation-only: the module already uses postponed evaluation, so the
     # contract is never imported at runtime and this file stays free of any
     # import the parsers do not actually execute.
-    import modules.activities.activity.contracts as activities_contracts
+    import modules.activities.activity.contracts as activity_contracts
 
 # ISO 8601 datetime format used throughout the import pipeline
 _DT_FMT = "%Y-%m-%dT%H:%M:%S"
@@ -38,7 +38,7 @@ STREAM_KEYS: tuple[str, ...] = (
 
 
 def build_activity_file_payload(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     waypoints: dict[str, list[dict]],
     laps: list[dict],
     extras: dict | None = None,

@@ -43,7 +43,7 @@ def get_activity_streams(
     )
     activity_streams: list[activity_streams_models.ActivityStreams] = list(db.scalars(stmt).all())
 
-    return activity_streams_serializers.transform_activity_streams(activity_streams)
+    return activity_streams_serializers.to_read_schema(activity_streams)
 
 
 @core_decorators.handle_db_errors
@@ -77,7 +77,7 @@ def get_activities_streams(
     if not all_streams:
         return []
 
-    return activity_streams_serializers.transform_activity_streams(all_streams)
+    return activity_streams_serializers.to_read_schema(all_streams)
 
 
 @core_decorators.handle_db_errors
@@ -112,7 +112,7 @@ def get_activity_stream_by_type(
     if not activity_stream:
         return None
 
-    return activity_streams_serializers.transform_activity_streams(activity_stream)
+    return activity_streams_serializers.to_read_schema(activity_stream)
 
 
 def get_gps_stream_waypoints_for_activities(
@@ -172,7 +172,7 @@ def get_hr_streams_without_zone_percentages(
         .order_by(activity_streams_models.ActivityStreams.id)
         .limit(batch_size)
     )
-    return activity_streams_serializers.transform_activity_streams(list(db.scalars(stmt).all()))
+    return activity_streams_serializers.to_read_schema(list(db.scalars(stmt).all()))
 
 
 def backfill_zone_percentages_for_missing_hr_streams(
@@ -307,7 +307,7 @@ def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session
 
 @core_decorators.handle_db_errors
 def create_activity_streams(
-    activity_streams: list[activity_streams_schema.ActivityStreamsCreate],
+    activity_streams: list[activity_streams_contracts.ActivityStreamsCreate],
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:

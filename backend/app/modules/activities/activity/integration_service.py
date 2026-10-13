@@ -32,10 +32,10 @@ from sqlalchemy.orm import Session
 import core.pagination as core_pagination
 import modules.activities.activity.child_access_service as activity_child_access
 import modules.activities.activity.child_collection as activity_child_collection
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.crud as activities_crud
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.crud as activity_crud
 import modules.activities.activity.ingestion_service as activity_ingestion_service
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.schema as activity_schema
 import modules.activities.activity.service as activity_service
 
 ChildCollection = activity_child_collection.ChildCollection
@@ -45,7 +45,7 @@ def get_activity_by_strava_id(
     strava_activity_id: int,
     user_id: int,
     db: Session,
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return the user's activity imported from the given Strava activity id.
 
     Args:
@@ -56,14 +56,14 @@ def get_activity_by_strava_id(
     Returns:
         The matching activity, or ``None`` when the user has no such import.
     """
-    return activities_crud.get_activity_by_strava_id_from_user_id(strava_activity_id, user_id, db)
+    return activity_crud.get_activity_by_strava_id_from_user_id(strava_activity_id, user_id, db)
 
 
 def get_activity_by_garminconnect_id(
     garminconnect_activity_id: int,
     user_id: int,
     db: Session,
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return the user's activity imported from the given Garmin Connect activity id.
 
     Args:
@@ -74,10 +74,10 @@ def get_activity_by_garminconnect_id(
     Returns:
         The matching activity, or ``None`` when the user has no such import.
     """
-    return activities_crud.get_activity_by_garminconnect_id_from_user_id(garminconnect_activity_id, user_id, db)
+    return activity_crud.get_activity_by_garminconnect_id_from_user_id(garminconnect_activity_id, user_id, db)
 
 
-def list_user_activities(user_id: int, db: Session) -> list[activities_schema.Activity] | None:
+def list_user_activities(user_id: int, db: Session) -> list[activity_schema.Activity] | None:
     """Return all of a user's activities (used by provider gear reconciliation).
 
     Args:
@@ -87,13 +87,13 @@ def list_user_activities(user_id: int, db: Session) -> list[activities_schema.Ac
     Returns:
         The user's activities, or ``None`` when they have none.
     """
-    return activities_crud.get_user_activities(user_id, db)
+    return activity_crud.get_user_activities(user_id, db)
 
 
 def list_user_activities_with_garminconnect_gear(
     user_id: int,
     db: Session,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Return a user's activities that carry a Garmin Connect gear id.
 
     Args:
@@ -103,7 +103,7 @@ def list_user_activities_with_garminconnect_gear(
     Returns:
         The matching activities, or ``None`` when there are none.
     """
-    return activities_crud.get_user_activities_by_user_id_and_garminconnect_gear_set(user_id, db)
+    return activity_crud.get_user_activities_by_user_id_and_garminconnect_gear_set(user_id, db)
 
 
 def bulk_set_activities_gear(
@@ -129,7 +129,7 @@ def bulk_set_activities_gear(
     )
 
 
-def get_gear_usage_totals(gear_id: int, db: Session) -> activities_contracts.ActivityUsageTotals:
+def get_gear_usage_totals(gear_id: int, db: Session) -> activity_contracts.ActivityUsageTotals:
     """Return the total distance and moving time recorded against a gear.
 
     Args:
@@ -139,14 +139,14 @@ def get_gear_usage_totals(gear_id: int, db: Session) -> activities_contracts.Act
     Returns:
         The gear's totals; zeroes when it has no activities.
     """
-    return activities_crud.sum_gear_usage(gear_id, db)
+    return activity_crud.sum_gear_usage(gear_id, db)
 
 
 def get_gear_usage_totals_by_window(
     gear_id: int,
-    windows: Sequence[activities_contracts.GearUsageWindow],
+    windows: Sequence[activity_contracts.GearUsageWindow],
     db: Session,
-) -> dict[int, activities_contracts.ActivityUsageTotals]:
+) -> dict[int, activity_contracts.ActivityUsageTotals]:
     """Return per-window usage totals for one gear, in a single query.
 
     Used to attribute a gear's activities to whichever component was fitted at
@@ -163,7 +163,7 @@ def get_gear_usage_totals_by_window(
         Totals per window key; every requested key is present, zeroed when the
         window matched nothing.
     """
-    return activities_crud.sum_gear_usage_by_window(gear_id, windows, db)
+    return activity_crud.sum_gear_usage_by_window(gear_id, windows, db)
 
 
 def list_user_activities_page(
@@ -171,7 +171,7 @@ def list_user_activities_page(
     page_number: int,
     num_records: int,
     db: Session,
-) -> list[activities_schema.Activity]:
+) -> list[activity_schema.Activity]:
     """Return one page of a user's own activities, newest first.
 
     The profile export walks a user's whole library in batches; it is always the
@@ -186,7 +186,7 @@ def list_user_activities_page(
     Returns:
         The page of activities, empty when the page is past the end.
     """
-    activities = activities_crud.get_user_activities_with_pagination(
+    activities = activity_crud.get_user_activities_with_pagination(
         user_id=user_id,
         db=db,
         page_number=page_number,
@@ -207,7 +207,7 @@ def list_user_activities_in_timeframe_by_types(
     db: Session,
     *,
     exclude_hidden: bool = True,
-) -> list[activities_schema.Activity]:
+) -> list[activity_schema.Activity]:
     """Return a user's own activities of the given types within a window.
 
     Used by goal progress. Hidden activities are excluded by default so a
@@ -224,7 +224,7 @@ def list_user_activities_in_timeframe_by_types(
     Returns:
         The matching activities, empty when there are none.
     """
-    activities = activities_crud.get_user_activities_per_timeframe_and_activity_types(
+    activities = activity_crud.get_user_activities_per_timeframe_and_activity_types(
         user_id,
         activity_types,
         start,
@@ -237,9 +237,9 @@ def list_user_activities_in_timeframe_by_types(
 
 
 def restore_activity(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     db: Session,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Persist an activity from a profile restore **without** publishing events.
 
     Deliberately not the ``store_parsed_activity`` ingestion seam: a bulk restore
@@ -261,13 +261,13 @@ def restore_activity(
     Returns:
         The staged activity, with its generated id.
     """
-    return activities_crud.create_activity(activity, db)
+    return activity_crud.create_activity(activity, db)
 
 
 def store_parsed_activity(
-    parsed: activities_contracts.ParsedActivity,
+    parsed: activity_contracts.ParsedActivity,
     db: Session,
-) -> activities_schema.Activity:
+) -> activity_schema.Activity:
     """Persist a canonical parsed activity through the atomic ingestion seam.
 
     Args:
@@ -284,7 +284,7 @@ def resolve_readable_parent(
     activity_id: int,
     requester_user_id: int,
     db: Session,
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return the parent activity when an authenticated caller may read it.
 
     Args:
@@ -298,7 +298,7 @@ def resolve_readable_parent(
     return activity_child_access.resolve_readable_parent(activity_id, requester_user_id, db)
 
 
-def resolve_public_parent(activity_id: int, db: Session) -> activities_schema.Activity | None:
+def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:
     """Return the parent activity when it is publicly shareable.
 
     Args:
@@ -328,7 +328,7 @@ def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
 def get_activity_scoring_context(
     activity_id: int,
     db: Session,
-) -> activities_contracts.ActivityScoringContext | None:
+) -> activity_contracts.ActivityScoringContext | None:
     """Return parent columns needed to score one activity's streams.
 
     Args:
@@ -338,13 +338,13 @@ def get_activity_scoring_context(
     Returns:
         Parent columns needed to score one activity's streams.
     """
-    return activities_crud.get_activity_scoring_context(activity_id, db)
+    return activity_crud.get_activity_scoring_context(activity_id, db)
 
 
 def get_activity_scoring_contexts(
     activity_ids: list[int],
     db: Session,
-) -> dict[int, activities_contracts.ActivityScoringContext]:
+) -> dict[int, activity_contracts.ActivityScoringContext]:
     """Return stream-scoring contexts keyed by activity id.
 
     Args:
@@ -354,7 +354,7 @@ def get_activity_scoring_contexts(
     Returns:
         Stream-scoring contexts keyed by activity id.
     """
-    return activities_crud.get_activity_scoring_contexts(activity_ids, db)
+    return activity_crud.get_activity_scoring_contexts(activity_ids, db)
 
 
 def list_user_activity_scoring_contexts(
@@ -363,7 +363,7 @@ def list_user_activity_scoring_contexts(
     *,
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityScoringContext]:
+) -> list[activity_contracts.ActivityScoringContext]:
     """Return a bounded batch of one user's stream-scoring contexts.
 
     Args:
@@ -375,7 +375,7 @@ def list_user_activity_scoring_contexts(
     Returns:
         A bounded batch of one user's stream-scoring contexts.
     """
-    return activities_crud.list_user_activity_scoring_contexts(
+    return activity_crud.list_user_activity_scoring_contexts(
         user_id,
         db,
         after_id=after_id,
@@ -420,7 +420,7 @@ def list_activities_with_thumbnail(
     db: Session,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityThumbnailRef]:
+) -> list[activity_contracts.ActivityThumbnailRef]:
     """Return one bounded page of activity references carrying a stored thumbnail key.
 
     Args:
@@ -431,14 +431,14 @@ def list_activities_with_thumbnail(
     Returns:
         One bounded page of activity references carrying a stored thumbnail key.
     """
-    return activities_crud.get_activities_with_thumbnail(db, after_id=after_id, limit=limit)
+    return activity_crud.get_activities_with_thumbnail(db, after_id=after_id, limit=limit)
 
 
 def list_activities_without_thumbnail(
     db: Session,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activities_contracts.ActivityThumbnailRef]:
+) -> list[activity_contracts.ActivityThumbnailRef]:
     """Return one bounded page of activity references that have no stored thumbnail key.
 
     Args:
@@ -449,13 +449,13 @@ def list_activities_without_thumbnail(
     Returns:
         One bounded page of activity references that have no stored thumbnail key.
     """
-    return activities_crud.get_activities_without_thumbnail(db, after_id=after_id, limit=limit)
+    return activity_crud.get_activities_without_thumbnail(db, after_id=after_id, limit=limit)
 
 
 def list_activities_missing_location(
     db: Session,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
-) -> list[activities_contracts.ActivityLocationRef]:
+) -> list[activity_contracts.ActivityLocationRef]:
     """Return bounded activity references whose location is unresolved.
 
     Args:
@@ -465,7 +465,7 @@ def list_activities_missing_location(
     Returns:
         Bounded activity references whose location is unresolved.
     """
-    return activities_crud.get_activities_missing_location(db, limit)
+    return activity_crud.get_activities_missing_location(db, limit)
 
 
 def set_activity_location(

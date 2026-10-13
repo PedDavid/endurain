@@ -34,14 +34,6 @@ class ActivityStreamsBase(BaseModel):
     zone_percentages: dict | None = None
 
 
-class ActivityStreamsCreate(ActivityStreamsBase):
-    """
-    Schema for activity stream creation.
-
-    Inherits all fields from ActivityStreamsBase.
-    """
-
-
 class ActivityStreamsRead(ActivityStreamsBase):
     """
     Schema for activity stream reading.

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.render as activity_thumbnail_render
@@ -26,12 +26,12 @@ import modules.server_settings.integration_service as server_settings_integratio
 
 logger = core_logger.get_logger(__name__)
 
-type _ActivityPageFetcher = Callable[..., list[activities_contracts.ActivityThumbnailRef]]
+type _ActivityPageFetcher = Callable[..., list[activity_contracts.ActivityThumbnailRef]]
 
 
 def _iter_activity_pages(
-    db: Session, fetch_page: _ActivityPageFetcher
-) -> Iterator[list[activities_contracts.ActivityThumbnailRef]]:
+    fetch_page: _ActivityPageFetcher, db: Session
+) -> Iterator[list[activity_contracts.ActivityThumbnailRef]]:
     """Yield every non-empty page returned by an activity scan.
 
     Args:
@@ -57,7 +57,7 @@ def _iter_activity_pages(
         after_id = page[-1].id
 
 
-def _iter_activities_with_thumbnail(db: Session) -> Iterator[activities_contracts.ActivityThumbnailRef]:
+def _iter_activities_with_thumbnail(db: Session) -> Iterator[activity_contracts.ActivityThumbnailRef]:
     """Yield every activity carrying a thumbnail key, one bounded page at a time.
 
     Args:
@@ -69,11 +69,11 @@ def _iter_activities_with_thumbnail(db: Session) -> Iterator[activities_contract
     Returns:
         Thumbnail references, in id order.
     """
-    for page in _iter_activity_pages(db, activity_integration.list_activities_with_thumbnail):
+    for page in _iter_activity_pages(activity_integration.list_activities_with_thumbnail, db):
         yield from page
 
 
-def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activities_contracts.ActivityThumbnailRef]]:
+def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activity_contracts.ActivityThumbnailRef]]:
     """Yield pages of activities that have no thumbnail key.
 
     Pages rather than rows: the caller batch-loads each page's waypoints in one
@@ -90,7 +90,7 @@ def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activities_
     Returns:
         Pages of thumbnail references, in id order.
     """
-    yield from _iter_activity_pages(db, activity_integration.list_activities_without_thumbnail)
+    yield from _iter_activity_pages(activity_integration.list_activities_without_thumbnail, db)
 
 
 def resolve_tile_settings(db: Session) -> tuple[str, str, str | None]:

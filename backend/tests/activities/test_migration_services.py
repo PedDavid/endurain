@@ -38,13 +38,13 @@ import pytest
         ),
         (
             "modules.activities.activity_workout_steps.migration_service",
-            "workout_steps_crud",
+            "activity_workout_steps_crud",
             "create_activity_workout_steps",
             lambda m, db: m.create_activity_workout_steps([], 2, db),
         ),
         (
             "modules.activities.activity_exercise_titles.migration_service",
-            "exercise_titles_crud",
+            "activity_exercise_titles_crud",
             "create_activity_exercise_titles",
             lambda m, db: m.create_activity_exercise_titles([], db),
         ),

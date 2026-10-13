@@ -14,18 +14,18 @@ import modules.activities.activity_streams.schema as activity_streams_schema
 
 
 @overload
-def transform_activity_streams(
+def to_read_schema(
     activity_streams: list[activity_streams_models.ActivityStreams],
 ) -> list[activity_streams_schema.ActivityStreamsRead]: ...
 
 
 @overload
-def transform_activity_streams(
+def to_read_schema(
     activity_streams: activity_streams_models.ActivityStreams,
 ) -> activity_streams_schema.ActivityStreamsRead: ...
 
 
-def transform_activity_streams(
+def to_read_schema(
     activity_streams: activity_streams_models.ActivityStreams | list[activity_streams_models.ActivityStreams],
 ) -> activity_streams_schema.ActivityStreamsRead | list[activity_streams_schema.ActivityStreamsRead]:
     """

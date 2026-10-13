@@ -2,12 +2,12 @@
 
 from sqlalchemy.orm import Session
 
-import modules.activities.activity_workout_steps.crud as workout_steps_crud
-import modules.activities.activity_workout_steps.schema as workout_steps_schema
+import modules.activities.activity_workout_steps.crud as activity_workout_steps_crud
+import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 
 
 def create_activity_workout_steps(
-    activity_workout_steps: list[workout_steps_schema.ActivityWorkoutSteps],
+    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutSteps],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -21,5 +21,5 @@ def create_activity_workout_steps(
     Returns:
         None.
     """
-    workout_steps_crud.create_activity_workout_steps(activity_workout_steps, activity_id, db)
+    activity_workout_steps_crud.create_activity_workout_steps(activity_workout_steps, activity_id, db)
     db.commit()

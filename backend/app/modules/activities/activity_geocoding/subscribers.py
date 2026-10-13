@@ -45,7 +45,7 @@ def geocode_activity_for_event(event: Event) -> None:
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     with core_database.SessionLocal() as db:
         activity_geocoding_service.geocode_and_store_activity_location(
-            payload.activity_id, db, platform_runtime.get_active_platform().geocoding
+            payload.activity_id, platform_runtime.get_active_platform().geocoding, db
         )
     logger.debug(
         "Handled reverse geocoding for created activity",

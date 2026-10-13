@@ -20,7 +20,7 @@ id, so this seam only has to answer "and if not, what is the default?".
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.users.users.integration_service as users_integration
 import modules.users.users_privacy_settings.schema as users_privacy_settings_schema
 
@@ -95,7 +95,7 @@ def resolve_gear_id(
 
 
 def enrich_parsed_activity(
-    activity: activities_contracts.ActivityCore,
+    activity: activity_contracts.ActivityCore,
     *,
     user_id: int,
     user_privacy_settings: users_privacy_settings_schema.UsersPrivacySettingsRead,

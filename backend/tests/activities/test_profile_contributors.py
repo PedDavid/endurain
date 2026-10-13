@@ -119,7 +119,7 @@ def test_global_profile_contributor_restores_valid_titles_once() -> None:
     db = MagicMock()
 
     with patch.object(
-        activity_exercise_titles_integration.exercise_titles_crud, "create_activity_exercise_titles"
+        activity_exercise_titles_integration.activity_exercise_titles_crud, "create_activity_exercise_titles"
     ) as store:
         restored = activity_exercise_titles_integration.profile_global_contributor().restore(records, db)
 

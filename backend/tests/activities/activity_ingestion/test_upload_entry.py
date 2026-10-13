@@ -128,7 +128,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.pipeline, "store_activities_from_file", return_value=["activity"]) as store,
             patch.object(upload_entry.core_file_uploads, "remove_files"),
         ):
-            result = upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            result = upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         assert result == ["activity"]
         platform.storage.get.assert_called_once_with(
@@ -150,7 +150,7 @@ class TestProcessStagedUpload:
         with (
             pytest.raises(core_exceptions.InvalidInputError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
     def test_discards_the_blob_when_nothing_parsed(self):
         db = MagicMock()
@@ -160,7 +160,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.pipeline, "store_activities_from_file", return_value=None),
             patch.object(upload_entry.core_file_uploads, "remove_files"),
         ):
-            result = upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            result = upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         assert result is None
         platform.storage.delete.assert_called_once_with(
@@ -178,7 +178,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.core_file_uploads, "remove_files"),
             pytest.raises(core_exceptions.ProcessingError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         platform.storage.delete.assert_not_called()
 
@@ -194,7 +194,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.core_file_uploads, "remove_files"),
             pytest.raises(SQLAlchemyError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         platform.storage.delete.assert_not_called()
 
@@ -207,7 +207,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.core_file_uploads, "remove_files"),
             pytest.raises(core_exceptions.InvalidInputError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gz", db, platform.storage)
+            upload_entry.process_staged_upload(7, "abc.gz", platform.storage, db)
 
     def test_removes_the_working_directory_on_every_path(self):
         db = MagicMock()
@@ -219,7 +219,7 @@ class TestProcessStagedUpload:
             patch.object(upload_entry.shutil, "rmtree") as rmtree,
             pytest.raises(core_exceptions.ProcessingError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         rmtree.assert_called_once()
 
@@ -260,7 +260,7 @@ class TestLocalStorageStaging:
             assert local_storage.get(upload_entry.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") == b"<gpx/>"
 
             with patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=store_materialized_file):
-                assert upload_entry.process_staged_upload(7, "abc.gpx", MagicMock(), platform.storage) == []
+                assert upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, MagicMock()) == []
 
             assert parsed_data == [b"<gpx/>"]
             assert local_storage.get(upload_entry.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None

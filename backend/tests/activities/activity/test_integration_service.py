@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 
 class TestIntegrationService:
-    @patch("modules.activities.activity.integration_service.activities_crud")
+    @patch("modules.activities.activity.integration_service.activity_crud")
     def test_get_activity_by_strava_id_delegates(self, mock_crud):
         from modules.activities.activity import integration_service
 
@@ -21,7 +21,7 @@ class TestIntegrationService:
         assert result == "activity"
         mock_crud.get_activity_by_strava_id_from_user_id.assert_called_once_with(111, 3, db)
 
-    @patch("modules.activities.activity.integration_service.activities_crud")
+    @patch("modules.activities.activity.integration_service.activity_crud")
     def test_get_activity_by_garminconnect_id_delegates(self, mock_crud):
         from modules.activities.activity import integration_service
 
@@ -33,7 +33,7 @@ class TestIntegrationService:
         assert result == "activity"
         mock_crud.get_activity_by_garminconnect_id_from_user_id.assert_called_once_with(222, 3, db)
 
-    @patch("modules.activities.activity.integration_service.activities_crud")
+    @patch("modules.activities.activity.integration_service.activity_crud")
     def test_list_user_activities_delegates(self, mock_crud):
         from modules.activities.activity import integration_service
 
@@ -45,7 +45,7 @@ class TestIntegrationService:
         assert result == ["a"]
         mock_crud.get_user_activities.assert_called_once_with(3, db)
 
-    @patch("modules.activities.activity.integration_service.activities_crud")
+    @patch("modules.activities.activity.integration_service.activity_crud")
     def test_list_user_activities_with_garminconnect_gear_delegates(self, mock_crud):
         from modules.activities.activity import integration_service
 

@@ -31,7 +31,7 @@ class TestReadActivityMediaFile:
         assert resp.media_type == "image/jpeg"
         assert resp.body == b"imagedata"
         assert resp.headers["Cache-Control"] == "private, max-age=3600"
-        mock_service.read_activity_media_blob.assert_called_once_with(1, 5, "tok", db, storage)
+        mock_service.read_activity_media_blob.assert_called_once_with(1, 5, "tok", storage, db)
 
     @patch(f"{_ROUTER}.activity_media_service")
     def test_a_refused_read_propagates_as_not_found(self, mock_service):
@@ -58,7 +58,7 @@ class TestReadActivityMediaBlob:
         storage = MagicMock()
         storage.get.return_value = b"png"
 
-        assert read_activity_media_blob(1, 5, "tok", MagicMock(), storage) == (b"png", "image/png")
+        assert read_activity_media_blob(1, 5, "tok", storage, MagicMock()) == (b"png", "image/png")
         self.verify.assert_called_once_with(5, "tok")
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -69,7 +69,7 @@ class TestReadActivityMediaBlob:
         storage = MagicMock()
         storage.get.return_value = b"jpg"
 
-        assert read_activity_media_blob(1, 5, "tok", MagicMock(), storage)[1] == "image/jpeg"
+        assert read_activity_media_blob(1, 5, "tok", storage, MagicMock())[1] == "image/jpeg"
 
     @patch(f"{_SVC}.activity_media_crud")
     def test_an_invalid_token_never_reaches_persistence_or_storage(self, mock_crud):
@@ -79,7 +79,7 @@ class TestReadActivityMediaBlob:
         storage = MagicMock()
 
         with pytest.raises(core_exceptions.NotFoundError):
-            read_activity_media_blob(1, 5, "forged", MagicMock(), storage)
+            read_activity_media_blob(1, 5, "forged", storage, MagicMock())
 
         mock_crud.get_activity_media_by_id.assert_not_called()
         storage.get.assert_not_called()
@@ -93,7 +93,7 @@ class TestReadActivityMediaBlob:
 
         storage = MagicMock()
         with pytest.raises(core_exceptions.NotFoundError):
-            read_activity_media_blob(1, 5, "tok", MagicMock(), storage)
+            read_activity_media_blob(1, 5, "tok", storage, MagicMock())
         storage.get.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -104,7 +104,7 @@ class TestReadActivityMediaBlob:
 
         storage = MagicMock()
         with pytest.raises(core_exceptions.NotFoundError):
-            read_activity_media_blob(1, 5, "tok", MagicMock(), storage)
+            read_activity_media_blob(1, 5, "tok", storage, MagicMock())
         storage.get.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -116,4 +116,4 @@ class TestReadActivityMediaBlob:
         storage.get.return_value = None
 
         with pytest.raises(core_exceptions.NotFoundError):
-            read_activity_media_blob(1, 5, "tok", MagicMock(), storage)
+            read_activity_media_blob(1, 5, "tok", storage, MagicMock())

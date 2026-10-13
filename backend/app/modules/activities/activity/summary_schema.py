@@ -200,3 +200,7 @@ class LifetimeSummaryResponse(SummaryMetrics):
         default=None,
         description=("Optional breakdown by activity type"),
     )
+
+
+#: What the summary route returns: one shape per requested period.
+SummaryResponse = WeeklySummaryResponse | MonthlySummaryResponse | YearlySummaryResponse | LifetimeSummaryResponse

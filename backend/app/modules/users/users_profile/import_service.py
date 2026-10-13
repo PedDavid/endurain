@@ -30,7 +30,7 @@ import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
-import modules.activities.contributor_registry as contributor_registry
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.gears.gear.crud as gear_crud
 import modules.gears.gear.schema as gear_schema
 import modules.gears.gear_components.crud as gear_components_crud
@@ -336,7 +336,7 @@ class ImportService:
 
     def _restore_global_activity_components(self, zipf: zipfile.ZipFile) -> None:
         """Load and restore every global activity contribution once."""
-        for contributor in contributor_registry.profile_global_contributors():
+        for contributor in activities_contributor_registry.profile_global_contributors():
             records = self._load_single_json(zipf, contributor.archive_path, check_memory=False)
             restored = contributor.restore(records, self.db)
             self.counts[contributor.count_key] += restored
@@ -637,7 +637,7 @@ class ImportService:
             original_activity_id: Old activity ID.
             new_activity: New activity object.
         """
-        for contributor in contributor_registry.profile_activity_contributors():
+        for contributor in activities_contributor_registry.profile_activity_contributors():
             restored = contributor.restore(
                 component_data.get(contributor.key, []),
                 original_activity_id,
@@ -686,7 +686,7 @@ class ImportService:
                 f"Maximum allowed: {self.performance_config.max_activities}"
             )
 
-        contributors = contributor_registry.profile_activity_contributors()
+        contributors = activities_contributor_registry.profile_activity_contributors()
         component_files: dict[str, list[str]] = {}
         component_records: dict[str, list[Any]] = {}
         for contributor in contributors:

@@ -26,13 +26,6 @@ logger = core_logger.get_logger(__name__)
 # Earliest year a summary may be requested for.
 _MIN_YEAR = 1900
 
-SummaryResponse = (
-    summary_schema.WeeklySummaryResponse
-    | summary_schema.MonthlySummaryResponse
-    | summary_schema.YearlySummaryResponse
-    | summary_schema.LifetimeSummaryResponse
-)
-
 
 def _latest_plausible_year() -> int:
     """Return the highest year any caller could currently be in.
@@ -81,7 +74,7 @@ def build_summary(
     anchor: date | None = None,
     target_year: int | None = None,
     activity_type: str | None = None,
-) -> SummaryResponse:
+) -> summary_schema.SummaryResponse:
     """Build the activity summary for one period.
 
     Args:

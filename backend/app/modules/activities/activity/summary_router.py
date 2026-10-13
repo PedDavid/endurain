@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, Query, Security
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import modules.activities.activity.summary_schema as summary_schema
 import modules.activities.activity.summary_service as summary_service
 import modules.auth.dependencies as auth_dependencies
 
@@ -23,7 +24,7 @@ router = APIRouter()
 
 @router.get(
     "",
-    response_model=summary_service.SummaryResponse,
+    response_model=summary_schema.SummaryResponse,
 )
 def read_activity_summary(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
@@ -48,7 +49,7 @@ def read_activity_summary(
         str | None,
         Query(alias="type", description="Filter the summary by activity type name."),
     ] = None,
-) -> summary_service.SummaryResponse:
+) -> summary_schema.SummaryResponse:
     """Return the authenticated user's activity summary for one period."""
     return summary_service.build_summary(
         token_user_id,

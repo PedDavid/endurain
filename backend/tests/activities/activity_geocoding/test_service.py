@@ -56,8 +56,8 @@ class TestGeocodeAndStore:
     def test_contract_takes_activity_session_and_provider(self):
         assert tuple(inspect.signature(geocode_and_store_activity_location).parameters) == (
             "activity_id",
-            "db",
             "geocoding",
+            "db",
         )
 
     @patch(f"{_SVC}.activity_streams_integration.get_stream_for_derivation", return_value=None)
@@ -87,7 +87,7 @@ class TestGeocodeAndStore:
     def test_success_stores_location(self, mock_update, mock_stream, _mock_geo):
         db = MagicMock()
         mock_stream.return_value = MagicMock(stream_waypoints=[{"lat": 38.0, "lon": -9.0}])
-        assert geocode_and_store_activity_location(42, db, MagicMock()) is True
+        assert geocode_and_store_activity_location(42, MagicMock(), db) is True
         mock_update.assert_called_once_with(42, "Lisbon", "Belem", "Portugal", db)
 
     @patch(f"{_SVC}.reverse_geocode")
@@ -96,7 +96,7 @@ class TestGeocodeAndStore:
     def test_geocodes_the_first_waypoint(self, _mock_update, mock_stream, mock_geo):
         mock_stream.return_value = MagicMock(stream_waypoints=[{"lat": 38.0, "lon": -9.0}, {"lat": 40.0, "lon": -8.0}])
         provider = MagicMock()
-        geocode_and_store_activity_location(42, MagicMock(), provider)
+        geocode_and_store_activity_location(42, provider, MagicMock())
         mock_geo.assert_called_once_with(provider, 38.0, -9.0)
 
 
@@ -118,7 +118,7 @@ class TestBackfill:
             MagicMock(id=2),  # no GPS -> skipped
         ]
         mock_waypoints.return_value = {1: [{"lat": 38.0, "lon": -9.0}]}
-        stored = backfill_missing_activity_locations(db, MagicMock())
+        stored = backfill_missing_activity_locations(MagicMock(), db)
         assert stored == 1
         mock_update.assert_called_once_with(1, "Lisbon", None, "Portugal", db)
 

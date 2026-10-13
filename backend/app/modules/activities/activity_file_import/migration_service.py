@@ -1,9 +1,9 @@
 """Version-pinned parser operations exposed only to data migrations."""
 
 import modules.activities.activity_file_import.fit_frames as fit_frames
-import modules.activities.activity_file_import.utils as file_import_utils
+import modules.activities.activity_file_import.utils as activity_file_import_utils
 
-generate_activity_laps = file_import_utils.generate_activity_laps
+generate_activity_laps = activity_file_import_utils.generate_activity_laps
 parse_frame_session = fit_frames.parse_frame_session
 parse_frame_lap = fit_frames.parse_frame_lap
 parse_frame_workout_step = fit_frames.parse_frame_workout_step

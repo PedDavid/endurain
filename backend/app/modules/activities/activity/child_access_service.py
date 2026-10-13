@@ -22,8 +22,8 @@ parent and pass it to their own filter.
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.crud as activities_crud
-import modules.activities.activity.schema as activities_schema
+import modules.activities.activity.crud as activity_crud
+import modules.activities.activity.schema as activity_schema
 import modules.followers.integration_service as followers_integration
 import modules.server_settings.integration_service as server_settings_integration
 
@@ -34,7 +34,7 @@ def resolve_readable_parent(
     activity_id: int,
     requester_user_id: int,
     db: Session,
-) -> activities_schema.Activity | None:
+) -> activity_schema.Activity | None:
     """Return the parent activity when an authenticated caller may see it at all.
 
     Unmasked, so the caller can read the ``hide_*`` flags it needs for its own
@@ -50,10 +50,10 @@ def resolve_readable_parent(
         The activity, or ``None`` when it does not exist or is not visible.
     """
     followee_ids = followers_integration.list_accepted_followee_ids(requester_user_id, db)
-    return activities_crud.get_viewable_activity_by_id_for_user(activity_id, requester_user_id, db, followee_ids)
+    return activity_crud.get_viewable_activity_by_id_for_user(activity_id, requester_user_id, db, followee_ids)
 
 
-def resolve_public_parent(activity_id: int, db: Session) -> activities_schema.Activity | None:
+def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:
     """Return the parent activity when it is publicly shareable.
 
     Enforces the server-wide ``public_shareable_links`` setting, ``visibility == 0``
@@ -68,7 +68,7 @@ def resolve_public_parent(activity_id: int, db: Session) -> activities_schema.Ac
     """
     if not server_settings_integration.public_shareable_links_enabled(db):
         return None
-    return activities_crud.get_activity_by_id_if_is_public(activity_id, db)
+    return activity_crud.get_activity_by_id_if_is_public(activity_id, db)
 
 
 def may_read_child(activity_id: int, requester_user_id: int, db: Session, *, hide_attr: str) -> bool:
@@ -122,4 +122,4 @@ def may_read_public_child(activity_id: int, db: Session, *, hide_attr: str) -> b
     """
     if not server_settings_integration.public_shareable_links_enabled(db):
         return False
-    return activities_crud.get_public_activity_for_child_read(activity_id, db, hide_attr=hide_attr) is not None
+    return activity_crud.get_public_activity_for_child_read(activity_id, db, hide_attr=hide_attr) is not None

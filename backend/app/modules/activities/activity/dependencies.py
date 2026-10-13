@@ -1,3 +1,10 @@
+"""FastAPI dependencies that validate activity path and query parameters.
+
+Mounted at the HTTP boundary by the activity routers. A rejected value answers
+422, matching the shared :mod:`core.dependencies` validators the sibling child
+packages use.
+"""
+
 from fastapi import HTTPException, Query, status
 
 import core.dependencies as core_dependencies
@@ -11,39 +18,34 @@ from modules.activities.activity.constants import (
 logger = core_logger.get_logger(__name__)
 
 
-def validate_activity_id(activity_id: int):
+def validate_activity_id(activity_id: int) -> None:
     """
-    Validates the provided activity ID.
-
-    This function ensures that the given activity ID is greater than or equal to 0.
-    If the validation fails, an exception is raised with the specified error message.
+    Validate that the activity ID is a positive integer.
 
     Args:
-        activity_id (int): The ID of the activity to validate.
+        activity_id: The ID of the activity to validate.
 
     Returns:
         None.
 
     Raises:
-        ValueError: If the activity ID is less than 0.
+        HTTPException: 422 when the ID is not greater than zero.
     """
-    # Activity primary keys are >= 0; align with schema field constraint.
     core_dependencies.validate_id(identifier=activity_id, min_value=0, message="Invalid activity ID")
 
 
-def validate_activity_type(activity_type: int | None = Query(None)):
+def validate_activity_type(activity_type: int | None = Query(None)) -> None:
     """
-    Validates the provided activity type against a predefined mapping of valid activity types.
+    Validate the activity type filter against the known activity types.
 
     Args:
-        activity_type (int | None): The activity type to validate. Defaults to None.
+        activity_type: The activity type to validate; ``None`` means no filter.
 
     Returns:
         None.
 
     Raises:
-        HTTPException: If the provided activity type is not in the predefined mapping
-                       and is not None, an HTTP 422 Unprocessable Entity exception is raised.
+        HTTPException: 422 when the type is not a known activity type.
     """
     if activity_type not in ACTIVITY_ID_TO_NAME and activity_type is not None:
         logger.debug(
@@ -56,21 +58,19 @@ def validate_activity_type(activity_type: int | None = Query(None)):
         )
 
 
-def validate_sort_by(sort_by: str | None = Query(None)):
+def validate_sort_by(sort_by: str | None = Query(None)) -> None:
     """
-    Validates the `sort_by` query parameter to ensure it is either `None` or one of the
-    allowed sorting fields (:data:`~modules.activities.activity.constants.ACTIVITY_SORT_FIELDS`).
+    Validate the ``sort_by`` query parameter.
 
     Args:
-        sort_by (str | None): The sorting field provided as a query parameter.
+        sort_by: The sort field; ``None`` means the default order. Allowed values
+            are :data:`~modules.activities.activity.constants.ACTIVITY_SORT_FIELDS`.
 
     Returns:
         None.
 
     Raises:
-        HTTPException: If `sort_by` is not `None` and is not one of the allowed values,
-            an HTTP 422 Unprocessable Entity exception is raised with the detail
-            "Invalid sort by field".
+        HTTPException: 422 when the field is not an allowed sort field.
     """
     if sort_by is not None and sort_by not in ACTIVITY_SORT_FIELDS:
         logger.debug(
@@ -83,18 +83,19 @@ def validate_sort_by(sort_by: str | None = Query(None)):
         )
 
 
-def validate_sort_order(sort_order: str | None = Query(None)):
+def validate_sort_order(sort_order: str | None = Query(None)) -> None:
     """
-    Validates the provided sort order parameter.
+    Validate the ``sort_order`` query parameter.
 
     Args:
-        sort_order (str | None): The sort order to validate. It can be "asc", "desc", or None.
+        sort_order: The sort direction; ``None`` means the default. Allowed values
+            are :data:`~modules.activities.activity.constants.ACTIVITY_SORT_ORDERS`.
 
     Returns:
         None.
 
     Raises:
-        HTTPException: If the sort_order is not "asc", "desc", or None, an HTTP 422 Unprocessable Entity error is raised.
+        HTTPException: 422 when the direction is not an allowed sort order.
     """
     if sort_order is not None and sort_order not in ACTIVITY_SORT_ORDERS:
         logger.debug(

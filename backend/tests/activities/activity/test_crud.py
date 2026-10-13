@@ -9,11 +9,11 @@ from tests._helpers.db import create_sqlite_session, setup_mock_execute
 from tests._helpers.models import mock_model
 
 import core.exceptions as core_exceptions
-import modules.activities.activity.query as activities_query
+import modules.activities.activity.query as activity_query
 
 
 class TestGetUserActivities:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -39,7 +39,7 @@ class TestGetUserActivities:
             crud.get_user_activities(user_id=1, db=mock_db)
         assert e.value.status_code == 500
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_with_filters(self, mock_ser, mock_db):
         from datetime import date
 
@@ -60,7 +60,7 @@ class TestGetUserActivities:
 
 
 class TestGetUserActivitiesWithPagination:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -84,7 +84,7 @@ class TestGetUserActivitiesWithPagination:
             crud.get_user_activities_with_pagination(user_id=1, db=mock_db)
         assert e.value.status_code == 500
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_sort_by_location(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -101,7 +101,7 @@ class TestGetUserActivitiesWithPagination:
         )
         assert r is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_sort_by_numeric(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -120,7 +120,7 @@ class TestGetUserActivitiesWithPagination:
 
 
 class TestGetAllActivities:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -146,7 +146,7 @@ class TestGetAllActivities:
 
 
 class TestGetActivitiesPerTimeframe:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         from datetime import UTC, datetime
 
@@ -192,7 +192,7 @@ class TestGetActivitiesPerTimeframe:
 
 
 class TestGetActivityByID:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -219,9 +219,9 @@ class TestGetActivityByID:
 
 
 class TestCreateActivity:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.crud.get_activity_by_start_time")
-    @patch("modules.activities.activity.crud.activities_serializers.deserialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_orm")
     def test_success(self, mock_transform, mock_check, mock_serialize, mock_db):
         import modules.activities.activity.crud as crud
 
@@ -239,9 +239,9 @@ class TestCreateActivity:
         mock_serialize.assert_called_once_with(m)
         mock_db.add.assert_called_once()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.crud.get_activity_by_start_time")
-    @patch("modules.activities.activity.crud.activities_serializers.deserialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_orm")
     def test_does_not_mutate_the_ingestion_contract(self, mock_transform, mock_check, mock_serialize, mock_db):
         """The input is the write contract and must come back untouched.
 
@@ -297,9 +297,9 @@ class TestCreateActivity:
         assert e.value.status_code == 400
         mock_db.add.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.crud.get_activity_by_start_time")
-    @patch("modules.activities.activity.crud.activities_serializers.deserialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_orm")
     def test_duplicate_start_time(self, mock_transform, mock_check, mock_serialize, mock_db):
         import modules.activities.activity.crud as crud
 
@@ -318,9 +318,9 @@ class TestCreateActivity:
         # The flag lands on the ORM row, not on the caller's write contract.
         assert m.is_hidden is True
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.crud.get_activity_by_start_time")
-    @patch("modules.activities.activity.crud.activities_serializers.deserialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_orm")
     def test_persists_dedup_key(self, mock_transform, mock_check, mock_serialize, mock_db):
         import modules.activities.activity.crud as crud
 
@@ -337,7 +337,7 @@ class TestCreateActivity:
         assert m.dedup_key == "strava:99"
 
     @patch("modules.activities.activity.crud.get_activity_by_start_time")
-    @patch("modules.activities.activity.crud.activities_serializers.deserialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_orm")
     def test_db_error(self, mock_transform, mock_check, mock_db):
         import modules.activities.activity.crud as crud
 
@@ -354,7 +354,7 @@ class TestCreateActivity:
 
 
 class TestEditActivity:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         from pydantic import BaseModel
 
@@ -394,7 +394,7 @@ class TestEditActivity:
         with pytest.raises(TypeError, match="Pydantic"):
             crud.edit_activity(user_id=1, activity_id=1, activity_attributes=type("Nope", (), {"id": 1})(), db=mock_db)
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.serializers.core_sanitization.sanitize_markdown")
     def test_sanitization(self, mock_sanitize, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
@@ -597,7 +597,7 @@ class TestBulkSetGear:
 
 
 class TestActivityByStravaGarmin:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_by_strava_id(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -607,7 +607,7 @@ class TestActivityByStravaGarmin:
         r = crud.get_activity_by_strava_id_from_user_id(activity_strava_id=123, user_id=1, db=mock_db)
         assert r is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_by_garmin_id(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -675,7 +675,7 @@ class TestGetAllActivitiesForMigration:
 
 
 class TestGetUserActivitiesByGarminGear:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -701,7 +701,7 @@ class TestGetUserActivitiesByGarminGear:
 
 
 class TestGetUserActivitiesPerTimeframeAndTypes:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         from datetime import UTC, datetime
 
@@ -720,7 +720,7 @@ class TestGetUserActivitiesPerTimeframeAndTypes:
         )
         assert r is not None and len(r) == 1
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success_exclude_hidden(self, mock_ser, mock_db):
         from datetime import UTC, datetime
 
@@ -775,7 +775,7 @@ class TestGetUserActivitiesPerTimeframeAndTypes:
 
 
 class TestGetUserActivitiesByGearId:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -801,7 +801,7 @@ class TestGetUserActivitiesByGearId:
 
 
 class TestGetUserActivitiesByGearIdWithPagination:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -836,8 +836,8 @@ class TestGetUserActivitiesByGearIdWithPagination:
 
 
 class TestGetActivityByIdFromUserIdOrHasVisibility:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_success_as_owner(self, mock_mask, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -848,8 +848,8 @@ class TestGetActivityByIdFromUserIdOrHasVisibility:
         r = crud.get_activity_by_id_from_user_id_or_has_visibility(activity_id=1, user_id=1, db=mock_db)
         assert r is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_success_as_visible_non_owner(self, mock_mask, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -944,8 +944,8 @@ class TestGetActivityByIdIfIsPublic:
 
     # --- access-control behavior (real SQLite DB) ---
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_serves_public_activity(self, mock_mask, mock_ser, sqlite_session):
         """Regression guard: a public, non-hidden activity is still served after the is_hidden filter."""
         import modules.activities.activity.crud as crud
@@ -960,8 +960,8 @@ class TestGetActivityByIdIfIsPublic:
         mock_ser.assert_called_once()
         assert mock_ser.call_args.args[0].id == 1
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_excludes_hidden_activities(self, mock_mask, mock_ser, sqlite_session):
         """A hidden activity must never be served publicly, even when its visibility is public."""
         import modules.activities.activity.crud as crud
@@ -974,8 +974,8 @@ class TestGetActivityByIdIfIsPublic:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_excludes_non_public_visibility(self, mock_mask, mock_ser, sqlite_session):
         """Only ``visibility == 0`` (public) activities are served."""
         import modules.activities.activity.crud as crud
@@ -988,8 +988,8 @@ class TestGetActivityByIdIfIsPublic:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_excludes_live_strava_api_activity(self, mock_mask, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1020,8 +1020,8 @@ class TestGetPublicActivityForChildRead:
     per-resource ``hide_*`` flag.
     """
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_excludes_hidden_activity(self, mock_mask, mock_ser, sqlite_session):
         """A hidden activity must not expose its child resources publicly."""
         import modules.activities.activity.crud as crud
@@ -1034,8 +1034,8 @@ class TestGetPublicActivityForChildRead:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_excludes_non_public_visibility(self, mock_mask, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1090,7 +1090,7 @@ class TestGetViewableActivityByIdForUser:
     database; only the error branch stays on the mock-DB path.
     """
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_owner_sees_own_private_activity(self, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1104,7 +1104,7 @@ class TestGetViewableActivityByIdForUser:
         # Returned unmasked (no apply_visibility_mask) so callers can read hide_* flags.
         assert mock_ser.call_args.args[0].id == 1
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_denied_private_activity(self, mock_ser, sqlite_session):
         """A non-owner must NOT read a private (visibility=2) activity by id."""
         import modules.activities.activity.crud as crud
@@ -1117,7 +1117,7 @@ class TestGetViewableActivityByIdForUser:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_sees_public_activity(self, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1129,7 +1129,7 @@ class TestGetViewableActivityByIdForUser:
 
         assert result is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_denied_live_strava_api_activity(self, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1149,7 +1149,7 @@ class TestGetViewableActivityByIdForUser:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_owner_sees_own_live_strava_api_activity(self, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1169,7 +1169,7 @@ class TestGetViewableActivityByIdForUser:
 
         assert result is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_denied_hidden_public_activity(self, mock_ser, sqlite_session):
         """A hidden activity is never visible to a non-owner, even when public."""
         import modules.activities.activity.crud as crud
@@ -1182,7 +1182,7 @@ class TestGetViewableActivityByIdForUser:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_denied_followers_only_without_follow(self, mock_ser, sqlite_session):
         """A followers-only (visibility=1) activity is denied without an accepted follow."""
         import modules.activities.activity.crud as crud
@@ -1195,7 +1195,7 @@ class TestGetViewableActivityByIdForUser:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_denied_followers_only_with_pending_follow(self, mock_ser, sqlite_session):
         """A pending (unaccepted) follow does not grant followers-only access."""
         import modules.activities.activity.crud as crud
@@ -1210,7 +1210,7 @@ class TestGetViewableActivityByIdForUser:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_sees_followers_only_with_accepted_follow(self, mock_ser, sqlite_session):
         """An accepted follower may read a followers-only activity."""
         import modules.activities.activity.crud as crud
@@ -1246,7 +1246,7 @@ class TestGetViewableActivityByIdForUser:
 class TestStravaApiVisibilityPolicy:
     """Live Strava API rows remain owner-only across list and detail reads."""
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_non_owner_list_excludes_live_api_but_keeps_file_import(self, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1276,8 +1276,8 @@ class TestStravaApiVisibilityPolicy:
         assert [activity.id for activity in activities] == [2]
         assert count == 1
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_non_owner_detail_denies_live_api_activity(self, mock_mask, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1293,8 +1293,8 @@ class TestStravaApiVisibilityPolicy:
         assert result is None
         mock_ser.assert_not_called()
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
-    @patch("modules.activities.activity.crud.activities_serializers.apply_visibility_mask")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
+    @patch("modules.activities.activity.crud.activity_serializers.apply_visibility_mask")
     def test_owner_detail_keeps_live_api_activity(self, mock_mask, mock_ser, sqlite_session):
         import modules.activities.activity.crud as crud
 
@@ -1312,7 +1312,7 @@ class TestStravaApiVisibilityPolicy:
 
 
 class TestGetActivityByStartTime:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success_with_str(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -1323,7 +1323,7 @@ class TestGetActivityByStartTime:
         r = crud.get_activity_by_start_time(start_time="2024-01-01T10:00:00+00:00", user_id=1, db=mock_db)
         assert r is not None
 
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success_with_datetime_naive(self, mock_ser, mock_db):
         from datetime import datetime
 
@@ -1352,7 +1352,7 @@ class TestGetActivityByStartTime:
 
 
 class TestGetActivityByDedupKey:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -1379,7 +1379,7 @@ class TestGetActivityByDedupKey:
 
 
 class TestGetActivityByIdFromUserId:
-    @patch("modules.activities.activity.crud.activities_serializers.serialize_activity")
+    @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     def test_success(self, mock_ser, mock_db):
         import modules.activities.activity.crud as crud
         import modules.activities.activity.models as am
@@ -1686,7 +1686,7 @@ class TestLocalTimeBucketing:
         return str(expr.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
 
     def test_expression_converts_through_activity_timezone(self):
-        sql = self._sql(activities_query.local_start_time_expression())
+        sql = self._sql(activity_query.local_start_time_expression())
 
         assert "timezone(" in sql
         assert "coalesce(activities.timezone, 'UTC')" in sql
@@ -1694,7 +1694,7 @@ class TestLocalTimeBucketing:
 
     def test_inclusive_end_covers_the_whole_end_day(self):
 
-        conditions = activities_query.local_date_range_conditions(
+        conditions = activity_query.local_date_range_conditions(
             date(2024, 5, 1), date(2024, 5, 31), end_exclusive=False
         )
         sql = " ".join(self._sql(c) for c in conditions)
@@ -1705,9 +1705,7 @@ class TestLocalTimeBucketing:
 
     def test_exclusive_end_uses_the_end_date_itself(self):
 
-        conditions = activities_query.local_date_range_conditions(
-            date(2024, 5, 1), date(2024, 6, 1), end_exclusive=True
-        )
+        conditions = activity_query.local_date_range_conditions(date(2024, 5, 1), date(2024, 6, 1), end_exclusive=True)
         sql = " ".join(self._sql(c) for c in conditions)
 
         assert "'2024-06-01 00:00:00'" in sql
@@ -1715,9 +1713,7 @@ class TestLocalTimeBucketing:
     def test_pairs_an_indexable_prefilter_with_the_exact_predicate(self):
         """The functional expression is unindexable, so a widened raw-column bound rides along."""
 
-        conditions = activities_query.local_date_range_conditions(
-            date(2024, 5, 1), date(2024, 5, 1), end_exclusive=True
-        )
+        conditions = activity_query.local_date_range_conditions(date(2024, 5, 1), date(2024, 5, 1), end_exclusive=True)
         sql = [self._sql(c) for c in conditions]
 
         prefilters = [s for s in sql if "timezone(" not in s]
@@ -1731,9 +1727,9 @@ class TestLocalTimeBucketing:
 
     def test_open_ended_bounds_emit_no_conditions(self):
 
-        assert activities_query.local_date_range_conditions(None, None, end_exclusive=False) == []
-        assert len(activities_query.local_date_range_conditions(date(2024, 5, 1), None, end_exclusive=False)) == 2
-        assert len(activities_query.local_date_range_conditions(None, date(2024, 5, 1), end_exclusive=False)) == 2
+        assert activity_query.local_date_range_conditions(None, None, end_exclusive=False) == []
+        assert len(activity_query.local_date_range_conditions(date(2024, 5, 1), None, end_exclusive=False)) == 2
+        assert len(activity_query.local_date_range_conditions(None, date(2024, 5, 1), end_exclusive=False)) == 2
 
 
 class TestSumGearUsageByWindow:

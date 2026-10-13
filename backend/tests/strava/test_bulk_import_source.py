@@ -9,12 +9,12 @@ knowledge belongs.
 from unittest.mock import patch
 
 import core.config as core_config
-import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity.contracts as activity_contracts
 import modules.strava.bulk_import_source as strava_bulk_import_source
 
 
-def _activity() -> activities_contracts.ActivityCore:
-    return activities_contracts.ActivityCore(
+def _activity() -> activity_contracts.ActivityCore:
+    return activity_contracts.ActivityCore(
         user_id=1,
         name="Workout",
         distance=1000,

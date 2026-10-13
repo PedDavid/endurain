@@ -97,7 +97,7 @@ class TestStoreActivityMedia:
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", storage, MagicMock())
 
         assert result.id == 9
         assert "/activities/1/media/9/file?t=" in result.url
@@ -127,7 +127,7 @@ class TestStoreActivityMedia:
         existing = ActivityMediaRecord(id=4, activity_id=1, media_path="1_existing.jpg", media_type=1)
         mock_media_crud.get_activity_media_by_content_hash.return_value = existing
 
-        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", storage, MagicMock())
 
         assert result.id == 4
         storage.save.assert_not_called()
@@ -142,7 +142,7 @@ class TestStoreActivityMedia:
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
             storage = MagicMock()
-            store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
+            store_activity_media(1, 2, "ride.jpg", b"bytes", storage, MagicMock())
 
         assert exc.value.status_code == 404
         # Nothing is stored for an activity the caller does not own.
@@ -159,7 +159,7 @@ class TestStoreActivityMedia:
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
         with pytest.raises(core_exceptions.ConflictError):
-            store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
+            store_activity_media(1, 2, "ride.jpg", b"bytes", storage, MagicMock())
 
         # A failed upload leaves no orphaned blob.
         stored_key = storage.save.call_args.args[1]
@@ -181,7 +181,7 @@ class TestStoreActivityMedia:
         mock_media_crud.get_activity_media_by_content_hash.side_effect = [None, winner]
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
-        result = store_activity_media(1, 2, "ride.jpg", b"bytes", MagicMock(), storage)
+        result = store_activity_media(1, 2, "ride.jpg", b"bytes", storage, MagicMock())
 
         assert result.id == 4
         stored_key = storage.save.call_args.args[1]
@@ -206,7 +206,7 @@ class TestStoreActivityMedia:
         mock_media_crud.get_activity_media_by_content_hash.side_effect = lookup
         mock_media_crud.create_activity_media.side_effect = core_exceptions.ConflictError("dup")
 
-        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", db, MagicMock())
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), db)
 
         assert result.id == 4
         assert events == ["lookup", "rollback", "lookup"]
@@ -223,7 +223,7 @@ class TestStoreActivityMedia:
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        store_activity_media_bytes(1, "photo.jpg", b"bytes", db, MagicMock())
+        store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), db)
 
         db.commit.assert_called_once()
 
@@ -242,7 +242,7 @@ class TestStoreActivityMediaBytes:
             id=9, activity_id=1, media_path="1_abc.jpg", media_type=1
         )
 
-        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), storage)
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", storage, MagicMock())
 
         assert result.id == 9
         area, _key, data, content_type = storage.save.call_args.args
@@ -262,7 +262,7 @@ class TestStoreActivityMediaBytes:
         existing = ActivityMediaRecord(id=4, activity_id=1, media_path="1_existing.jpg", media_type=1)
         mock_media_crud.get_activity_media_by_content_hash.return_value = existing
 
-        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", MagicMock(), storage)
+        result = store_activity_media_bytes(1, "photo.jpg", b"bytes", storage, MagicMock())
 
         assert result.id == 4
         storage.save.assert_not_called()
@@ -279,7 +279,7 @@ class TestDeleteActivityMedia:
         mock_activities_service.owns_activity.return_value = True
 
         storage = MagicMock()
-        delete_activity_media(1, 5, 2, MagicMock(), storage)
+        delete_activity_media(1, 5, 2, storage, MagicMock())
 
         mock_media_crud.delete_activity_media.assert_called_once()
         storage.delete.assert_called_once_with("activity_media", "1_abc.jpg")
@@ -292,7 +292,7 @@ class TestDeleteActivityMedia:
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
             storage = MagicMock()
-            delete_activity_media(1, 5, 2, MagicMock(), storage)
+            delete_activity_media(1, 5, 2, storage, MagicMock())
         assert exc.value.status_code == 404
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -309,7 +309,7 @@ class TestDeleteActivityMedia:
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
             storage = MagicMock()
-            delete_activity_media(1, 5, 2, MagicMock(), storage)
+            delete_activity_media(1, 5, 2, storage, MagicMock())
 
         assert exc.value.status_code == 404
         mock_media_crud.delete_activity_media.assert_not_called()
@@ -324,7 +324,7 @@ class TestDeleteActivityMedia:
 
         with pytest.raises(core_exceptions.NotFoundError) as exc:
             storage = MagicMock()
-            delete_activity_media(1, 5, 2, MagicMock(), storage)
+            delete_activity_media(1, 5, 2, storage, MagicMock())
 
         assert exc.value.status_code == 404
         # 404 rather than 403 so media ids cannot be probed, and nothing is deleted.
@@ -341,7 +341,7 @@ class TestDeleteActivityMedia:
         storage = MagicMock()
         storage.delete.side_effect = OSError("backend down")
 
-        delete_activity_media(1, 5, 2, MagicMock(), storage)
+        delete_activity_media(1, 5, 2, storage, MagicMock())
 
         # The row is still gone; only the blob cleanup failed.
         mock_media_crud.delete_activity_media.assert_called_once()

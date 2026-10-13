@@ -20,8 +20,8 @@ from sqlalchemy.exc import PendingRollbackError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
-import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.crud as activities_crud
+import modules.activities.activity.contracts as activity_contracts
+import modules.activities.activity.crud as activity_crud
 import modules.activities.activity_laps.crud as laps_crud
 import modules.activities.activity_laps.models as laps_models
 import modules.activities.activity_media.models as media_models
@@ -52,7 +52,7 @@ _LAP = {"start_time": datetime(2026, 7, 28, 9, 0, tzinfo=UTC)}
 def _add_activity(factory, user_id: int = 1) -> int:
     """Commit one activity and return its id."""
     ensure_user(factory, user_id)
-    core = activities_contracts.ActivityCore(
+    core = activity_contracts.ActivityCore(
         user_id=user_id,
         name="Ride",
         distance=1000,
@@ -66,7 +66,7 @@ def _add_activity(factory, user_id: int = 1) -> int:
         **{flag: False for flag in _PRIVACY_FLAGS},
     )
     with factory() as db:
-        created = activities_crud.create_activity(core, db)
+        created = activity_crud.create_activity(core, db)
         db.commit()
         assert created.id is not None
         return created.id
@@ -150,7 +150,7 @@ class TestMediaStoreRace:
         data = b"identical photo bytes"
 
         with pg_factory() as db:
-            winner = media_service.store_activity_media_bytes(activity_id, "photo.jpg", data, db, storage)
+            winner = media_service.store_activity_media_bytes(activity_id, "photo.jpg", data, storage, db)
 
         real_lookup = media_service.activity_media_crud.get_activity_media_by_content_hash
         calls = {"n": 0}
@@ -168,7 +168,7 @@ class TestMediaStoreRace:
             ),
             pg_factory() as db,
         ):
-            loser = media_service.store_activity_media_bytes(activity_id, "photo.jpg", data, db, storage)
+            loser = media_service.store_activity_media_bytes(activity_id, "photo.jpg", data, storage, db)
 
         assert loser.id == winner.id
         assert _count(pg_factory, media_models.ActivityMedia) == 1

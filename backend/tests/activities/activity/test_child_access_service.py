@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 class TestMayReadChild:
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_owner_may_read_even_when_the_flag_is_set(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 
@@ -20,7 +20,7 @@ class TestMayReadChild:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_non_owner_is_denied_when_the_flag_is_set(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 
@@ -30,7 +30,7 @@ class TestMayReadChild:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_non_owner_may_read_when_the_flag_is_unset(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 
@@ -40,7 +40,7 @@ class TestMayReadChild:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_an_invisible_activity_is_denied(self, mock_crud, mock_settings, mock_followers):
         """A private / non-followed activity must not leak its children (IDOR)."""
         from modules.activities.activity import child_access_service
@@ -51,7 +51,7 @@ class TestMayReadChild:
 
 
 class TestMayReadPublicChild:
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
     def test_disabled_shareable_links_never_touch_persistence(self, mock_settings, mock_crud):
         from modules.activities.activity import child_access_service
@@ -63,7 +63,7 @@ class TestMayReadPublicChild:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_delegates_to_the_public_gate(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 
@@ -75,7 +75,7 @@ class TestMayReadPublicChild:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_gate_refusal_is_a_refusal(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 
@@ -87,7 +87,7 @@ class TestMayReadPublicChild:
 class TestResolveParents:
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_readable_parent_is_unmasked(self, mock_crud, mock_settings, mock_followers):
         """Streams need the parent's hide_* flags to mask per stream type."""
         from modules.activities.activity import child_access_service
@@ -100,7 +100,7 @@ class TestResolveParents:
 
     @patch("modules.activities.activity.child_access_service.followers_integration")
     @patch("modules.activities.activity.child_access_service.server_settings_integration")
-    @patch("modules.activities.activity.child_access_service.activities_crud")
+    @patch("modules.activities.activity.child_access_service.activity_crud")
     def test_public_parent_uses_the_public_read(self, mock_crud, mock_settings, mock_followers):
         from modules.activities.activity import child_access_service
 

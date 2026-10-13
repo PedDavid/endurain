@@ -15,8 +15,8 @@ the source types they need to describe where a file came from, including the
 import jasil.runtime as platform_runtime
 from sqlalchemy.orm import Session
 
-import modules.activities.activity.schema as activities_schema
-import modules.activities.activity_ingestion.background as ingestion_background
+import modules.activities.activity.schema as activity_schema
+import modules.activities.activity_ingestion.background as activity_ingestion_background
 import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.provider_registry as provider_registry
@@ -29,7 +29,6 @@ GarminSource = ingestion_contracts.GarminSource
 BulkImportSource = ingestion_contracts.BulkImportSource
 IngestionSource = ingestion_contracts.IngestionSource
 build_import_record = ingestion_contracts.build_import_record
-FetchWindow = provider_registry.FetchWindow
 
 
 def ingest_activity_file(
@@ -38,7 +37,7 @@ def ingest_activity_file(
     db: Session,
     *,
     source: ingestion_contracts.IngestionSource,
-) -> list[activities_schema.Activity] | None:
+) -> list[activity_schema.Activity] | None:
     """Validate one on-disk activity file and persist the activities it yields.
 
     The background entry point: it never raises to its caller. A bulk-import
@@ -60,11 +59,11 @@ def ingest_activity_file(
         persisted.
     """
     return bulk_entry_service.store_activity_file(
-        user_id, file_path, db, platform_runtime.get_active_platform().storage, source=source
+        user_id, file_path, platform_runtime.get_active_platform().storage, db, source=source
     )
 
 
-def register_activity_provider(name: str, fetch_window: FetchWindow) -> None:
+def register_activity_provider(name: str, fetch_window: ingestion_contracts.FetchWindow) -> None:
     """Register an external provider's activity-fetch implementation.
 
     Args:
@@ -86,7 +85,7 @@ def shutdown_background_ingestion(*, wait: bool = False) -> None:
     Returns:
         None.
     """
-    ingestion_background.shutdown(wait=wait)
+    activity_ingestion_background.shutdown(wait=wait)
 
 
 def prune_expired_ingestion_jobs() -> None:

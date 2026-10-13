@@ -21,7 +21,7 @@ class TestStoreBulkImportFile:
         with patch.object(
             bulk_entry_service.pipeline, "validate_prepare_and_store_file", return_value=["activity"]
         ) as helper:
-            result = bulk_entry_service.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db", "storage")
+            result = bulk_entry_service.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "storage", "db")
 
         assert result == ["activity"]
         assert helper.call_args.args == (3, "/tmp/x.gpx", "db")
@@ -37,7 +37,7 @@ class TestStoreBulkImportFile:
             ),
             pytest.raises(ValueError),
         ):
-            bulk_entry_service.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "db", "storage")
+            bulk_entry_service.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "storage", "db")
 
 
 class TestStoreActivityFile:
@@ -46,7 +46,7 @@ class TestStoreActivityFile:
     def test_returns_the_created_activities(self):
         with patch.object(bulk_entry_service.pipeline, "validate_prepare_and_store_file", return_value=["activity"]):
             result = bulk_entry_service.store_activity_file(
-                3, "/tmp/x.gpx", "db", "storage", source=sources.GarminSource()
+                3, "/tmp/x.gpx", "storage", "db", source=sources.GarminSource()
             )
 
         assert result == ["activity"]
@@ -57,7 +57,7 @@ class TestStoreActivityFile:
             bulk_entry_service.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")
         ):
             result = bulk_entry_service.store_activity_file(
-                3, "/tmp/x.gpx", db, "storage", source=sources.GarminSource()
+                3, "/tmp/x.gpx", "storage", db, source=sources.GarminSource()
             )
 
         assert result is None
@@ -74,7 +74,7 @@ class TestStoreActivityFile:
             patch.object(bulk_entry_service, "_move_failed_file_to_error_directory") as move,
         ):
             bulk_entry_service.store_activity_file(
-                3, "/tmp/x.gpx", MagicMock(), "storage", source=sources.GarminSource()
+                3, "/tmp/x.gpx", "storage", MagicMock(), source=sources.GarminSource()
             )
 
         move.assert_not_called()
@@ -88,7 +88,7 @@ class TestStoreActivityFile:
             ),
             patch.object(bulk_entry_service, "_move_failed_file_to_error_directory") as move,
         ):
-            bulk_entry_service.store_activity_file(3, "/tmp/x.gpx", MagicMock(), "storage", source=source)
+            bulk_entry_service.store_activity_file(3, "/tmp/x.gpx", "storage", MagicMock(), source=source)
 
         move.assert_called_once_with(source, "/tmp/x.gpx")
 

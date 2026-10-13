@@ -327,15 +327,15 @@ class TestDeleteGearComponent:
 class TestGetComponentsActivityStats:
     @patch("modules.gears.gear_components.crud.activity_integration")
     def test_success(self, mock_activities, mock_db):
-        import modules.activities.activity.contracts as activities_contracts
+        import modules.activities.activity.contracts as activity_contracts
         import modules.gears.gear_components.crud as crud
 
         comp1 = MagicMock(id=1, purchase_date=date(2024, 1, 1), retired_date=None)
         comp2 = MagicMock(id=2, purchase_date=date(2024, 6, 1), retired_date=date(2024, 9, 1))
         mock_db.execute.return_value.all.return_value = [comp1, comp2]
         mock_activities.get_gear_usage_totals_by_window.return_value = {
-            1: activities_contracts.ActivityUsageTotals(distance=10000.0, time=3600.0),
-            2: activities_contracts.ActivityUsageTotals(distance=5000.0, time=1800.0),
+            1: activity_contracts.ActivityUsageTotals(distance=10000.0, time=3600.0),
+            2: activity_contracts.ActivityUsageTotals(distance=5000.0, time=1800.0),
         }
 
         r = crud.get_components_activity_stats(gear_id=1, db=mock_db)
