@@ -33,7 +33,7 @@
 
 ## Endpoints
 
-- `response_model` on every route; status 200 GET, 201 POST, 204 DELETE.
+- `response_model` on every route; status 200 GET, 201 POST create, 202 POST accepted for background processing, 204 DELETE.
 - Routers validate and delegate; domain rules live in `service`.
 - Authorization through `Depends`/`Security(auth_dependencies.check_scopes, scopes=[...])`.
 - Blob routes addressed by a signed capability token answer 404, not 403, for a bad token, and log a WARNING.

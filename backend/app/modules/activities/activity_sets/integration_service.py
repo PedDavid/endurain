@@ -5,8 +5,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
-import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.crud as activity_sets_crud
 import modules.activities.activity_sets.schema as activity_sets_schema
@@ -47,24 +45,17 @@ def _store_sets(
     activity_sets_crud.create_activity_sets(list(sets), activity_id, db)
 
 
-def _persist_ingestion_component(
-    data: Any,
-    activity: activity_schema.Activity,
-    db: Session,
-) -> None:
-    """Persist parsed set data through the generic ingestion contract.
+def _parse_profile_record(record: dict[str, Any], activity_id: int) -> activity_sets_contracts.ActivitySetsCreate:
+    """Validate one archived set record onto the restored activity.
 
     Args:
-        data: The parsed component payload.
-        activity: The newly created parent activity.
-        db: Database session.
+        record: The archived record, without its ``id``.
+        activity_id: ID of the activity the set is restored onto.
 
     Returns:
-        None.
+        The validated set.
     """
-    if activity.id is None:
-        raise core_exceptions.ProcessingError("Cannot store sets before the activity has an id")
-    _store_sets(data, activity.id, db)
+    return activity_sets_contracts.ActivitySetsCreate.model_validate({**record, "activity_id": activity_id})
 
 
 def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
@@ -73,44 +64,7 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
     Returns:
         The contributor.
     """
-    return activities_contributors.ActivityIngestionContributor(
-        key="sets",
-        persist=_persist_ingestion_component,
-    )
-
-
-def _restore_profile_records(
-    records: list[dict[str, Any]],
-    original_activity_id: int,
-    new_activity: activity_schema.Activity,
-    db: Session,
-) -> int:
-    """Validate and restore profile set records for one activity.
-
-    Args:
-        records: Profile records to restore.
-        original_activity_id: The activity's ID in the exported archive.
-        new_activity: The activity the records are restored onto.
-        db: Database session.
-
-    Returns:
-        The number of records restored.
-    """
-    if new_activity.id is None:
-        return 0
-
-    sets: list[activity_sets_contracts.ActivitySetsCreate] = []
-    for record in records:
-        if record.get("activity_id") != original_activity_id:
-            continue
-        data = dict(record)
-        data.pop("id", None)
-        data["activity_id"] = new_activity.id
-        sets.append(activity_sets_contracts.ActivitySetsCreate.model_validate(data))
-
-    if sets:
-        _store_sets(sets, new_activity.id, db)
-    return len(sets)
+    return activities_contributors.child_ingestion_contributor(key="sets", label="sets", store=_store_sets)
 
 
 def profile_contributor() -> activities_contributors.ProfileActivityContributor:
@@ -119,11 +73,12 @@ def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     Returns:
         The contributor.
     """
-    return activities_contributors.ProfileActivityContributor(
+    return activities_contributors.child_profile_contributor(
         key="sets",
         archive_path="data/activity_sets.json",
         count_key="activity_sets",
         split=True,
         export=_list_sets_for_activities,
-        restore=_restore_profile_records,
+        store=_store_sets,
+        parse_record=_parse_profile_record,
     )

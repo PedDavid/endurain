@@ -29,33 +29,23 @@ does not own child tables merely because they refer to `activities.id`.
 ## File roles
 
 Filenames are part of the contract: the enforcement rules match on them, so a
-file named `crud.py` is treated as persistence wherever it appears.
+file named `crud.py` is treated as persistence wherever it appears. The
+corollary is that a misnamed file is *silently exempt* from every rule, which is
+why a file's name has to be the truth.
 
-The corollary is that a misnamed file is *silently exempt*. `activity_ingestion`
-held its persistence in `ingestion_jobs_crud.py`, which no `modules.activities.*.crud`
-wildcard matched — so the one CRUD module in the tree that routers were free to
-import was the one nobody had noticed was named wrong. Renaming it to `crud.py`
-brought it under four existing contracts without writing a new one.
-
-A stem may **qualify** a role, and it inherits every rule that role carries:
-`summary_crud.py` is a `crud`, `summary_router.py` is a `router`. This is not a
-convenience — it is the same exemption one level down. The activity summaries
-feature shipped its aggregations in `summary_query.py`, a file that opened a
-`Session` and executed while matching neither the `crud` rules (wrong stem) nor
-the `query` ones (wrong role), and `summary_router.py` had to be hand-added to a
-public-names list to be importable at all. A package that genuinely needs a
-second persistence module names it `<thing>_crud.py`; it does not invent a new
-word. The vocabulary lives once in `tests/_helpers/module_roles.py`, because two
-copies of "what does this filename mean?" is the drift the rule exists to stop.
+A stem may **qualify** a role and inherits every rule that role carries:
+`summary_crud.py` is a `crud`, `summary_router.py` is a `router`. A package that
+needs a second persistence module names it `<thing>_crud.py`; it does not invent
+a new word. The vocabulary lives once in `tests/_helpers/module_roles.py`.
 
 Because the role is what the rules see, the role has to be the truth:
 `tests/architecture/test_module_boundaries.py` asserts that only a `crud`-role
 file executes statements against the session, that only `router`/`public_router`
 files construct an `APIRouter`, and that only `models` files declare ORM classes.
 The vocabulary is deliberately open (`render.py` and `signing.py` are legitimate
-private helpers), so the check is that a file's *content* agrees
-with its name rather than that its name is on a list. Ending a transaction
-(`commit`, `rollback`) is a separate rule, stated under
+private helpers), so the check is that a file's *content* agrees with its name
+rather than that its name is on a list. Ending a transaction (`commit`,
+`rollback`) is a separate rule, stated under
 [Transaction ownership](#transaction-ownership).
 
 | File | Layer | Responsibility |
@@ -103,27 +93,25 @@ Four classes. This is the whole rule.
 | `scheduled_jobs.py` | The module's recurring and one-shot background work, collected by `main.py`. |
 
 Every name on `integration_service.py` is a promise, so it holds only operations
-with a real caller. The child packages each grew six public functions where two
-were reached from outside: the contributor plumbing (`store_laps`,
-`restore_profile_records`, `list_laps_for_activities`) sat next to the
-contributor factory that was the actual surface, so "what may I depend on?"
-answered with three times more than the module meant. A new operation lands there
-with the caller that needed it, or stays private until then;
-`test_the_surface_holds_only_operations_with_callers` fails on the difference.
+with a real caller **outside its package**. Contributor plumbing
+(`_store_laps`, `_list_laps_for_activities`) stays private; the contributor
+factory is the surface. A new operation lands there with the caller that needed
+it, or stays private until then;
+`test_the_surface_holds_only_operations_with_callers` resolves callers by AST and
+fails on the difference. A package nothing outside calls (`activity_geocoding`)
+has no `integration_service.py` and is listed with its reason in
+`_NO_CROSS_MODULE_SURFACE`.
 
-A surface function that only forwards its arguments is not a layer either. The
-thumbnail and geocoding subsystems reached the activity row through
-`integration_service` → `service` → `crud`, where the middle call added no
-decision, no access check and no transaction — three files to change to add an
-argument. Those go straight to CRUD, which the matrix below already permits; what
-belongs in `service` is the *arrangement* of a write (stage, publish, commit),
-not the act of forwarding.
+A surface function that only forwards its arguments is not a layer either. When
+`integration_service` → `service` → `crud` adds no decision, no access check and
+no transaction, the surface goes straight to CRUD, which the matrix below
+permits. What belongs in `service` is the *arrangement* of a write (stage,
+publish, commit), not the act of forwarding.
 
 `subscribers.py` is deliberately absent from that list. A module with subscribers
-publishes `subscriber_registry.py` and the entrypoints import *that* — which is
-what makes "registered in the API but not the worker" a diff in one file instead
-of a silent mismatch between two, and what keeps the file that happens to hold
-the handlers today free to be split tomorrow.
+publishes `subscriber_registry.py` and the entrypoints import *that*, so
+"registered in the API but not the worker" is a diff in one file, and the file
+that holds the handlers can be split without touching the entrypoints.
 
 `modules.auth` is the one module whose behavioural surface is not called
 `integration_service.py`. It publishes `identity_service.py` (plus
@@ -143,13 +131,9 @@ write paths publish no event at all. So each durable subscriber declares a
 that re-derives what the create path missed, or the reason none is needed.
 `tests/architecture/test_reconciliation_nets.py` holds every module to it.
 
-The type lives in the platform rather than in the module that needed it first.
-While it lived in `modules/activities`, the invariant was enforceable for exactly
-one module — declaring nets anywhere else would have meant importing the
-activities module to borrow the vocabulary, a dependency between two bounded
-contexts for the sake of a shared word. The follower notification subscribers
-had no net, no exemption, and nothing to catch it; they now live in
-`modules/notifications` with their nets declared in its `subscriber_registry.py`.
+The `DurableSubscriberNet` type lives in the platform (`jasil`), not in a module,
+so every module can declare nets without importing another bounded context for a
+shared word.
 
 A namespace-level file is appropriate only for composition or a genuinely
 shared, dependency-free contract. `modules/activities/computation.py` is the
@@ -220,16 +204,12 @@ Three entries deserve the reasoning:
 
 A face is not a layer, which is the one thing that entry does **not** license. A
 write has an arrangement — stage the rows, publish the fact, own the commit that
-makes those atomic — and that arrangement belongs to `service`. The root activity
-surface was doing it both ways: `bulk_set_activities_gear`,
-`delete_all_strava_activities` and `delete_all_activities_for_user` each called
-CRUD with `commit=False`, published their own events and handed over `db.commit`,
-so the module had two write-orchestration layers and which one a write went
-through depended only on whether it was reached from a route or from another
-module. The `activities-surfaces-delegate-writes` contract forbids an
-`integration_service` from importing `event_publishers`: a surface that cannot
-publish cannot own the commit that has to be atomic with the publish, which
-leaves calling its own service as the only way to arrange a write.
+makes those atomic — and that arrangement belongs to `service`. An
+`integration_service` therefore never publishes events or ends a transaction: it
+calls its own `service` for any write that decides, and the
+`activities-surfaces-delegate-writes` contract forbids it from importing
+`event_publishers`. A surface that cannot publish cannot own the commit that has
+to be atomic with the publish, so there is one write-orchestration layer, not two.
 
 ## Layering inside a module
 
@@ -410,8 +390,13 @@ flag, CRUD calls and page type without importing the private helper file.
 
 The test for whether something belongs in such a seam is not "is this repeated?"
 but "would a divergence here be a bug?". Three copies of a docstring are
-harmless; three copies of an access decision are three chances to get it wrong,
-and two of the copies had already drifted before this was extracted.
+harmless; three copies of an access decision are three chances to get it wrong.
+
+`activities/contributors.py` is the second worked example:
+`child_ingestion_contributor` and `child_profile_contributor` hold the parent-id
+guard and the re-keying filter that laps, sets and workout steps share. Each
+child supplies only its CRUD write, its archive names and how one archived record
+becomes a stored row.
 
 ## Enforcement
 
@@ -429,9 +414,7 @@ activity module inherits every cross-module rule the day it is created, instead
 of when someone remembers to add it to a list. A separate contract prevents
 domain/core code from consuming `*.migration_service`.
 
-**`backend/tests/architecture/test_module_boundaries.py`** — also holds
-`TestModuleInventory`, which fails on a top-level module that is neither converted
-nor explicitly outstanding. It is the one rule
+**`backend/tests/architecture/test_module_boundaries.py`** — everything
 import-linter cannot express. A `forbidden` contract rejects an import if *any*
 source matches *any* forbidden module, so "a package may import its own `crud`
 but not a peer's" is not statable: the wildcard pair
@@ -440,28 +423,20 @@ but not a peer's" is not statable: the wildcard pair
 compares each import against the importer's own package, and consults an explicit
 allowlist containing only composition edges and exact read-model projections.
 
-It checks module-level files too, not just sub-package ones — which is the whole
-surface of a flat module. Without that, `modules.followers.crud` was importable
-from anywhere: the dotted path has no sub-package segment to match on, so every
-rule silently skipped it.
-
-It resolves each `from x.y import z` against the filesystem rather than counting
-dots. The dot-count heuristic it replaced could not tell a submodule from a
-symbol in a flat module — `modules.followers.constants` has the same depth as a
-sub-packaged module's `modules.activities.activity` — so every symbol imported
-from a flat module was misread as a package reach.
-
-That allowlist is the debt register. Every entry names a real cross-package reach
-and why it exists. It may not be used for service, CRUD, model, query, signing,
-parser, or storage access that belongs behind an integration surface.
-
-The same file holds the rule about *direction*. Every rule above asks what one
-package may reach for in another; none of them notices when the reaching goes
-both ways, and two packages that import each other are one package pretending to
-be two. So the package-level import graph inside a module is asserted to be a
-DAG. A derived subsystem depends on the thing it derives from, never the reverse;
-when the depended-on package needs something back, it states a seam and
-composition installs the answer.
+- It checks module-level files too, not just sub-package ones, which is the whole
+  surface of a flat module such as `followers`.
+- It resolves each `from x.y import z` against the filesystem rather than counting
+  dots, so a symbol imported from a flat module is not read as a package reach.
+- The allowlist is the debt register. Every entry names a real cross-package reach
+  and why it exists, and may not be used for service, CRUD, model, query, signing,
+  parser or storage access that belongs behind an integration surface.
+- The package-level import graph inside a module is asserted to be a DAG: two
+  packages that import each other are one package pretending to be two. A derived
+  subsystem depends on the thing it derives from, never the reverse; when the
+  depended-on package needs something back, it states a seam and composition
+  installs the answer.
+- `TestModuleInventory` fails on a top-level module that is neither converted nor
+  explicitly outstanding.
 
 ## Adding a module
 
@@ -503,10 +478,13 @@ one pattern. Recorded here so a review does not reopen them.
   `commit` are required and `commit` is keyword-only. A publisher with an optional
   `commit` has a best-effort path that lets a caller publish outside the
   transaction, which is what `publish_committing` exists to prevent.
-- **Import aliases.** A peer's surface is imported as `<package>_integration`
-  (`activity_laps_integration`, `followers_integration`; `activity_integration` for
-  the root `activity` package). A private service is `<package>_service`. The alias
-  therefore says which side of the visibility rule a call site is on.
+- **Import aliases.** An alias is the *containing package* plus the role, so the
+  name says whose file it is and which side of the visibility rule a call site is
+  on. A peer's surface is `<package>_integration` (`activity_laps_integration`,
+  `followers_integration`, `activity_integration` for the root `activity`
+  package); a private module is `<package>_<role>` (`activity_crud`,
+  `activity_laps_service`). A namespace-level file lives in `activities`, so it is
+  `activities_<role>` (`activities_contributors`, `activities_computation`).
 - **Capability-token routes.** The service verifies the signed token and raises
   `NotFoundError`; the router only serialises the bytes. A router never imports
   `HTTPException` or a logger.
@@ -585,58 +563,22 @@ half-done:
   `integration_service.py` and the filename vocabulary, as described above.
   The generic boundary rule needs a special case until it is aligned.
 
-### Persistence layers calling other modules
-
-**Resolved for activities.** No `crud`, `query`, `serializers` or `utils` file in
-the module asks another bounded context a question. The values those queries need
-are resolved by the layer above and passed in: `followee_ids` on the visibility
-filter, the shareable-links policy in `activity.service` / `activity.child_access_service`,
-and the max-heart-rate lookup in `activity_streams.service`. Enforced by the
-`activities-persistence-asks-nothing` contract.
-
-The other modules still do it — `health.*.crud` reaching `users.users.utils`,
-`notifications.utils` reaching `users` and `websocket`, and so on. Each is fixed
-as its module is converted.
-
-### Persistence ending transactions
-
-**Resolved for activities and followers.** Every `crud` writer stages with
-`flush()`; `service` (or the job, importer or `migration_service` that owns the
-unit of work) commits. The commit moved to where the unit of work is known:
-
-- `activity.service` owns the thumbnail, location and clear-all writes that the
-  thumbnail and geocoding subsystems reach through `integration_service`, so the
-  surface no longer commits.
-- `migration_service` wrappers keep each historical operation's commit, so a
-  version-pinned migration behaves as it did.
-- The profile importer commits each restored activity and its components as one
-  unit, instead of once per component.
-- A race on the unique media hash rolls back in `service` before looking up the
-  winner, because a failed flush leaves the session unusable until then.
-
-The unconverted modules (`auth`, `users`, `gears`, ...) are outside the rule until
-they are converted; `_CRUD_TRANSACTION_DEBT` is empty and is where a module being
-converted lists its files.
-
-### Subscribers reaching past a module surface
-
-**Resolved for followers.** `followers.subscribers` imported
-`notifications.utils`, `websocket.manager` and `websocket.utils` — three reaches
-past two modules' surfaces to do what `notifications.integration_service` and
-`websocket.integration_service` each state as one operation, and the reason the
-module could not be lifted out without dragging the websocket connection registry
-with it. The handlers now live in `modules/notifications`, which subscribes to
-the constants in `followers.events`; followers itself holds no subscribers.
-Enforced by `followers-consumes-surfaces`.
-
-The same reach survives in `garmin`, `strava`, `auth.sign_up_tokens` and
-`users.users_profile`; each is fixed as its module is converted.
-
-### ORM registry and cross-package relationships
-
-**Resolved for activities and followers.** Their models use scalar foreign keys
-and database `ON DELETE` behavior rather than unused bidirectional ORM
-relationships. Each persistence package declares its model module through
-`model_registry.py`; `app/model_registry.py` composes converted modules, and
-`core.database` performs no domain scan. The app-level legacy scan remains only
-for modules not converted yet.
+- **Persistence layers calling other modules.** Converted modules ask nothing of
+  another bounded context below `service` (the
+  `activities-persistence-asks-nothing` contract). The unconverted ones still do,
+  for example `health.*.crud` reaching `users.users.utils` and
+  `notifications.utils` reaching `users` and `websocket`.
+- **Persistence ending transactions.** Converted modules stage with `flush()` and
+  let `service` (or the job, importer or `migration_service` that owns the unit of
+  work) commit. Unconverted modules (`auth`, `users`, `gears`, …) are outside
+  `test_crud_does_not_end_transactions`; `_CRUD_TRANSACTION_DEBT` is empty and is
+  where a module being converted lists its files.
+- **Subscribers reaching past a surface.** Followers holds no subscribers; its
+  notification handlers live in `modules/notifications` and subscribe to
+  `followers.events` (`followers-consumes-surfaces`). `garmin`, `strava`,
+  `auth.sign_up_tokens` and `users.users_profile` still import another module's
+  `utils`/`manager` directly.
+- **Legacy model scan.** Converted modules declare their ORM module in
+  `model_registry.py` and use scalar foreign keys with database `ON DELETE`
+  behaviour. `app/model_registry.py` keeps a filesystem scan only for modules not
+  converted yet.

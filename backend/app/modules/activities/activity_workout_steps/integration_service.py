@@ -4,8 +4,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
-import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_workout_steps.crud as activity_workout_steps_crud
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.contributors as activities_contributors
@@ -45,24 +43,20 @@ def _store_workout_steps(
     activity_workout_steps_crud.create_activity_workout_steps(steps, activity_id, db)
 
 
-def _persist_ingestion_component(
-    data: Any,
-    activity: activity_schema.Activity,
-    db: Session,
-) -> None:
-    """Persist parsed workout steps through the ingestion contract.
+def _parse_profile_record(
+    record: dict[str, Any],
+    activity_id: int,
+) -> activity_workout_steps_schema.ActivityWorkoutSteps:
+    """Validate one archived workout step onto the restored activity.
 
     Args:
-        data: The parsed component payload.
-        activity: The newly created parent activity.
-        db: Database session.
+        record: The archived record, without its ``id``.
+        activity_id: ID of the activity the step is restored onto.
 
     Returns:
-        None.
+        The validated step.
     """
-    if activity.id is None:
-        raise core_exceptions.ProcessingError("Cannot store workout steps before the activity has an id")
-    _store_workout_steps(data, activity.id, db)
+    return activity_workout_steps_schema.ActivityWorkoutSteps.model_validate({**record, "activity_id": activity_id})
 
 
 def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
@@ -71,44 +65,9 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
     Returns:
         The contributor.
     """
-    return activities_contributors.ActivityIngestionContributor(
-        key="workout_steps",
-        persist=_persist_ingestion_component,
+    return activities_contributors.child_ingestion_contributor(
+        key="workout_steps", label="workout steps", store=_store_workout_steps
     )
-
-
-def _restore_profile_records(
-    records: list[dict[str, Any]],
-    original_activity_id: int,
-    new_activity: activity_schema.Activity,
-    db: Session,
-) -> int:
-    """Validate and restore profile workout steps for one activity.
-
-    Args:
-        records: Profile records to restore.
-        original_activity_id: The activity's ID in the exported archive.
-        new_activity: The activity the records are restored onto.
-        db: Database session.
-
-    Returns:
-        The number of records restored.
-    """
-    if new_activity.id is None:
-        return 0
-
-    steps: list[activity_workout_steps_schema.ActivityWorkoutSteps] = []
-    for record in records:
-        if record.get("activity_id") != original_activity_id:
-            continue
-        data = dict(record)
-        data.pop("id", None)
-        data["activity_id"] = new_activity.id
-        steps.append(activity_workout_steps_schema.ActivityWorkoutSteps.model_validate(data))
-
-    if steps:
-        _store_workout_steps(steps, new_activity.id, db)
-    return len(steps)
 
 
 def profile_contributor() -> activities_contributors.ProfileActivityContributor:
@@ -117,11 +76,12 @@ def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     Returns:
         The contributor.
     """
-    return activities_contributors.ProfileActivityContributor(
+    return activities_contributors.child_profile_contributor(
         key="workout_steps",
         archive_path="data/activity_workout_steps.json",
         count_key="activity_workout_steps",
         split=False,
         export=_list_workout_steps_for_activities,
-        restore=_restore_profile_records,
+        store=_store_workout_steps,
+        parse_record=_parse_profile_record,
     )

@@ -100,6 +100,11 @@ _INTRA_MODULE_SEAMS: dict[tuple[str, str], str] = {}
 #: ``(importer module path, imported glob): reason``.
 _INBOUND_EXCEPTIONS: dict[tuple[str, str], str] = {}
 
+#: The callables that build a ``ProfileActivityContributor``: the dataclass itself,
+#: and the shared factory the plain child collections go through. Both take the
+#: export callback as ``export=``, so either is a legitimate place to wire it.
+_PROFILE_CONTRIBUTOR_CONSTRUCTORS = frozenset({"ProfileActivityContributor", "child_profile_contributor"})
+
 #: Multi-activity reads that trust their activity ids were owner-scoped before
 #: reaching persistence. Their call surface is deliberately narrower than an
 #: ordinary package operation because a new caller could otherwise create an
@@ -636,7 +641,7 @@ class TestOwnerScopedBulkReads:
                     constructor = call.func.id
                 else:
                     constructor = None
-                if constructor != "ProfileActivityContributor":
+                if constructor not in _PROFILE_CONTRIBUTOR_CONSTRUCTORS:
                     continue
                 for keyword in call.keywords:
                     if (

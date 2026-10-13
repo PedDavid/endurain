@@ -4,8 +4,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
-import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_laps.crud as activity_laps_crud
 import modules.activities.activity_laps.schema as activity_laps_schema
 import modules.activities.contributors as activities_contributors
@@ -45,24 +43,21 @@ def _store_laps(
     activity_laps_crud.create_activity_laps(laps, activity_id, db)
 
 
-def _persist_ingestion_component(
-    data: Any,
-    activity: activity_schema.Activity,
-    db: Session,
-) -> None:
-    """Persist parsed lap data through the generic ingestion contract.
+def _parse_profile_record(record: dict[str, Any], _activity_id: int) -> dict[str, Any]:
+    """Validate one archived lap record.
+
+    Laps are stored from plain dicts and carry no parent id of their own, so the
+    archived ``activity_id`` is dropped rather than re-keyed.
 
     Args:
-        data: The parsed component payload.
-        activity: The newly created parent activity.
-        db: Database session.
+        record: The archived record, without its ``id``.
+        _activity_id: ID of the restored activity (unused: the store re-keys laps).
 
     Returns:
-        None.
+        The validated lap as a dict.
     """
-    if activity.id is None:
-        raise core_exceptions.ProcessingError("Cannot store laps before the activity has an id")
-    _store_laps(data, activity.id, db)
+    data = {key: value for key, value in record.items() if key != "activity_id"}
+    return activity_laps_schema.ActivityLapsBase.model_validate(data).model_dump()
 
 
 def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
@@ -71,45 +66,7 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
     Returns:
         The contributor.
     """
-    return activities_contributors.ActivityIngestionContributor(
-        key="laps",
-        persist=_persist_ingestion_component,
-    )
-
-
-def _restore_profile_records(
-    records: list[dict[str, Any]],
-    original_activity_id: int,
-    new_activity: activity_schema.Activity,
-    db: Session,
-) -> int:
-    """Validate and restore profile lap records for one activity.
-
-    Args:
-        records: Profile records to restore.
-        original_activity_id: The activity's ID in the exported archive.
-        new_activity: The activity the records are restored onto.
-        db: Database session.
-
-    Returns:
-        The number of records restored.
-    """
-    if new_activity.id is None:
-        return 0
-
-    laps: list[dict[str, Any]] = []
-    for record in records:
-        if record.get("activity_id") != original_activity_id:
-            continue
-        data = dict(record)
-        data.pop("id", None)
-        data.pop("activity_id", None)
-        lap = activity_laps_schema.ActivityLapsBase.model_validate(data)
-        laps.append(lap.model_dump())
-
-    if laps:
-        _store_laps(laps, new_activity.id, db)
-    return len(laps)
+    return activities_contributors.child_ingestion_contributor(key="laps", label="laps", store=_store_laps)
 
 
 def profile_contributor() -> activities_contributors.ProfileActivityContributor:
@@ -118,11 +75,12 @@ def profile_contributor() -> activities_contributors.ProfileActivityContributor:
     Returns:
         The contributor.
     """
-    return activities_contributors.ProfileActivityContributor(
+    return activities_contributors.child_profile_contributor(
         key="laps",
         archive_path="data/activity_laps.json",
         count_key="activity_laps",
         split=True,
         export=_list_laps_for_activities,
-        restore=_restore_profile_records,
+        store=_store_laps,
+        parse_record=_parse_profile_record,
     )

@@ -1,10 +1,18 @@
-"""Typed contribution contracts for activity ingestion and profile transfer."""
+"""Typed contribution contracts for activity ingestion and profile transfer.
+
+Also holds the two factories for the children that are plain rows hanging off one
+activity (laps, sets, workout steps). Those three were one contributor written
+three times, differing only in the CRUD write, the archive names and how one
+archived record becomes a stored row, so a divergence in the shared part (the
+parent-id guard, the re-keying filter) would have been a bug in only one of them.
+"""
 
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
+import core.exceptions as core_exceptions
 import modules.activities.activity.schema as activity_schema
 
 
@@ -167,3 +175,117 @@ class ProfileGlobalContributor:
     count_key: str
     export: ExportGlobalRecords
     restore: RestoreGlobalRecords
+
+
+class StoreChildRecords(Protocol):
+    """Stage rows for one activity through the child package's CRUD."""
+
+    def __call__(self, records: Any, activity_id: int, db: Session) -> None:
+        """Stage the rows for the activity.
+
+        Args:
+            records: The parsed or restored rows.
+            activity_id: ID of the parent activity.
+            db: Database session.
+
+        Returns:
+            None.
+        """
+
+
+class ParseChildRecord(Protocol):
+    """Turn one archived profile record into the value the store takes."""
+
+    def __call__(self, record: dict[str, Any], activity_id: int) -> Any:
+        """Validate one archived record for a restored activity.
+
+        Args:
+            record: The archived record, without its ``id``.
+            activity_id: ID of the activity the record is restored onto.
+
+        Returns:
+            The value to hand to the store.
+        """
+
+
+def child_ingestion_contributor(
+    *,
+    key: str,
+    label: str,
+    store: StoreChildRecords,
+) -> ActivityIngestionContributor:
+    """Build the ingestion contribution for a plain child collection.
+
+    Args:
+        key: The parsed component key the contribution persists.
+        label: Human name of the rows, used in the missing-parent error.
+        store: Stages the parsed rows for an activity.
+
+    Returns:
+        The contributor.
+    """
+
+    def persist(data: Any, activity: activity_schema.Activity, db: Session) -> None:
+        if activity.id is None:
+            raise core_exceptions.ProcessingError(f"Cannot store {label} before the activity has an id")
+        store(data, activity.id, db)
+
+    return ActivityIngestionContributor(key=key, persist=persist)
+
+
+def child_profile_contributor(
+    *,
+    key: str,
+    archive_path: str,
+    count_key: str,
+    split: bool,
+    export: ExportActivityRecords,
+    store: StoreChildRecords,
+    parse_record: ParseChildRecord,
+) -> ProfileActivityContributor:
+    """Build the profile contribution for a plain child collection.
+
+    Restoring keeps only the records that belonged to the original activity,
+    drops their archived ``id`` and re-keys them onto the restored activity,
+    without mutating the archive's records.
+
+    Args:
+        key: The contribution key.
+        archive_path: The member of the profile archive that holds the records.
+        count_key: The key the restored count is reported under.
+        split: Whether the archive stores one file per activity.
+        export: Reads the rows for the given activities.
+        store: Stages the restored rows for an activity.
+        parse_record: Validates one archived record for the restored activity.
+
+    Returns:
+        The contributor.
+    """
+
+    def restore(
+        records: list[dict[str, Any]],
+        original_activity_id: int,
+        new_activity: activity_schema.Activity,
+        db: Session,
+    ) -> int:
+        if new_activity.id is None:
+            return 0
+        restored = []
+        for record in records:
+            if record.get("activity_id") != original_activity_id:
+                continue
+            data = dict(record)
+            data.pop("id", None)
+            restored.append(parse_record(data, new_activity.id))
+        if restored:
+            store(restored, new_activity.id, db)
+        return len(restored)
+
+    return ProfileActivityContributor(
+        key=key,
+        archive_path=archive_path,
+        count_key=count_key,
+        split=split,
+        export=export,
+        restore=restore,
+    )
