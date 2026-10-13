@@ -7,6 +7,7 @@ and must surface as a 500.
 """
 
 import logging
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import modules.activities.activity.crud as activities_crud
+import modules.activities.activity.summary_crud as summary_crud
 
 # A realistic SQLAlchemy error string: str() on these embeds the statement and
 # the bound parameters, which is exactly what must not reach the log. Split into
@@ -125,6 +127,25 @@ class TestScheduledQueriesRaise:
         messages = " ".join(record.getMessage() for record in caplog.records)
         assert _LEAKED_PARAMETER not in messages
         assert "parameters:" not in messages
+
+
+_SUMMARY_CALLS = [
+    lambda db: summary_crud.get_weekly_summary(db, 1, date(2026, 1, 1), "monday"),
+    lambda db: summary_crud.get_monthly_summary(db, 1, date(2026, 1, 1), "monday"),
+    lambda db: summary_crud.get_yearly_summary(db, 1, 2026),
+    lambda db: summary_crud.get_lifetime_summary(db, 1),
+]
+
+
+class TestSummaryReadsRaiseAndRollBack:
+    """The summary aggregations translate database errors like the rest of the CRUD."""
+
+    @pytest.mark.parametrize("call", _SUMMARY_CALLS)
+    def test_raises_processing_error_and_rolls_back(self, call):
+        db = _failing_db()
+        with pytest.raises(core_exceptions.ProcessingError):
+            call(db)
+        db.rollback.assert_called_once()
 
 
 class TestHttpExceptionsPassThrough:

@@ -8,6 +8,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from tests._helpers.db import create_sqlite_session, setup_mock_execute
 from tests._helpers.models import mock_model
 
+import core.exceptions as core_exceptions
+
 
 @pytest.fixture
 def sqlite_session():
@@ -126,7 +128,7 @@ class TestGetWeeklySummary:
         import modules.activities.activity.summary_crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(SQLAlchemyError):
+        with pytest.raises(core_exceptions.ProcessingError):
             crud.get_weekly_summary(
                 user_id=1,
                 target_date=datetime(2024, 1, 15),
@@ -237,7 +239,7 @@ class TestGetMonthlySummary:
         import modules.activities.activity.summary_crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(SQLAlchemyError):
+        with pytest.raises(core_exceptions.ProcessingError):
             crud.get_monthly_summary(
                 user_id=1,
                 target_date=datetime(2024, 1, 15),
@@ -296,7 +298,7 @@ class TestGetYearlySummary:
         import modules.activities.activity.summary_crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(SQLAlchemyError):
+        with pytest.raises(core_exceptions.ProcessingError):
             crud.get_yearly_summary(user_id=1, year=2024, db=mock_db)
 
 
@@ -367,7 +369,7 @@ class TestGetLifetimeSummary:
         import modules.activities.activity.summary_crud as crud
 
         mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(SQLAlchemyError):
+        with pytest.raises(core_exceptions.ProcessingError):
             crud.get_lifetime_summary(user_id=1, db=mock_db)
 
 

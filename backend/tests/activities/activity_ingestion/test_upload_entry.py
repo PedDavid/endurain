@@ -205,6 +205,22 @@ class TestProcessStagedUpload:
 
         platform.storage.delete.assert_not_called()
 
+    def test_a_database_error_propagates_untranslated_and_keeps_the_blob(self):
+        """The job runner retries on a raw database error; translating it hid its type."""
+        from sqlalchemy.exc import SQLAlchemyError
+
+        db = MagicMock()
+        platform = _platform()
+        platform.storage.get.return_value = b"<gpx/>"
+        with (
+            patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=SQLAlchemyError("down")),
+            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            pytest.raises(SQLAlchemyError),
+        ):
+            upload_entry.process_staged_upload(7, "abc.gpx", db, platform.storage)
+
+        platform.storage.delete.assert_not_called()
+
     def test_a_gz_that_decompresses_to_an_unsupported_payload_is_rejected(self):
         db = MagicMock()
         platform = _platform()

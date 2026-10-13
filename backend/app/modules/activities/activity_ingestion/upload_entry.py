@@ -31,7 +31,6 @@ from pathlib import Path
 
 import jasil.providers as platform_providers
 from fastapi import HTTPException, UploadFile
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.config as core_config
@@ -259,7 +258,6 @@ def process_staged_upload(
         EOFError,
         gzip.BadGzipFile,
         shutil.Error,
-        SQLAlchemyError,
         ValueError,
         RuntimeError,
         KeyError,
