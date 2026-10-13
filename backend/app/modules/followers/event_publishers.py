@@ -37,13 +37,18 @@ def publish_follower_requested(
     Returns:
         None.
     """
+    payload = followers_events.FollowerRequestedPayload(
+        requester_user_id=requester_user_id,
+        target_user_id=target_user_id,
+    )
     platform_publisher.publish_committing(
         followers_events.FOLLOWER_REQUESTED,
-        {"requester_user_id": requester_user_id, "target_user_id": target_user_id},
+        payload.model_dump(),
         source="api:create_follower",
         metadata={core_event_metadata.META_USER_ID: target_user_id},
         db=db,
         commit=commit,
+        schema_version=payload.SCHEMA_VERSION,
     )
 
 
@@ -66,11 +71,16 @@ def publish_follower_accepted(
     Returns:
         None.
     """
+    payload = followers_events.FollowerAcceptedPayload(
+        accepter_user_id=accepter_user_id,
+        requester_user_id=requester_user_id,
+    )
     platform_publisher.publish_committing(
         followers_events.FOLLOWER_ACCEPTED,
-        {"accepter_user_id": accepter_user_id, "requester_user_id": requester_user_id},
+        payload.model_dump(),
         source="api:accept_follower",
         metadata={core_event_metadata.META_USER_ID: requester_user_id},
         db=db,
         commit=commit,
+        schema_version=payload.SCHEMA_VERSION,
     )

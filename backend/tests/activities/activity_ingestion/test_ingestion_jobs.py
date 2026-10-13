@@ -6,6 +6,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 import core.exceptions as core_exceptions
+import modules.activities.activity_ingestion.events as ingestion_events
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_jobs
 import modules.activities.activity_ingestion.upload_entry as upload_entry
@@ -18,10 +19,9 @@ def _received(fingerprint: str = "abc123") -> upload_entry.ReceivedUpload:
     )
 
 
-def _file(filename: str = "ride.gpx") -> MagicMock:
-    file = MagicMock()
-    file.filename = filename
-    return file
+def _upload(filename: str = "ride.gpx") -> tuple[str, MagicMock]:
+    """The client filename and the router-bound saver ``accept_upload`` takes."""
+    return filename, MagicMock()
 
 
 class TestAcceptUpload:
@@ -36,7 +36,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
-            result = ingestion_jobs.accept_upload(7, _file(), db, "storage")
+            result = ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
 
         assert result == "job-view"
         # The row is staged, not committed, so it lands in the same transaction
@@ -46,6 +46,7 @@ class TestAcceptUpload:
         assert publish.call_args.kwargs["commit"] == db.commit
         # The payload carries only the job id: the key and owner are columns.
         assert publish.call_args.args[1] == {"job_id": create.call_args.args[0]}
+        assert publish.call_args.kwargs["schema_version"] == ingestion_events.UploadedFilePayload.SCHEMA_VERSION
         submit.assert_not_called()
 
     def test_falls_back_to_the_background_pool_when_jobs_disabled(self):
@@ -59,7 +60,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
             patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload") as submit,
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
 
         # Same client contract either way — only the executor differs.
         publish.assert_not_called()
@@ -78,7 +79,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             pytest.raises(core_exceptions.UnsupportedFormatError),
         ):
-            ingestion_jobs.accept_upload(7, _file("ride.txt"), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload("ride.txt"), db, "storage")
 
         create.assert_not_called()
 
@@ -98,7 +99,7 @@ class TestAcceptUpload:
             patch.object(ingestion_jobs.upload_entry, "discard_staged_upload") as discard,
             pytest.raises(RuntimeError),
         ):
-            ingestion_jobs.accept_upload(7, _file(), db, "storage")
+            ingestion_jobs.accept_upload(7, *_upload(), db, "storage")
 
         discard.assert_called_once_with("abc.gpx", ANY)
 

@@ -1,7 +1,7 @@
 """The ingestion pipeline: validate -> parse -> enrich -> store -> retain.
 
 One path, shared by every source. The entry points in :mod:`upload_entry` and
-:mod:`bulk_entry` differ only in how they obtain the file and what they do when
+:mod:`bulk_entry_service` differ only in how they obtain the file and what they do when
 this fails; everything between a validated file on disk and persisted activities
 lives here.
 
@@ -25,7 +25,6 @@ import os
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.config as core_config
@@ -91,7 +90,6 @@ def parse_file(
         OSError,
         EOFError,
         gzip.BadGzipFile,
-        SQLAlchemyError,
         ValueError,
         RuntimeError,
         KeyError,
@@ -347,10 +345,10 @@ def validate_prepare_and_store_file(
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
 
     The shared raising core behind both the swallowing background entry
-    (:func:`~modules.activities.activity_ingestion.bulk_entry.store_activity_file`,
+    (:func:`~modules.activities.activity_ingestion.bulk_entry_service.store_activity_file`,
     which moves the file to the error dir and returns ``None``) and the durable
     bulk-import job body
-    (:func:`~modules.activities.activity_ingestion.bulk_entry.store_bulk_import_file`,
+    (:func:`~modules.activities.activity_ingestion.bulk_entry_service.store_bulk_import_file`,
     which lets the failure propagate so the job runner retries and eventually
     dead-letters). Does no error-directory handling itself — the caller owns the
     failure policy.

@@ -207,7 +207,7 @@ class TestSynchronousBulkImport:
         with (
             patch.object(ingestion_jobs.core_database, "get_db", return_value=iter([db])),
             patch.object(
-                ingestion_jobs.bulk_entry,
+                ingestion_jobs.bulk_entry_service,
                 "store_activity_file",
                 side_effect=[[SimpleNamespace(id=31)], None],
             ),

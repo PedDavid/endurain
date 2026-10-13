@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-import core.exceptions as core_exceptions
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as bulk_import_service
 
@@ -55,8 +54,12 @@ class TestStartBulkImport:
         assert publish.call_args.args[3] is db
         submit.assert_not_called()
 
-    def test_enqueue_failure_surfaces_as_500(self):
-        """A failed enqueue must not answer 202 for files that were never queued."""
+    def test_enqueue_failure_propagates(self):
+        """A failed enqueue must not answer 202 for files that were never queued.
+
+        The database error is not translated here: the application's database
+        error handler renders it as the opaque 500.
+        """
         db = MagicMock()
         with (
             patch.object(bulk_import_service.core_config.settings, "JOBS_ENABLED", True),
@@ -71,11 +74,9 @@ class TestStartBulkImport:
                 side_effect=SQLAlchemyError("outbox down"),
             ),
             patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
-            pytest.raises(core_exceptions.ProcessingError) as exc,
+            pytest.raises(SQLAlchemyError),
         ):
             bulk_import_service.start_bulk_import(3, db, MagicMock())
-
-        assert exc.value.status_code == 500
 
     def test_falls_back_to_threadpool_when_jobs_disabled(self):
         db = MagicMock()

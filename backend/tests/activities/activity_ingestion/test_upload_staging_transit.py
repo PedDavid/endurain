@@ -2,6 +2,7 @@
 
 import io
 import pathlib
+from functools import partial
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,6 +19,13 @@ def _skip_validator(coro):
     bypassing the validator without closing it leaves it unawaited.
     """
     coro.close()
+
+
+def _receive(upload: UploadFile) -> upload_entry.ReceivedUpload:
+    """Receive an upload through the real writer, bound the way the router binds it."""
+    return upload_entry.receive_upload(
+        upload.filename, partial(upload_entry.core_file_uploads.save_validated_upload_sync, upload)
+    )
 
 
 class TestStagingTransit:
@@ -52,7 +60,7 @@ class TestStagingTransit:
             # about where the bytes go.
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
         ):
-            key = upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
+            key = upload_entry.store_received_upload(_receive(upload), platform.storage)
 
         # It really was written to disk first, under the server-generated name.
         assert observed["during"] == [key]
@@ -73,7 +81,7 @@ class TestStagingTransit:
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
         ):
-            upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
+            upload_entry.store_received_upload(_receive(upload), platform.storage)
 
         assert incoming.is_dir()
 
@@ -89,6 +97,6 @@ class TestStagingTransit:
             patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
             pytest.raises(RuntimeError),
         ):
-            upload_entry.store_received_upload(upload_entry.receive_upload(upload), platform.storage)
+            upload_entry.store_received_upload(_receive(upload), platform.storage)
 
         assert list(pathlib.Path(incoming).iterdir()) == []

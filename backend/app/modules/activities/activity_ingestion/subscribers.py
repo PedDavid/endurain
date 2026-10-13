@@ -31,7 +31,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 import core.config as core_config
 import core.database as core_database
 import core.logger as core_logger
-import modules.activities.activity_ingestion.bulk_entry as bulk_entry
+import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.events as ingestion_events
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_service
@@ -165,7 +165,7 @@ def process_bulk_import_file_for_event(event: Event) -> None:
                 )
                 return
             with core_database.SessionLocal() as db:
-                activities = bulk_entry.store_bulk_import_file(
+                activities = bulk_entry_service.store_bulk_import_file(
                     payload.user_id, file_path, payload.import_initiated_time, db, storage
                 )
         staging.discard(payload.storage_key, storage)

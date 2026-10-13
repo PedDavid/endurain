@@ -30,13 +30,15 @@ def publish_file_uploaded(job_id: str, user_id: int, db: Session, *, commit: Cal
     Returns:
         None.
     """
+    payload = ingestion_events.UploadedFilePayload(job_id=job_id)
     platform_publisher.publish_committing(
         ingestion_events.ACTIVITY_FILE_UPLOADED,
-        {"job_id": job_id},
+        payload.model_dump(),
         source="api:upload",
         db=db,
         commit=commit,
         metadata={"user_id": user_id},
+        schema_version=payload.SCHEMA_VERSION,
     )
 
 
@@ -52,13 +54,15 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
     Returns:
         None.
     """
+    payload = ingestion_events.RefreshRequestedPayload(job_id=job_id)
     platform_publisher.publish_committing(
         ingestion_events.ACTIVITY_REFRESH_REQUESTED,
-        {"job_id": job_id},
+        payload.model_dump(),
         source="api:refresh",
         db=db,
         commit=commit,
         metadata={"user_id": user_id},
+        schema_version=payload.SCHEMA_VERSION,
     )
 
 
@@ -93,13 +97,13 @@ def publish_bulk_import_files(
     platform_publisher.publish_many_committing(
         ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
         [
-            {
-                "job_id": job_id,
-                "storage_key": key,
-                "filename": filename,
-                "user_id": user_id,
-                "import_initiated_time": import_initiated_time,
-            }
+            ingestion_events.BulkImportFilePayload(
+                job_id=job_id,
+                storage_key=key,
+                filename=filename,
+                user_id=user_id,
+                import_initiated_time=import_initiated_time,
+            ).model_dump()
             for job_id, key, filename in staged_files
         ],
         source="api:bulk_import",

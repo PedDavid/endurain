@@ -163,7 +163,9 @@ class TestProcessBulkImportFileForEvent:
             patch.object(bulk_import_subscribers.staging, "move_to_errors") as move,
             patch.object(bulk_import_subscribers.core_database, "SessionLocal"),
             patch.object(bulk_import_subscribers, "ingestion_service") as jobs,
-            patch.object(bulk_import_subscribers.bulk_entry, "store_bulk_import_file", side_effect=store) as run,
+            patch.object(
+                bulk_import_subscribers.bulk_entry_service, "store_bulk_import_file", side_effect=store
+            ) as run,
         ):
             error = None
             try:

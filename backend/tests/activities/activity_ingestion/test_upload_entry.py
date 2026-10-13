@@ -10,12 +10,6 @@ import core.exceptions as core_exceptions
 import modules.activities.activity_ingestion.upload_entry as upload_entry
 
 
-def _file(filename) -> MagicMock:
-    file = MagicMock()
-    file.filename = filename
-    return file
-
-
 def _platform() -> MagicMock:
     """A platform whose StorageProvider is a stub."""
     platform = MagicMock()
@@ -30,16 +24,12 @@ def local_storage(tmp_path) -> LocalStorage:
 
 class TestReceiveUpload:
     def test_streams_to_incoming_under_a_server_generated_key_and_fingerprints_it(self):
+        save = MagicMock(return_value="/incoming/x.gpx")
         with (
-            patch.object(
-                upload_entry.core_file_uploads,
-                "save_validated_upload_sync",
-                return_value="/incoming/x.gpx",
-            ) as save,
             patch.object(upload_entry.Path, "read_bytes", return_value=b"<gpx/>"),
             patch.object(upload_entry.core_hashing, "sha256_hex", return_value="deadbeef"),
         ):
-            received = upload_entry.receive_upload(_file("../../etc/passwd.gpx"), fingerprint=True)
+            received = upload_entry.receive_upload("../../etc/passwd.gpx", save, fingerprint=True)
 
         # The client filename reaches neither the filesystem nor the storage key.
         assert received.storage_key.endswith(".gpx")
@@ -55,15 +45,10 @@ class TestReceiveUpload:
     def test_skips_the_hash_when_no_idempotency_key_was_sent(self):
         """Nothing reads the fingerprint without a key, so it is not worth a pass over the file."""
         with (
-            patch.object(
-                upload_entry.core_file_uploads,
-                "save_validated_upload_sync",
-                return_value="/incoming/x.gpx",
-            ),
             patch.object(upload_entry.Path, "read_bytes", return_value=b"<gpx/>"),
             patch.object(upload_entry.core_hashing, "sha256_hex") as hash_bytes,
         ):
-            received = upload_entry.receive_upload(_file("ride.gpx"))
+            received = upload_entry.receive_upload("ride.gpx", MagicMock(return_value="/incoming/x.gpx"))
 
         assert received.fingerprint is None
         hash_bytes.assert_not_called()
@@ -77,27 +62,19 @@ class TestReceiveUpload:
 
     def test_rejects_a_missing_filename(self):
         with pytest.raises(core_exceptions.InvalidInputError):
-            upload_entry.receive_upload(_file(None))
+            upload_entry.receive_upload(None, MagicMock())
 
     def test_rejects_an_unsupported_extension_before_writing_anything(self):
-        with (
-            patch.object(upload_entry.core_file_uploads, "save_validated_upload_sync") as save,
-            pytest.raises(core_exceptions.UnsupportedFormatError),
-        ):
-            upload_entry.receive_upload(_file("notes.txt"))
+        save = MagicMock()
+        with pytest.raises(core_exceptions.UnsupportedFormatError):
+            upload_entry.receive_upload("notes.txt", save)
 
         save.assert_not_called()
 
     def test_a_gz_upload_is_validated_as_gzip(self):
-        with (
-            patch.object(
-                upload_entry.core_file_uploads,
-                "save_validated_upload_sync",
-                return_value="/incoming/x.gz",
-            ) as save,
-            patch.object(upload_entry.Path, "read_bytes", return_value=b"\x1f\x8b"),
-        ):
-            upload_entry.receive_upload(_file("ride.gpx.gz"))
+        save = MagicMock(return_value="/incoming/x.gz")
+        with patch.object(upload_entry.Path, "read_bytes", return_value=b"\x1f\x8b"):
+            upload_entry.receive_upload("ride.gpx.gz", save)
 
         assert save.call_args.kwargs["kind"] == upload_entry.core_file_uploads.UploadKind.GZIP
 

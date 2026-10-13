@@ -583,71 +583,6 @@ half-done:
   `integration_service.py` and the filename vocabulary, as described above.
   The generic boundary rule needs a special case until it is aligned.
 
-### Sibling persistence reaches
-
-**Resolved.** `activity_thumbnail`, `activity_geocoding` and `activity_media` read
-the activity row and streams through `activity.integration_service` and
-`activity_streams.integration_service`. Child CRUDs no longer join the
-activities table to decide access.
-
-No reach into `activity/` remains. `activity_streams.crud` used to join the
-parent for `total_timer_time`; the value now arrives as a field on the
-`ActivityScoringContext` that `activity_streams.service` resolves through the
-root surface, so the persistence layer is handed the column rather than fetching
-it. Both allowlists in the conformance test are consequently empty.
-
-### Root package depending on a child
-**Resolved.** `activity/serializers.py` imported
-`activity_thumbnail.integration_service` to turn a stored thumbnail key into a
-URL, while `activity_thumbnail/service.py` imported `activity.integration_service`
-to read the row it derives from. Both used the other's published surface, so
-every visibility rule was satisfied and the pair still could not be built,
-tested or lifted out separately.
-
-The root now asks `contributor_registry.resolve_thumbnail_url` and the thumbnail
-package registers the answer from `app/module_registry.py`, which leaves
-`activity` a sink in the package graph — nothing inside `modules.activities`
-imports out of it. `TestPackageIndependence` fails on any cycle, and
-`test_module_registry.py` asserts the resolver is actually installed, because a
-missing registration is not an import error: it is a null thumbnail URL on every
-activity in the API.
-
-### Provider cycle
-
-**Resolved.** `activity_ingestion` no longer imports `modules.strava` or
-`modules.garmin`; the `activities-provider-agnostic` contract forbids the whole
-module from doing so. Providers register through
-`activity_ingestion.integration_service`, subclass `BulkImportSource`, and
-resolve their own synced gear before handing a file to ingestion.
-
-### Platform → domain inversion
-
-**Resolved.** `core/scheduler.py` schedules what it is handed and imports no
-module; `core/i18n` owns the locales it ships a catalog for instead of reading
-the users module's `Language` enum. The `core-not-domain` contract enforces it,
-with one recorded exception: `core.middleware` reads the server-settings *schema*
-— a data shape, not behaviour — to type what it stamps onto the request.
-
-The locale list now exists three times on purpose: `core.i18n` (what we can write
-an email in), the `Language` enum (what a client may pick), and the shipped
-catalog directories. `tests/core/test_i18n.py` asserts all three agree, so drift
-fails CI rather than silently falling back to English.
-
-`modules/activities/computation.py` is the counter-case, and stays where it is.
-It is pure, imports no module, and three consumers need the same numbers — the
-file parsers, the Strava adapter and the data migrations — so a second copy in
-Strava would be two definitions of normalized power that could disagree. Moving
-it to `core` would be the same inversion in reverse: pace and normalized power
-are fitness-domain maths, not platform primitives, and `core` would then hold
-domain knowledge that no contract would catch, because `core` importing nothing
-is exactly what the rule checks for.
-
-### Providers feeding ingestion
-
-**Resolved.** `activity_ingestion/integration_service.py` publishes the entry
-point and the source types. Providers import one module; `bulk_entry` and
-`sources` are package-private again.
-
 ### Persistence layers calling other modules
 
 **Resolved for activities.** No `crud`, `query`, `serializers` or `utils` file in
@@ -694,12 +629,6 @@ Enforced by `followers-consumes-surfaces`.
 
 The same reach survives in `garmin`, `strava`, `auth.sign_up_tokens` and
 `users.users_profile`; each is fixed as its module is converted.
-
-### Migration → internals
-
-**Resolved.** `app/migrations/migration_*.py` consume package-owned
-`migration_service.py` adapters. The blanket migration allowlist is gone, and
-import-linter prevents ordinary domain/core code from using those adapters.
 
 ### ORM registry and cross-package relationships
 

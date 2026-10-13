@@ -1,7 +1,7 @@
 """Tests for the activity-ingestion bulk-import route branching."""
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -41,7 +41,11 @@ class TestUploadRoute:
                 idempotency_key="key-1",
             )
 
-        accept.assert_called_once_with(7, file, db, "storage", idempotency_key="key-1")
+        accept.assert_called_once_with(7, file.filename, ANY, db, "storage", idempotency_key="key-1")
+        # The service never sees the upload itself: only the shared writer, bound to it.
+        save_upload = accept.call_args.args[2]
+        assert save_upload.func is router.core_file_uploads.save_validated_upload_sync
+        assert save_upload.args == (file,)
         assert result == job
 
     def test_the_idempotency_key_is_optional(self):

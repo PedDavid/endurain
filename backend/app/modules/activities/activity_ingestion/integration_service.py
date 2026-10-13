@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 import modules.activities.activity.schema as activities_schema
 import modules.activities.activity_ingestion.background as ingestion_background
-import modules.activities.activity_ingestion.bulk_entry as bulk_entry
+import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.provider_registry as provider_registry
 import modules.activities.activity_ingestion.service as ingestion_service
@@ -59,7 +59,7 @@ def ingest_activity_file(
         The stored activities, or ``None`` when the file could not be parsed or
         persisted.
     """
-    return bulk_entry.store_activity_file(
+    return bulk_entry_service.store_activity_file(
         user_id, file_path, db, platform_runtime.get_active_platform().storage, source=source
     )
 

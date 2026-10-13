@@ -9,6 +9,7 @@ core router fully parser- and provider-agnostic (enforced by the import-linter c
 """
 
 from collections.abc import Callable
+from functools import partial
 from typing import Annotated
 
 import jasil.providers as platform_providers
@@ -25,6 +26,7 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.dependencies as core_dependencies
+import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_service
@@ -98,7 +100,14 @@ def create_activity_with_uploaded_file(
     query parameter). Requires the
     ``activities:upload`` scope.
     """
-    return ingestion_service.accept_upload(token_user_id, file, db, storage, idempotency_key=idempotency_key)
+    return ingestion_service.accept_upload(
+        token_user_id,
+        file.filename,
+        partial(core_file_uploads.save_validated_upload_sync, file),
+        db,
+        storage,
+        idempotency_key=idempotency_key,
+    )
 
 
 @api_upload_router.get(

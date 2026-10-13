@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import modules.activities.activity_ingestion.events as ingestion_events
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_jobs
 
@@ -27,6 +28,7 @@ class TestAcceptRefresh:
         assert "commit" not in create.call_args.kwargs
         assert publish.call_args.kwargs["commit"] == db.commit
         assert publish.call_args.args[1] == {"job_id": create.call_args.args[0]}
+        assert publish.call_args.kwargs["schema_version"] == ingestion_events.RefreshRequestedPayload.SCHEMA_VERSION
         submit.assert_not_called()
 
     def test_falls_back_to_the_background_pool_when_jobs_disabled(self):

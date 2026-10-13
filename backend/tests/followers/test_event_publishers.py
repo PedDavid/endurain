@@ -20,6 +20,7 @@ class TestPublishFollowerRequested:
         args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == followers_events.FOLLOWER_REQUESTED
         assert args[1] == {"requester_user_id": 1, "target_user_id": 2}
+        assert kwargs["schema_version"] == followers_events.FollowerRequestedPayload.SCHEMA_VERSION
         assert kwargs["metadata"] == {core_event_metadata.META_USER_ID: 2}
         assert kwargs["db"] is db
         assert kwargs["commit"] is commit
@@ -40,6 +41,7 @@ class TestPublishFollowerAccepted:
         args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == followers_events.FOLLOWER_ACCEPTED
         assert args[1] == {"accepter_user_id": 1, "requester_user_id": 2}
+        assert kwargs["schema_version"] == followers_events.FollowerAcceptedPayload.SCHEMA_VERSION
         assert kwargs["metadata"] == {core_event_metadata.META_USER_ID: 2}
         assert kwargs["db"] is db
         assert kwargs["commit"] is commit

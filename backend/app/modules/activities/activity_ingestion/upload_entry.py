@@ -17,8 +17,8 @@ files use. Without that, a ``distributed`` deployment running the parse in a
 separate ``APP_ROLE=worker`` container could not see the file the API wrote
 unless the volume happened to be shared.
 
-Differs from :mod:`bulk_entry` in that the file arrives as an ``UploadFile`` and
-has to be streamed to disk before it can be stored.
+Differs from :mod:`bulk_entry_service` in that the file arrives in the request
+and has to be streamed to disk before it can be stored.
 """
 
 import gzip
@@ -28,9 +28,9 @@ import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 import jasil.providers as platform_providers
-from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 import core.config as core_config
@@ -84,7 +84,28 @@ class ReceivedUpload:
     fingerprint: str | None = None
 
 
-def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUpload:
+class UploadSaver(Protocol):
+    """Callable that validates the request's upload and streams it to local disk."""
+
+    def __call__(self, *, kind: core_file_uploads.UploadKind, upload_dir: str, filename: str) -> str:
+        """Validate the upload and save it as ``upload_dir/filename``.
+
+        The router binds the request's file to the shared upload writer and
+        passes the result down, so nothing below the router handles the
+        transport's file object.
+
+        Args:
+            kind: Logical content type, which drives the validator and size cap.
+            upload_dir: Trusted destination directory.
+            filename: Server-generated filename within ``upload_dir``.
+
+        Returns:
+            Absolute filesystem path of the saved file.
+        """
+        ...
+
+
+def receive_upload(filename: str | None, save_upload: UploadSaver, *, fingerprint: bool = False) -> ReceivedUpload:
     """Validate an upload, stream it to local disk, and read it back.
 
     The first of the two staging phases. Split from :func:`store_received_upload`
@@ -98,7 +119,8 @@ def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUp
     followed by a failure it has to poll for.
 
     Args:
-        file: Incoming FastAPI UploadFile.
+        filename: The client-supplied filename, read for its extension only.
+        save_upload: Validates the request's upload and streams it to disk.
         fingerprint: Whether to hash the payload. Only worth it when the caller
             supplied an idempotency key, because nothing else reads it.
 
@@ -110,13 +132,13 @@ def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUp
         UnsupportedFormatError: When the extension is not a supported format.
         DomainError: When the shared upload validators reject the payload.
     """
-    if file.filename is None:
+    if filename is None:
         raise core_exceptions.InvalidInputError("Filename is required")
 
     # Pre-check the extension so we can short-circuit with a
     # human-friendly 406 before invoking the validator (which would
     # otherwise raise a generic ExtensionSecurityError -> 400).
-    _, file_extension = os.path.splitext(file.filename)
+    _, file_extension = os.path.splitext(filename)
     if file_extension.lower() not in core_config.SUPPORTED_FILE_FORMATS:
         raise core_exceptions.UnsupportedFormatError(
             "File extension not supported. Supported file extensions are .gpx, .fit, .tcx and .gz"
@@ -133,8 +155,7 @@ def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUp
     # the upload to disk in one unified step. The streaming
     # writer enforces the activity/gzip byte cap and writes via
     # a ``.part``-then-rename for atomicity.
-    incoming_path = core_file_uploads.save_validated_upload_sync(
-        file,
+    incoming_path = save_upload(
         kind=upload_kind,
         upload_dir=core_config.FILES_UPLOAD_INCOMING_DIR,
         filename=storage_key,

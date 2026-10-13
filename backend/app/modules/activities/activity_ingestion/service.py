@@ -23,8 +23,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from fastapi import UploadFile
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import core.config as core_config
@@ -33,7 +32,7 @@ import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity_ingestion.background as activity_ingestion_background
-import modules.activities.activity_ingestion.bulk_entry as bulk_entry
+import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.crud as ingestion_crud
 import modules.activities.activity_ingestion.event_publishers as ingestion_event_publishers
@@ -70,7 +69,8 @@ def _error_code_for(error: Exception) -> activity_ingestion_schema.IngestionJobE
 
 def accept_upload(
     token_user_id: int,
-    file: UploadFile,
+    filename: str | None,
+    save_upload: upload_entry.UploadSaver,
     db: Session,
     storage: platform_providers.StorageProvider,
     *,
@@ -95,7 +95,8 @@ def accept_upload(
 
     Args:
         token_user_id: Authenticated user ID.
-        file: Incoming FastAPI UploadFile.
+        filename: The client-supplied filename.
+        save_upload: Validates the request's upload and streams it to disk.
         db: Database session.
         storage: The blob-storage provider the upload is staged in.
         idempotency_key: Client-supplied key identifying this request.
@@ -110,7 +111,7 @@ def accept_upload(
         ConflictError: When the key was already used for different content.
         DomainError: When the shared upload validators reject the payload.
     """
-    received = upload_entry.receive_upload(file, fingerprint=idempotency_key is not None)
+    received = upload_entry.receive_upload(filename, save_upload, fingerprint=idempotency_key is not None)
 
     if idempotency_key:
         prior = ingestion_crud.get_job_for_idempotency(
@@ -136,8 +137,8 @@ def accept_upload(
             token_user_id,
             activity_ingestion_schema.IngestionJobKind.UPLOAD,
             db,
-            # ``file.filename`` is non-None here: staging rejects a missing one.
-            filename=str(file.filename),
+            # ``filename`` is non-None here: staging rejects a missing one.
+            filename=str(filename),
             staged_key=staged_key,
             idempotency_key=idempotency_key,
             request_fingerprint=received.fingerprint,
@@ -186,7 +187,7 @@ def accept_upload(
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
     return ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
-        job_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, str(file.filename)
+        job_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, str(filename)
     )
 
 
@@ -666,8 +667,9 @@ def start_bulk_import(
         The accepted jobs, one per queued file, in the pending state.
 
     Raises:
-        ProcessingError: When the directory cannot be read or the jobs cannot be
-            queued.
+        ProcessingError: When the directory cannot be read or the files cannot
+            be staged.
+        SQLAlchemyError: When the jobs cannot be queued.
     """
     import_time = datetime.now(UTC).isoformat()
     logger.info(
@@ -708,7 +710,7 @@ def start_bulk_import(
             activity_ingestion_background.submit_bulk_import(
                 user_id, [(job.id, file_path) for job, file_path in jobs], import_time, storage
             )
-    except (OSError, RuntimeError, SQLAlchemyError) as err:
+    except (OSError, RuntimeError) as err:
         logger.error(
             "Error starting the bulk import",
             exc_info=err,
@@ -827,7 +829,7 @@ def process_all_files_sync(
             )
             ingestion_crud.mark_processing(job_id, db)
             db.commit()
-            activities = bulk_entry.store_activity_file(
+            activities = bulk_entry_service.store_activity_file(
                 user_id,
                 file_path,
                 db,
