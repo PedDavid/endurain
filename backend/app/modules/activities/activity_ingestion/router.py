@@ -103,7 +103,6 @@ def create_activity_with_uploaded_file(
 
 @api_upload_router.get(
     "/ingestion-jobs/{job_id}",
-    status_code=200,
     response_model=activity_ingestion_schema.ActivityIngestionJob,
 )
 def get_activity_ingestion_job(

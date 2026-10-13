@@ -21,7 +21,7 @@ def stub_user_local_today():
     read; without this the bounds tests would also drift with the wall clock.
     """
     with patch(
-        "modules.activities.activity.service.users_integration_service.local_today",
+        "modules.activities.activity.service.users_integration.local_today",
         return_value=_TODAY,
     ) as mock:
         yield mock
@@ -31,7 +31,7 @@ def stub_user_local_today():
 def stub_requester_user():
     """Default period tests to a Monday-start requester."""
     with patch(
-        "modules.activities.activity.service.users_integration_service.get_user",
+        "modules.activities.activity.service.users_integration.get_user",
         return_value=SimpleNamespace(first_day_of_week="monday"),
     ) as mock:
         yield mock
@@ -277,7 +277,7 @@ class TestEditPublishesUpdated:
 
         assert updated == 3
         mock_publishers.publish_activities_updated.assert_called_once_with(
-            [4, 5, 6], 1, ["visibility"], db, db.commit, source="api:bulk_edit_activities"
+            [4, 5, 6], 1, ["visibility"], db, commit=db.commit, source="api:bulk_edit_activities"
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
@@ -319,7 +319,7 @@ class TestCrossModuleWrites:
         # Only staged, so the updates and their events are atomic.
         mock_crud.bulk_set_activities_gear_id.assert_called_once_with(3, {7: 10, 8: 10}, db)
         mock_publishers.publish_activities_updated.assert_called_once_with(
-            [7, 8], 3, ["gear_id"], db, db.commit, source="api:test"
+            [7, 8], 3, ["gear_id"], db, commit=db.commit, source="api:test"
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
@@ -335,7 +335,7 @@ class TestCrossModuleWrites:
         assert deleted == 5
         mock_crud.delete_all_strava_activities_for_user.assert_called_once_with(3, db)
         mock_publishers.publish_activities_deleted.assert_called_once_with(
-            [11, 12, 13, 14, 15], 3, db, db.commit, source="api:test"
+            [11, 12, 13, 14, 15], 3, db, commit=db.commit, source="api:test"
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
@@ -351,7 +351,9 @@ class TestCrossModuleWrites:
 
         assert deleted == 2
         mock_crud.delete_all_activities_for_user.assert_called_once_with(7, db)
-        mock_publishers.publish_activities_deleted.assert_called_once_with([1, 2], 7, db, db.commit, source="api:test")
+        mock_publishers.publish_activities_deleted.assert_called_once_with(
+            [1, 2], 7, db, commit=db.commit, source="api:test"
+        )
 
 
 class TestDerivedArtifactWrites:

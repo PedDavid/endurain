@@ -19,7 +19,7 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.summary_crud as summary_crud
 import modules.activities.activity.summary_schema as summary_schema
-import modules.users.users.integration_service as users_integration_service
+import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
 
@@ -104,7 +104,7 @@ def build_summary(
     # web client always sends its own local date (the request carries no
     # timezone, so the server cannot derive it); when it does not, the caller's
     # configured timezone is the same frame of reference it would have sent.
-    today = anchor or users_integration_service.local_today(user_id, db)
+    today = anchor or users_integration.local_today(user_id, db)
 
     # Which day the server thinks "today" is drives every bucket boundary, so log
     # it alongside what the caller asked for — off-by-one summary reports are
@@ -122,7 +122,7 @@ def build_summary(
     )
 
     if period == "week":
-        user = users_integration_service.get_user(user_id, db)
+        user = users_integration.get_user(user_id, db)
         if user is None:
             raise core_exceptions.NotFoundError("User not found")
         return summary_crud.get_weekly_summary(
@@ -134,7 +134,7 @@ def build_summary(
         )
 
     if period == "month":
-        user = users_integration_service.get_user(user_id, db)
+        user = users_integration.get_user(user_id, db)
         if user is None:
             raise core_exceptions.NotFoundError("User not found")
         return summary_crud.get_monthly_summary(

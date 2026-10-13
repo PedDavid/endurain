@@ -416,7 +416,7 @@ class TestGetTypeBreakdown:
         row.total_calories = 500.0
         row.activity_count = 1
         mock_db.execute.return_value.all.return_value = [row]
-        result = crud._get_type_breakdown(mock_db, 1, date.min, date.max)
+        result = crud._get_type_breakdown(1, date.min, date.max, mock_db)
         assert len(result) == 1
         assert result[0].activity_type_id == 1
         assert result[0].total_distance == 10000.0
@@ -425,7 +425,7 @@ class TestGetTypeBreakdown:
         import modules.activities.activity.summary_crud as crud
 
         mock_db.execute.return_value.all.return_value = []
-        result = crud._get_type_breakdown(mock_db, 1, date.min, date.max)
+        result = crud._get_type_breakdown(1, date.min, date.max, mock_db)
         assert result == []
 
     def test_with_known_type_filter(self, mock_db):
@@ -439,13 +439,13 @@ class TestGetTypeBreakdown:
         row.total_calories = 250.0
         row.activity_count = 1
         mock_db.execute.return_value.all.return_value = [row]
-        result = crud._get_type_breakdown(mock_db, 1, date.min, date.max, activity_type="running")
+        result = crud._get_type_breakdown(1, date.min, date.max, mock_db, activity_type="running")
         assert len(result) == 1
 
     def test_with_unknown_type_filter(self, mock_db):
         import modules.activities.activity.summary_crud as crud
 
-        result = crud._get_type_breakdown(mock_db, 1, date.min, date.max, activity_type="unknown_sport")
+        result = crud._get_type_breakdown(1, date.min, date.max, mock_db, activity_type="unknown_sport")
         assert result == []
 
 

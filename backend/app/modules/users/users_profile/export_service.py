@@ -23,8 +23,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.integration_service as activities_integration
-import modules.activities.activity_file_storage.integration_service as file_storage_integration
+import modules.activities.activity.integration_service as activity_integration
+import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
 import modules.activities.contributor_registry as contributor_registry
 import modules.gears.gear.crud as gear_crud
@@ -262,7 +262,7 @@ class ExportService:
             # Convert offset to page number (1-based indexing)
             page_number = (offset // limit) + 1
 
-            return activities_integration.list_user_activities_page(
+            return activity_integration.list_user_activities_page(
                 self.user_id,
                 page_number,
                 limit,
@@ -658,7 +658,7 @@ class ExportService:
         storage = platform_runtime.get_active_platform().storage
         for activity in user_activities:
             try:
-                stored = file_storage_integration.get_activity_file(activity.id, storage)
+                stored = activity_file_storage_integration.get_activity_file(activity.id, storage)
                 if stored is None:
                     continue
                 key, data = stored

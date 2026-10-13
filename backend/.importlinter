@@ -455,6 +455,7 @@ source_modules =
     modules.activities.activity.query
     modules.activities.*.serializers
     modules.followers.crud
+    modules.followers.serializers
 forbidden_modules =
     fastapi
 

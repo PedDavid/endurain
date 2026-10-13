@@ -1273,7 +1273,7 @@ class TestDeleteUser:
 
         with (
             patch("modules.users.users.crud._get_user_model_by_id_or_404", return_value=mock_db_user),
-            patch("modules.users.users.crud.activities_integration") as mock_activities,
+            patch("modules.users.users.crud.activity_integration") as mock_activities,
             patch(
                 "modules.users.users.crud.users_utils.delete_user_photo_filesystem", new_callable=AsyncMock
             ) as mock_del,

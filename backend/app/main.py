@@ -39,7 +39,7 @@ import core.problem_details as core_problem_details
 import core.rate_limit as core_rate_limit
 import core.scheduler as core_scheduler
 import module_registry as runtime_module_registry
-import modules.activities.activity_ingestion.integration_service as activity_ingestion
+import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.auth.identity_providers.link_tokens.utils as idp_link_token_utils
 import modules.auth.oauth_state.utils as oauth_state_utils
 import modules.auth.password_reset_tokens.utils as password_reset_tokens_utils
@@ -344,7 +344,7 @@ def shutdown_event(fastapi_app: FastAPI) -> None:
 
     # Stop the bulk-import background pool (no-op when it was never started, i.e.
     # when durable jobs handle imports instead).
-    activity_ingestion.shutdown_background_ingestion()
+    activity_ingestion_integration.shutdown_background_ingestion()
 
     core_scheduler.stop_scheduler()
 

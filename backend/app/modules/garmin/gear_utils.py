@@ -2,7 +2,7 @@ import garminconnect
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activities_schema
 import modules.garmin.utils as garmin_utils
 import modules.gears.gear.crud as gears_crud
@@ -107,7 +107,7 @@ def resolve_synced_gear_id(user_id: int, garminconnect_gear: list | None, db: Se
 
 def set_activities_gear(user_id: int, db: Session) -> int:
     # Get user activities
-    activities = activities_integration.list_user_activities_with_garminconnect_gear(user_id, db)
+    activities = activity_integration.list_user_activities_with_garminconnect_gear(user_id, db)
 
     # Skip if no activities
     if activities is None:
@@ -132,7 +132,7 @@ def set_activities_gear(user_id: int, db: Session) -> int:
 
     # Persist via CRUD (single UPDATE per distinct gear_id)
     if gear_assignments:
-        activities_integration.bulk_set_activities_gear(user_id, gear_assignments, db)
+        activity_integration.bulk_set_activities_gear(user_id, gear_assignments, db)
 
     return len(gear_assignments)
 

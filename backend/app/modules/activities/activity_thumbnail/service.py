@@ -18,8 +18,8 @@ import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.integration_service as activities_service
-import modules.activities.activity_streams.integration_service as activity_streams_service
+import modules.activities.activity.integration_service as activity_integration
+import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.render as activity_thumbnail_render
 import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
 import modules.server_settings.integration_service as server_settings_integration
@@ -69,7 +69,7 @@ def _iter_activities_with_thumbnail(db: Session) -> Iterator[activities_contract
     Returns:
         Thumbnail references, in id order.
     """
-    for page in _iter_activity_pages(db, activities_service.list_activities_with_thumbnail):
+    for page in _iter_activity_pages(db, activity_integration.list_activities_with_thumbnail):
         yield from page
 
 
@@ -90,7 +90,7 @@ def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activities_
     Returns:
         Pages of thumbnail references, in id order.
     """
-    yield from _iter_activity_pages(db, activities_service.list_activities_without_thumbnail)
+    yield from _iter_activity_pages(db, activity_integration.list_activities_without_thumbnail)
 
 
 def resolve_tile_settings(db: Session) -> tuple[str, str, str | None]:
@@ -154,7 +154,7 @@ def generate_and_store_thumbnail(
         data,
         activity_thumbnail_render.THUMBNAIL_CONTENT_TYPE,
     )
-    activities_service.set_thumbnail_key(activity_id, key, db)
+    activity_integration.set_thumbnail_key(activity_id, key, db)
     return key
 
 
@@ -251,7 +251,7 @@ def delete_and_regenerate_all_activity_thumbnails(
                 extra=core_logger.context(activity_id=activity.id, reason=str(err)),
             )
     # Clear DB references so generate_missing picks them all up.
-    activities_service.clear_all_thumbnail_keys(db)
+    activity_integration.clear_all_thumbnail_keys(db)
 
     logger.info("Thumbnail regeneration: deleted thumbnails", extra=core_logger.context(deleted=deleted))
 
@@ -305,7 +305,7 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
     for activity in _iter_activities_with_thumbnail(db):
         key = activity.map_thumbnail_path
         if key is not None and not storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
-            activities_service.set_thumbnail_key(activity.id, None, db)
+            activity_integration.set_thumbnail_key(activity.id, None, db)
             logger.info(
                 "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
                 extra=core_logger.context(activity_id=activity.id),
@@ -325,7 +325,7 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
 
         # Batch-load MAP-stream waypoints through the streams service (the ORM
         # stays confined to that package) as an {activity_id: waypoints} mapping.
-        waypoints_by_activity_id = activity_streams_service.get_gps_waypoints_for_activities(
+        waypoints_by_activity_id = activity_streams_integration.get_gps_waypoints_for_activities(
             [activity.id for activity in page],
             db,
         )

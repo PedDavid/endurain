@@ -23,9 +23,10 @@ import modules.activities.activity.events as activity_events
 def publish_activity_created(
     activity_id: int,
     user_id: int | None,
+    db: Session,
+    *,
+    commit: Callable[[], None],
     duplicate_start_time: bool = False,
-    db: Session | None = None,
-    commit: Callable[[], None] | None = None,
 ) -> None:
     """Publish ``activity.created`` for a freshly stored activity.
 
@@ -35,18 +36,17 @@ def publish_activity_created(
             such as thumbnail generation needs the owner to load the activity's
             own streams) and mirrored into the **metadata** for event-log
             correlation.
+        db: The producer's DB session, used for durable outbox delivery when
+            durable jobs are enabled.
+        commit: Zero-arg callable that commits the caller's unit of work
+            (:func:`jasil.publisher.publish_committing`): the ingestion service
+            owns a single commit for the activity + its children, and the durable
+            outbox row joins that same transaction (or the event dispatches on
+            the bus post-commit).
         duplicate_start_time: Whether the activity duplicates an existing
             activity's start time (marked hidden on store). Carried in the
             payload so the notification subscriber can raise the duplicate
             variant instead of the new-activity notification.
-        db: The producer's DB session, used for durable outbox delivery when
-            durable jobs are enabled.
-        commit: When provided, the event is published transactionally around this
-            zero-arg commit callable (:func:`jasil.publisher.publish_committing`):
-            the ingestion service owns a single commit for the activity + its
-            children, and the durable outbox row joins that same transaction (or
-            the event dispatches on the bus post-commit). When ``None`` the event
-            is published best-effort after the caller has already committed.
 
     Returns:
         None.
@@ -60,33 +60,24 @@ def publish_activity_created(
         core_event_metadata.META_ACTIVITY_ID: activity_id,
         core_event_metadata.META_USER_ID: user_id,
     }
-    if commit is not None:
-        platform_publisher.publish_committing(
-            activity_events.ACTIVITY_CREATED,
-            payload.model_dump(),
-            source="api:store_activity",
-            metadata=metadata,
-            db=db,
-            commit=commit,
-            schema_version=payload.SCHEMA_VERSION,
-        )
-    else:
-        platform_publisher.publish(
-            activity_events.ACTIVITY_CREATED,
-            payload.model_dump(),
-            source="api:store_activity",
-            metadata=metadata,
-            db=db,
-            schema_version=payload.SCHEMA_VERSION,
-        )
+    platform_publisher.publish_committing(
+        activity_events.ACTIVITY_CREATED,
+        payload.model_dump(),
+        source="api:store_activity",
+        metadata=metadata,
+        db=db,
+        commit=commit,
+        schema_version=payload.SCHEMA_VERSION,
+    )
 
 
 def publish_activity_updated(
     activity_id: int,
     user_id: int | None,
     changed_fields: Iterable[str],
-    db: Session | None = None,
-    commit: Callable[[], None] | None = None,
+    db: Session,
+    *,
+    commit: Callable[[], None],
 ) -> None:
     """Publish ``activity.updated`` after an activity's own columns changed.
 
@@ -100,10 +91,8 @@ def publish_activity_updated(
             producer's iteration order.
         db: The producer's DB session, used for durable outbox delivery when
             durable jobs are enabled.
-        commit: When provided, the event is published transactionally around this
-            zero-arg commit callable, so the outbox row joins the same
-            transaction as the update. When ``None`` the event is published
-            best-effort after the caller has already committed.
+        commit: Zero-arg callable that commits the caller's unit of work, so the
+            outbox row joins the same transaction as the update.
 
     Returns:
         None.
@@ -117,25 +106,15 @@ def publish_activity_updated(
         core_event_metadata.META_ACTIVITY_ID: activity_id,
         core_event_metadata.META_USER_ID: user_id,
     }
-    if commit is not None:
-        platform_publisher.publish_committing(
-            activity_events.ACTIVITY_UPDATED,
-            payload.model_dump(),
-            source="api:edit_activity",
-            metadata=metadata,
-            db=db,
-            commit=commit,
-            schema_version=payload.SCHEMA_VERSION,
-        )
-    else:
-        platform_publisher.publish(
-            activity_events.ACTIVITY_UPDATED,
-            payload.model_dump(),
-            source="api:edit_activity",
-            metadata=metadata,
-            db=db,
-            schema_version=payload.SCHEMA_VERSION,
-        )
+    platform_publisher.publish_committing(
+        activity_events.ACTIVITY_UPDATED,
+        payload.model_dump(),
+        source="api:edit_activity",
+        metadata=metadata,
+        db=db,
+        commit=commit,
+        schema_version=payload.SCHEMA_VERSION,
+    )
 
 
 def publish_activities_updated(
@@ -143,8 +122,8 @@ def publish_activities_updated(
     user_id: int | None,
     changed_fields: Iterable[str],
     db: Session,
-    commit: Callable[[], None],
     *,
+    commit: Callable[[], None],
     source: str,
 ) -> None:
     """Publish one ``activity.updated`` per activity touched by a bulk update.
@@ -193,8 +172,9 @@ def publish_activities_updated(
 def publish_activity_deleted(
     activity_id: int,
     user_id: int | None,
-    db: Session | None = None,
-    commit: Callable[[], None] | None = None,
+    db: Session,
+    *,
+    commit: Callable[[], None],
 ) -> None:
     """Publish ``activity.deleted`` after an activity row has been removed.
 
@@ -203,13 +183,12 @@ def publish_activity_deleted(
         user_id: The owning user's ID, attached as correlation metadata.
         db: The producer's DB session, used for durable outbox delivery when
             durable jobs are enabled.
-        commit: When provided, the event is published transactionally around this
-            zero-arg commit callable (:func:`jasil.publisher.publish_committing`):
-            the delete is staged uncommitted and the durable outbox row joins that
-            same transaction, so the row deletion and the cleanup event commit
-            together (a crash cannot delete the activity while orphaning its
-            thumbnail / source-file blobs). When ``None`` the event is published
-            best-effort after the caller has already committed.
+        commit: Zero-arg callable that commits the caller's unit of work
+            (:func:`jasil.publisher.publish_committing`): the delete is staged
+            uncommitted and the durable outbox row joins that same transaction,
+            so the row deletion and the cleanup event commit together (a crash
+            cannot delete the activity while orphaning its thumbnail /
+            source-file blobs).
 
     Returns:
         None.
@@ -219,33 +198,23 @@ def publish_activity_deleted(
         core_event_metadata.META_ACTIVITY_ID: activity_id,
         core_event_metadata.META_USER_ID: user_id,
     }
-    if commit is not None:
-        platform_publisher.publish_committing(
-            activity_events.ACTIVITY_DELETED,
-            deleted.model_dump(),
-            source="api:delete_activity",
-            metadata=metadata,
-            db=db,
-            commit=commit,
-            schema_version=deleted.SCHEMA_VERSION,
-        )
-    else:
-        platform_publisher.publish(
-            activity_events.ACTIVITY_DELETED,
-            deleted.model_dump(),
-            source="api:delete_activity",
-            metadata=metadata,
-            db=db,
-            schema_version=deleted.SCHEMA_VERSION,
-        )
+    platform_publisher.publish_committing(
+        activity_events.ACTIVITY_DELETED,
+        deleted.model_dump(),
+        source="api:delete_activity",
+        metadata=metadata,
+        db=db,
+        commit=commit,
+        schema_version=deleted.SCHEMA_VERSION,
+    )
 
 
 def publish_activities_deleted(
     activity_ids: Sequence[int],
     user_id: int | None,
     db: Session,
-    commit: Callable[[], None],
     *,
+    commit: Callable[[], None],
     source: str,
 ) -> None:
     """Publish one ``activity.deleted`` per activity removed by a bulk delete.

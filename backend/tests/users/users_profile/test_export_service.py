@@ -148,7 +148,7 @@ class TestExportServiceCollectUserActivities:
         mock_activity = _make_activity_mock(1)
 
         with patch(
-            "modules.users.users_profile.export_service.activities_integration.list_user_activities_page",
+            "modules.users.users_profile.export_service.activity_integration.list_user_activities_page",
             return_value=[mock_activity],
         ):
             result = service._get_activities_batch(0, 10)
@@ -162,7 +162,7 @@ class TestExportServiceCollectUserActivities:
 
         with (
             patch(
-                "modules.users.users_profile.export_service.activities_integration.list_user_activities_page",
+                "modules.users.users_profile.export_service.activity_integration.list_user_activities_page",
                 side_effect=Exception("db error"),
             ),
             pytest.raises(Exception, match="db error"),
@@ -533,7 +533,7 @@ class TestExportServiceActivityFiles:
             service = profile_export_service.ExportService(user_id=1, db=mock_db)
 
             with patch(
-                "modules.users.users_profile.export_service.file_storage_integration.get_activity_file",
+                "modules.users.users_profile.export_service.activity_file_storage_integration.get_activity_file",
                 return_value=None,
             ):
                 service.add_activity_files_to_zip(z, [_make_activity_mock(1)])
@@ -556,7 +556,7 @@ class TestExportServiceActivityFiles:
             service = profile_export_service.ExportService(user_id=1, db=mock_db)
 
             with patch(
-                "modules.users.users_profile.export_service.file_storage_integration.get_activity_file",
+                "modules.users.users_profile.export_service.activity_file_storage_integration.get_activity_file",
                 return_value=("1.gpx", b"<gpx></gpx>"),
             ):
                 service.add_activity_files_to_zip(z, [_make_activity_mock(1)])
@@ -1226,7 +1226,7 @@ class TestExportServiceActivityFilesEdgeCases:
             service = profile_export_service.ExportService(user_id=1, db=mock_db)
 
             with patch(
-                "modules.users.users_profile.export_service.file_storage_integration.get_activity_file",
+                "modules.users.users_profile.export_service.activity_file_storage_integration.get_activity_file",
                 return_value=None,
             ):
                 service.add_activity_files_to_zip(z, [_make_activity_mock(1)])
@@ -1241,7 +1241,7 @@ class TestExportServiceActivityFilesEdgeCases:
             service = profile_export_service.ExportService(user_id=1, db=mock_db)
 
             with patch(
-                "modules.users.users_profile.export_service.file_storage_integration.get_activity_file",
+                "modules.users.users_profile.export_service.activity_file_storage_integration.get_activity_file",
                 side_effect=[OSError("read failed"), ("2.gpx", b"<gpx></gpx>")],
             ):
                 service.add_activity_files_to_zip(z, [_make_activity_mock(1), _make_activity_mock(2)])

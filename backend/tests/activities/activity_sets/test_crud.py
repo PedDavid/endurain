@@ -82,7 +82,7 @@ class TestGetActivitySets:
 class TestGetActivitiesSets:
     """The batch read no longer joins the parent: it is handed scoped ids."""
 
-    @patch("modules.activities.activity_sets.crud._to_read_schema")
+    @patch("modules.activities.activity_sets.serializers.to_read_schema")
     def test_success(self, mock_to_read, mock_db):
         import modules.activities.activity_sets.crud as crud
         import modules.activities.activity_sets.models as m

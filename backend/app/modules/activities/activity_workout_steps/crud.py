@@ -7,22 +7,9 @@ import core.decorators as core_decorators
 import core.logger as core_logger
 import modules.activities.activity_workout_steps.models as activity_workout_steps_models
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
+import modules.activities.activity_workout_steps.serializers as activity_workout_steps_serializers
 
 logger = core_logger.get_logger(__name__)
-
-
-def _to_read_schema(
-    orm_step: activity_workout_steps_models.ActivityWorkoutSteps,
-) -> activity_workout_steps_schema.ActivityWorkoutSteps:
-    """Convert an ORM row to its read schema so ORM never leaves ``crud``.
-
-    Args:
-        orm_step: The ORM row to convert.
-
-    Returns:
-        The read schema.
-    """
-    return activity_workout_steps_schema.ActivityWorkoutSteps.model_validate(orm_step)
 
 
 @core_decorators.handle_db_errors
@@ -60,7 +47,7 @@ def get_activity_workout_steps(
     )
     workout_steps = db.scalars(stmt).all()
 
-    return [_to_read_schema(step) for step in workout_steps]
+    return [activity_workout_steps_serializers.to_read_schema(step) for step in workout_steps]
 
 
 @core_decorators.handle_db_errors
@@ -114,7 +101,7 @@ def get_activities_workout_steps(
     stmt = select(activity_workout_steps_models.ActivityWorkoutSteps).where(
         activity_workout_steps_models.ActivityWorkoutSteps.activity_id.in_(activity_ids)
     )
-    return [_to_read_schema(row) for row in db.scalars(stmt).all()]
+    return [activity_workout_steps_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -138,24 +125,7 @@ def create_activity_workout_steps(
     Raises:
         ProcessingError: If database error occurs.
     """
-    workout_steps = [
-        activity_workout_steps_models.ActivityWorkoutSteps(
-            activity_id=activity_id,
-            message_index=step.message_index,
-            duration_type=step.duration_type,
-            duration_value=step.duration_value,
-            target_type=step.target_type,
-            target_value=step.target_value,
-            intensity=step.intensity,
-            notes=step.notes,
-            exercise_category=(step.exercise_category),
-            exercise_name=step.exercise_name,
-            exercise_weight=(step.exercise_weight),
-            weight_display_unit=(step.weight_display_unit),
-            secondary_target_value=(step.secondary_target_value),
-        )
-        for step in activity_workout_steps
-    ]
+    workout_steps = [activity_workout_steps_serializers.to_orm(step, activity_id) for step in activity_workout_steps]
 
     db.add_all(workout_steps)
     db.flush()

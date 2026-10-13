@@ -26,9 +26,9 @@ import core.exceptions as core_exceptions
 import core.file_uploads as file_uploads
 import core.logger as core_logger
 import modules.activities.activity.contracts as activity_contracts
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activity_schema
-import modules.activities.activity_file_storage.integration_service as file_storage_integration
+import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
 import modules.activities.contributor_registry as contributor_registry
 import modules.gears.gear.crud as gear_crud
@@ -746,7 +746,7 @@ class ImportService:
                 activity = activity_contracts.ActivityCore(**activity_data)
                 # Bulk restore deliberately does not publish activity.created;
                 # see integration_service.restore_activity for why.
-                new_activity = activities_integration.restore_activity(activity, self.db)
+                new_activity = activity_integration.restore_activity(activity, self.db)
 
                 if original_activity_id is not None and new_activity.id is not None:
                     activities_id_mapping[original_activity_id] = new_activity.id
@@ -993,7 +993,7 @@ class ImportService:
                         logger.warning(f"Profile import dropped invalid activity file {new_file_name}: {err.detail}")
                         continue
                     await asyncio.to_thread(
-                        file_storage_integration.store_activity_file,
+                        activity_file_storage_integration.store_activity_file,
                         new_id,
                         ext,
                         file_bytes,

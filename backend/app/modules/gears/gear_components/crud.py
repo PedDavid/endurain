@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.gears.gear_components.models as gear_components_models
 import modules.gears.gear_components.schema as gear_components_schema
 
@@ -314,7 +314,7 @@ def get_components_activity_stats(
         for row in db.execute(comp_stmt).all()
     ]
 
-    totals = activities_integration.get_gear_usage_totals_by_window(gear_id, windows, db)
+    totals = activity_integration.get_gear_usage_totals_by_window(gear_id, windows, db)
     return {
         key: {
             "distance": usage.distance,

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
 import core.logger as core_logger
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.gears.gear.models as gears_models
 import modules.gears.gear.schema as gears_schema
 import modules.gears.gear_components.models as gear_components_models
@@ -153,7 +153,7 @@ def get_gear_activity_stats(
     Raises:
         HTTPException: On database error.
     """
-    totals = activities_integration.get_gear_usage_totals(gear_id, db)
+    totals = activity_integration.get_gear_usage_totals(gear_id, db)
     return {
         "total_distance": totals.distance,
         "total_time": totals.time,

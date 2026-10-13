@@ -20,6 +20,7 @@ def publish_follower_requested(
     requester_user_id: int,
     target_user_id: int,
     db: Session,
+    *,
     commit: Callable[[], None],
 ) -> None:
     """Publish ``follower.requested`` after a follow-request row is created.
@@ -50,6 +51,7 @@ def publish_follower_accepted(
     accepter_user_id: int,
     requester_user_id: int,
     db: Session,
+    *,
     commit: Callable[[], None],
 ) -> None:
     """Publish ``follower.accepted`` after a pending request is accepted.

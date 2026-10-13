@@ -11,7 +11,7 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activities_constants
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.integration_service as ingestion_service
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activities_schema
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.computation as activities_computation
@@ -383,7 +383,7 @@ def save_activity_streams_laps(
     format-agnostic :class:`~modules.activities.activity.schema.ParsedActivity`
     from the parse result and delegates persistence + ``activity.created``
     publication to
-    :func:`~modules.activities.activity.ingestion_service.store_parsed_activity`,
+    :func:`~modules.activities.activity.activity_integration.store_parsed_activity`,
     instead of calling ``create_activity`` and the stream/lap CRUD directly. The
     notification, thumbnail, and HR-zone subscribers react to the published event.
 
@@ -414,7 +414,7 @@ def save_activity_streams_laps(
 
     # Persist + publish ``activity.created`` via the canonical seam. The seam marks
     # duplicate start times hidden and forwards that to the notification subscriber.
-    return ingestion_service.store_parsed_activity(parsed, db)
+    return activity_integration.store_parsed_activity(parsed, db)
 
 
 async def process_activity(

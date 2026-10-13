@@ -73,10 +73,10 @@ def _apply_activity_type_filter(
 
 
 def _get_type_breakdown(
-    db: Session,
     user_id: int,
     start_date: date,
     end_date: date,
+    db: Session,
     activity_type: str | None = None,
 ) -> list[TypeBreakdownItem]:
     """
@@ -140,10 +140,10 @@ def _get_type_breakdown(
 
 @core_decorators.handle_db_errors
 def get_weekly_summary(
-    db: Session,
     user_id: int,
     target_date: date,
     first_day_of_week: core_calendar.WeekdayValue,
+    db: Session,
     activity_type: str | None = None,
 ) -> WeeklySummaryResponse:
     """
@@ -229,10 +229,10 @@ def get_weekly_summary(
         activity_count=overall.activity_count,
         breakdown=breakdown,
         type_breakdown=_get_type_breakdown(
-            db,
             user_id,
             start_of_week,
             end_of_week,
+            db,
             activity_type,
         ),
     )
@@ -240,10 +240,10 @@ def get_weekly_summary(
 
 @core_decorators.handle_db_errors
 def get_monthly_summary(
-    db: Session,
     user_id: int,
     target_date: date,
     first_day_of_week: core_calendar.WeekdayValue,
+    db: Session,
     activity_type: str | None = None,
 ) -> MonthlySummaryResponse:
     """
@@ -318,10 +318,10 @@ def get_monthly_summary(
         activity_count=overall.activity_count,
         breakdown=breakdown,
         type_breakdown=_get_type_breakdown(
-            db,
             user_id,
             start_of_month,
             end_of_month,
+            db,
             activity_type,
         ),
     )
@@ -329,9 +329,9 @@ def get_monthly_summary(
 
 @core_decorators.handle_db_errors
 def get_yearly_summary(
-    db: Session,
     user_id: int,
     year: int,
+    db: Session,
     activity_type: str | None = None,
 ) -> YearlySummaryResponse:
     """
@@ -408,10 +408,10 @@ def get_yearly_summary(
         activity_count=overall.activity_count,
         breakdown=breakdown,
         type_breakdown=_get_type_breakdown(
-            db,
             user_id,
             start_of_year,
             end_of_year,
+            db,
             activity_type,
         ),
     )
@@ -419,8 +419,8 @@ def get_yearly_summary(
 
 @core_decorators.handle_db_errors
 def get_lifetime_summary(
-    db: Session,
     user_id: int,
+    db: Session,
     activity_type: str | None = None,
 ) -> LifetimeSummaryResponse:
     """
@@ -502,10 +502,10 @@ def get_lifetime_summary(
             breakdown=breakdown,
             type_breakdown=(
                 _get_type_breakdown(
-                    db,
                     user_id,
                     date.min,
                     date.max,
+                    db,
                     activity_type,
                 )
                 or []

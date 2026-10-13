@@ -45,7 +45,7 @@ class TestBuildStorageKey:
 
 class TestListActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_returns_media_for_owned_activity(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import list_activity_media
@@ -63,7 +63,7 @@ class TestListActivityMedia:
         assert "/activities/1/media/3/file?t=" in media[0].url
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_returns_empty_when_activity_not_owned(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import list_activity_media
 
@@ -73,7 +73,7 @@ class TestListActivityMedia:
         mock_media_crud.get_media_for_activity.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_returns_empty_when_no_media(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import list_activity_media
 
@@ -85,7 +85,7 @@ class TestListActivityMedia:
 
 class TestStoreActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_saves_blob_and_creates_record(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.contracts import ActivityMediaRecord
         from modules.activities.activity_media.service import store_activity_media
@@ -114,7 +114,7 @@ class TestStoreActivityMedia:
         assert mock_media_crud.create_activity_media.call_args.kwargs["content_hash"]
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_returns_existing_record_without_storing_when_content_matches(
         self, mock_activities_service, mock_media_crud
     ):
@@ -134,7 +134,7 @@ class TestStoreActivityMedia:
         mock_media_crud.create_activity_media.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_rejects_activity_owned_by_another_user(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
@@ -149,7 +149,7 @@ class TestStoreActivityMedia:
         storage.save.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_removes_blob_when_record_creation_fails(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import store_activity_media
 
@@ -166,7 +166,7 @@ class TestStoreActivityMedia:
         storage.delete.assert_called_once_with("activity_media", stored_key)
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_race_lost_to_a_concurrent_store_returns_the_winner(self, mock_activities_service, mock_media_crud):
         """The pre-check is read-then-write; losing the race to the unique index
         must return the winner rather than surfacing a conflict for what the
@@ -271,7 +271,7 @@ class TestStoreActivityMediaBytes:
 
 class TestDeleteActivityMedia:
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_deletes_record_and_blob(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import delete_activity_media
 
@@ -315,7 +315,7 @@ class TestDeleteActivityMedia:
         mock_media_crud.delete_activity_media.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_media_on_another_users_activity_is_404(self, mock_activities_service, mock_media_crud):
         from modules.activities.activity_media.service import delete_activity_media
 
@@ -332,7 +332,7 @@ class TestDeleteActivityMedia:
 
     @patch(f"{_SVC}.logger")
     @patch(f"{_SVC}.activity_media_crud")
-    @patch(f"{_SVC}.activities_service")
+    @patch(f"{_SVC}.activity_integration")
     def test_cleanup_failure_is_logged_not_raised(self, mock_activities_service, mock_media_crud, mock_logger):
         from modules.activities.activity_media.service import delete_activity_media
 

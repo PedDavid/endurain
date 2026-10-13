@@ -8,7 +8,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
 import core.scheduler as core_scheduler
-import modules.activities.activity_exercise_titles.integration_service as exercise_titles_integration
+import modules.activities.activity_exercise_titles.integration_service as activity_exercise_titles_integration
 import modules.activities.activity_file_storage.subscriber_registry as file_storage_subscribers
 import modules.activities.activity_geocoding.scheduled_jobs as geocoding_jobs
 import modules.activities.activity_geocoding.subscriber_registry as geocoding_subscribers
@@ -21,10 +21,10 @@ import modules.activities.activity_sets.integration_service as activity_sets_int
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_streams.scheduled_jobs as stream_jobs
 import modules.activities.activity_streams.subscriber_registry as stream_subscribers
-import modules.activities.activity_thumbnail.integration_service as thumbnail_integration
+import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
 import modules.activities.activity_thumbnail.scheduled_jobs as thumbnail_jobs
 import modules.activities.activity_thumbnail.subscriber_registry as thumbnail_subscribers
-import modules.activities.activity_workout_steps.integration_service as workout_steps_integration
+import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
 import modules.activities.contributor_registry as activity_contributor_registry
 import modules.notifications.subscriber_registry as notification_subscribers
 
@@ -131,20 +131,22 @@ def configure_activity_contributors() -> None:
         activity_laps_integration.ingestion_contributor(),
         activity_sets_integration.ingestion_contributor(),
         activity_streams_integration.ingestion_contributor(),
-        workout_steps_integration.ingestion_contributor(),
+        activity_workout_steps_integration.ingestion_contributor(),
     ):
         activity_contributor_registry.register_activity_ingestion(ingestion_contributor)
-    activity_contributor_registry.register_file_ingestion(exercise_titles_integration.ingestion_contributor())
+    activity_contributor_registry.register_file_ingestion(activity_exercise_titles_integration.ingestion_contributor())
     for profile_contributor in (
         activity_laps_integration.profile_contributor(),
         activity_sets_integration.profile_contributor(),
         activity_streams_integration.profile_contributor(),
-        workout_steps_integration.profile_contributor(),
+        activity_workout_steps_integration.profile_contributor(),
         activity_media_integration.profile_contributor(),
     ):
         activity_contributor_registry.register_profile_activity(profile_contributor)
-    activity_contributor_registry.register_profile_global(exercise_titles_integration.profile_global_contributor())
-    activity_contributor_registry.register_thumbnail_url_resolver(thumbnail_integration.thumbnail_url)
+    activity_contributor_registry.register_profile_global(
+        activity_exercise_titles_integration.profile_global_contributor()
+    )
+    activity_contributor_registry.register_thumbnail_url_resolver(activity_thumbnail_integration.thumbnail_url)
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:

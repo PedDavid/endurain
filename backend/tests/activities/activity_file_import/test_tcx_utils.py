@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_file_import.utils_tcx as utils_tcx
+import modules.activities.activity_file_import.tcx_utils as tcx_utils
 
 
 class TestUtilsTcx:
@@ -49,7 +49,7 @@ class TestUtilsTcx:
             ]
         )
 
-        waypoints = utils_tcx._extract_waypoints(trackpoints, tcx_file)
+        waypoints = tcx_utils._extract_waypoints(trackpoints, tcx_file)
 
         assert len(waypoints["lat_lon_waypoints"]) == 1
         assert len(waypoints["hr_waypoints"]) == 1
@@ -73,7 +73,7 @@ class TestUtilsTcx:
         )
 
         with pytest.raises(core_exceptions.InvalidInputError, match="no activity start or end time"):
-            utils_tcx._build_activity(
+            tcx_utils._build_activity(
                 tcx_file=tcx_file,
                 user_id=1,
                 activity_name="Indoor Session",
@@ -106,7 +106,7 @@ class TestUtilsTcx:
         ]
         tcx_file = SimpleNamespace(trackpoints=[])
 
-        waypoints = utils_tcx._extract_waypoints(trackpoints, tcx_file)
+        waypoints = tcx_utils._extract_waypoints(trackpoints, tcx_file)
 
         assert waypoints["lat_lon_waypoints"][0]["time"] == "2026-03-28T15:19:19"
         assert waypoints["hr_waypoints"][0]["time"] == "2026-03-28T15:19:19"
@@ -127,7 +127,7 @@ class TestUtilsTcx:
             calories=None,
         )
 
-        activity = utils_tcx._build_activity(
+        activity = tcx_utils._build_activity(
             tcx_file=tcx_file,
             user_id=1,
             activity_name="Ride",
@@ -185,13 +185,13 @@ class TestUtilsTcx:
         with (
             patch("tcxreader.TCXReader") as mock_reader_class,
             patch(
-                "modules.activities.activity_file_import.utils_tcx._extract_waypoints",
+                "modules.activities.activity_file_import.tcx_utils._extract_waypoints",
                 return_value=fake_waypoints,
             ),
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = utils_tcx.parse_tcx_file(
+            result = tcx_utils.parse_tcx_file(
                 file="dummy.tcx",
                 user_id=1,
             )
@@ -244,17 +244,17 @@ class TestUtilsTcx:
         with (
             patch("tcxreader.TCXReader") as mock_reader_class,
             patch(
-                "modules.activities.activity_file_import.utils_tcx._extract_waypoints",
+                "modules.activities.activity_file_import.tcx_utils._extract_waypoints",
                 return_value=fake_waypoints,
             ),
             patch(
-                "modules.activities.activity_file_import.utils_tcx.activity_file_import_utils.resolve_timezone_from_lat_lon",
+                "modules.activities.activity_file_import.tcx_utils.activity_file_import_utils.resolve_timezone_from_lat_lon",
                 return_value="UTC",
             ),
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = utils_tcx.parse_tcx_file(
+            result = tcx_utils.parse_tcx_file(
                 file="dummy.tcx",
                 user_id=1,
             )
@@ -304,17 +304,17 @@ class TestUtilsTcx:
         with (
             patch("tcxreader.TCXReader") as mock_reader_class,
             patch(
-                "modules.activities.activity_file_import.utils_tcx._extract_waypoints",
+                "modules.activities.activity_file_import.tcx_utils._extract_waypoints",
                 return_value=fake_waypoints,
             ),
             patch(
-                "modules.activities.activity_file_import.utils_tcx.activity_file_import_utils.resolve_timezone_from_lat_lon",
+                "modules.activities.activity_file_import.tcx_utils.activity_file_import_utils.resolve_timezone_from_lat_lon",
                 return_value="UTC",
             ),
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = utils_tcx.parse_tcx_file(
+            result = tcx_utils.parse_tcx_file(
                 file="dummy.tcx",
                 user_id=1,
             )

@@ -37,7 +37,7 @@ import modules.activities.activity_streams.contracts as activity_streams_contrac
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.hr_zones as activity_streams_hr_zones
 import modules.activities.activity_streams.schema as activity_streams_schema
-import modules.users.users.integration_service as users_integration_service
+import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
 
@@ -307,7 +307,7 @@ def _max_heart_rate_of(user_id: int, db: Session) -> int | None:
     Returns:
         The max heart rate, or None when it cannot be derived.
     """
-    user = users_integration_service.get_user(user_id, db)
+    user = users_integration.get_user(user_id, db)
     if user is None:
         return None
     return activity_streams_hr_zones.resolve_max_heart_rate(user.max_heart_rate, user.birthdate, user.timezone)

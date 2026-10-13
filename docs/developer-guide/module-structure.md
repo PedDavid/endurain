@@ -490,6 +490,57 @@ composition installs the answer.
    `UNCONVERTED_MODULES` fails `TestModuleInventory`, so a module cannot be added
    outside the rules by omission.
 
+## Conventions that look like drift
+
+These differ between packages on purpose, or are settled so the next module follows
+one pattern. Recorded here so a review does not reopen them.
+
+**Settled (follow these in a new module):**
+
+- **Event publishers.** `publish_<fact>(<ids>, db, *, commit, <extras>)`: `db` and
+  `commit` are required and `commit` is keyword-only. A publisher with an optional
+  `commit` has a best-effort path that lets a caller publish outside the
+  transaction, which is what `publish_committing` exists to prevent.
+- **Import aliases.** A peer's surface is imported as `<package>_integration`
+  (`activity_laps_integration`, `followers_integration`; `activity_integration` for
+  the root `activity` package). A private service is `<package>_service`. The alias
+  therefore says which side of the visibility rule a call site is on.
+- **Capability-token routes.** The service verifies the signed token and raises
+  `NotFoundError`; the router only serialises the bytes. A router never imports
+  `HTTPException` or a logger.
+- **ORM mapping.** `serializers.py` exposes `to_read_schema` (and `to_orm` where
+  `crud` builds rows). A private `_to_*` helper inside `crud.py` is the same job in
+  a second home.
+- **`db` parameter.** `db` is the last required positional parameter; keyword-only
+  options follow it.
+- **Helper file names.** `<thing>_utils.py`, never `utils_<thing>.py`, so the role
+  reads at the end of the stem like every other role.
+- **Route defaults.** The default `200` is not repeated in `status_code`. Handler
+  names are OpenAPI `operationId`s, so renaming one is an API change.
+
+**Intentional variation:**
+
+- **`migration_service`.** Pure reads and constants are re-exported by alias; every
+  write is a wrapper that owns the commit the CRUD no longer performs, so the
+  version-pinned behaviour of the historical migration is stated in one function.
+- **Component payload shape.** The ingestion contract carries what each parser
+  emits: laps as dicts, sets as raw FIT rows or `ActivitySetsCreate`, workout steps
+  as schemas. Normalising them is a change to `ParsedActivity.components` and
+  every parser, not to the children, so `serializers.to_orm` absorbs the
+  difference at the persistence edge.
+- **Job runners own their sessions.** `run_upload_job`, `run_refresh_job`,
+  `fail_ingestion_job` and the `mark_bulk_import_job_*` functions open
+  `SessionLocal` themselves: they are the entry point of a durable job and need
+  separate transactions (mark processing, do the work, record the failure) so a
+  failed unit of work cannot poison the record of the failure.
+- **Provider resolution on a surface.** A surface function resolves the provider
+  only when none of its callers carries one (`attach_media_bytes`, called per file
+  from the Strava import). The functions whose callers already hold the provider
+  (`list_media_blobs`, `store_media_blob`, the file-storage functions) take it as
+  an argument.
+- **`activity_file_storage` has no `service.py`.** It is a leaf over
+  `StorageProvider` with no decision to arrange, so a service would only forward.
+
 ## Known debt
 
 Tracked here so it is visible rather than discovered. Each item is enumerated in

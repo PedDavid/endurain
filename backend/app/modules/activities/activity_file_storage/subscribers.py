@@ -21,7 +21,7 @@ from jasil.subscribers import best_effort
 
 import core.logger as core_logger
 import modules.activities.activity.events as activity_events
-import modules.activities.activity_file_storage.integration_service as activity_file_storage_service
+import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 
 logger = core_logger.get_logger(__name__)
 
@@ -45,7 +45,7 @@ def cleanup_activity_file_for_event(event: Event) -> None:
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityDeletedPayload, event)
     storage = platform_runtime.get_active_platform().storage
-    activity_file_storage_service.delete_activity_file(payload.activity_id, storage)
+    activity_file_storage_integration.delete_activity_file(payload.activity_id, storage)
     logger.debug(
         "Deleted retained source file for deleted activity",
         extra=core_logger.context(activity_id=payload.activity_id),

@@ -1236,7 +1236,7 @@ class TestImportServiceActivitiesDataBatched:
 
         with (
             patch(
-                "modules.users.users_profile.import_service.activities_integration.restore_activity",
+                "modules.users.users_profile.import_service.activity_integration.restore_activity",
                 return_value=mock_new_activity,
             ),
             patch.object(service, "collect_and_import_activity_components", new_callable=AsyncMock),
@@ -1295,7 +1295,7 @@ class TestImportServiceActivitiesDataBatched:
 
         with (
             patch(
-                "modules.users.users_profile.import_service.activities_integration.restore_activity",
+                "modules.users.users_profile.import_service.activity_integration.restore_activity",
                 return_value=mock_new_activity,
             ),
             patch.object(service, "collect_and_import_activity_components", new_callable=AsyncMock) as mock_components,
@@ -1337,7 +1337,7 @@ class TestImportServiceAddActivityFiles:
             patch("modules.users.users_profile.import_service.file_uploads.file_validator", mock_validator),
             patch("modules.users.users_profile.import_service.file_uploads.validate_bytes", new_callable=AsyncMock),
             patch(
-                "modules.users.users_profile.import_service.file_storage_integration.store_activity_file"
+                "modules.users.users_profile.import_service.activity_file_storage_integration.store_activity_file"
             ) as mock_store,
             zipfile.ZipFile(BytesIO(zip_data)) as z,
         ):
@@ -1367,7 +1367,7 @@ class TestImportServiceAddActivityFiles:
 
         with (
             patch(
-                "modules.users.users_profile.import_service.file_storage_integration.store_activity_file"
+                "modules.users.users_profile.import_service.activity_file_storage_integration.store_activity_file"
             ) as mock_store,
             zipfile.ZipFile(BytesIO(zip_data)) as z,
         ):

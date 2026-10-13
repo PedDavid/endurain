@@ -1,7 +1,7 @@
 """Scheduled work owned by activity ingestion."""
 
 import core.scheduler as core_scheduler
-import modules.activities.activity_ingestion.integration_service as activity_ingestion
+import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
@@ -12,7 +12,7 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
     """
     return (
         core_scheduler.ScheduledJob(
-            activity_ingestion.prune_expired_ingestion_jobs,
+            activity_ingestion_integration.prune_expired_ingestion_jobs,
             1440,
             "prune expired activity ingestion jobs",
         ),

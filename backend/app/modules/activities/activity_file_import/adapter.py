@@ -1,6 +1,6 @@
 """Adapt parser output dicts into the canonical :class:`ParsedActivity` contract.
 
-The file parsers (``utils_gpx`` / ``utils_tcx`` / ``utils_fit``) build an untyped
+The file parsers (``gpx_utils`` / ``tcx_utils`` / ``fit_utils``) build an untyped
 ``parsed_info`` dict shaped like::
 
     {
@@ -54,7 +54,7 @@ def parsed_info_to_parsed_activity(
     Args:
         parsed_info: The dict a parser builds for one activity (for a
             multi-activity ``.fit``, one entry from
-            ``utils_fit.create_activity_objects``). Must contain an
+            ``fit_utils.create_activity_objects``). Must contain an
             ``"activity"`` key.
 
     Returns:

@@ -7,7 +7,7 @@ from stravalib.client import Client
 import core.config as core_config
 import core.logger as core_logger
 import core.text_imports as core_text_imports
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activities_schema
 import modules.gears.gear.crud as gears_crud
 import modules.gears.gear.schema as gears_schema
@@ -118,7 +118,7 @@ def match_gear_for_activity(
 
 def set_activities_gear(user_id: int, db: Session) -> int:
     # Get user activities
-    activities = activities_integration.list_user_activities(user_id, db)
+    activities = activity_integration.list_user_activities(user_id, db)
 
     # Skip if no activities
     if activities is None:
@@ -139,7 +139,7 @@ def set_activities_gear(user_id: int, db: Session) -> int:
             gear_assignments[activity.id] = matched_gear_id
 
     # Persist via CRUD (single UPDATE per distinct gear_id)
-    activities_integration.bulk_set_activities_gear(user_id, gear_assignments, db)
+    activity_integration.bulk_set_activities_gear(user_id, gear_assignments, db)
 
     return len(gear_assignments)
 

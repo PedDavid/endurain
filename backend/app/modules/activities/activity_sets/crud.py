@@ -1,6 +1,5 @@
 """Activity sets CRUD operations."""
 
-from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -8,23 +7,9 @@ import core.decorators as core_decorators
 import core.logger as core_logger
 import modules.activities.activity_sets.models as activity_sets_models
 import modules.activities.activity_sets.schema as activity_sets_schema
+import modules.activities.activity_sets.serializers as activity_sets_serializers
 
 logger = core_logger.get_logger(__name__)
-
-
-def _to_read_schema(
-    orm_set: activity_sets_models.ActivitySets,
-) -> activity_sets_schema.ActivitySetsRead:
-    """
-    Convert an ORM row to its Read schema.
-
-    Args:
-        orm_set: The ORM model instance.
-
-    Returns:
-        A ActivitySetsRead schema instance.
-    """
-    return activity_sets_schema.ActivitySetsRead.model_validate(orm_set)
 
 
 @core_decorators.handle_db_errors
@@ -62,7 +47,7 @@ def get_activity_sets(
     )
     activity_sets = db.scalars(stmt).all()
 
-    return [_to_read_schema(s) for s in activity_sets]
+    return [activity_sets_serializers.to_read_schema(s) for s in activity_sets]
 
 
 @core_decorators.handle_db_errors
@@ -116,7 +101,7 @@ def get_activities_sets(
     stmt = select(activity_sets_models.ActivitySets).where(
         activity_sets_models.ActivitySets.activity_id.in_(activity_ids)
     )
-    return [_to_read_schema(row) for row in db.scalars(stmt).all()]
+    return [activity_sets_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -140,54 +125,7 @@ def create_activity_sets(
     Raises:
         ProcessingError: If database error occurs.
     """
-    sets = []
-
-    for activity_set in activity_sets:
-        if isinstance(activity_set, BaseModel):
-            db_activity_set = activity_sets_models.ActivitySets(
-                activity_id=activity_id,
-                duration=activity_set.duration,
-                repetitions=(activity_set.repetitions),
-                weight=activity_set.weight,
-                set_type=activity_set.set_type,
-                start_time=(activity_set.start_time),
-                category=activity_set.category,
-                category_subtype=(activity_set.category_subtype),
-            )
-        else:
-            category = _extract_value(activity_set[5])
-            category_subtype = _extract_value(activity_set[6])
-            db_activity_set = activity_sets_models.ActivitySets(
-                activity_id=activity_id,
-                duration=activity_set[0],
-                repetitions=activity_set[1],
-                weight=activity_set[2],
-                set_type=activity_set[3],
-                start_time=activity_set[4],
-                category=category,
-                category_subtype=category_subtype,
-            )
-
-        sets.append(db_activity_set)
+    sets = [activity_sets_serializers.to_orm(activity_set, activity_id) for activity_set in activity_sets]
 
     db.add_all(sets)
     db.flush()
-
-
-def _extract_value(
-    value: int | tuple | None,
-) -> int | None:
-    """
-    Extract a scalar from a value that may be a tuple.
-
-    Args:
-        value: A scalar, tuple, or None.
-
-    Returns:
-        The extracted integer value or None.
-    """
-    if value is None:
-        return None
-    if isinstance(value, tuple):
-        return value[0] if value[0] is not None else None
-    return value

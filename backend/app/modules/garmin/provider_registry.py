@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 import modules.activities.activity.schema as activities_schema
-import modules.activities.activity_ingestion.integration_service as activity_ingestion
+import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.garmin.activity_utils as garmin_activity_utils
 import modules.websocket.manager as websocket_manager
 
@@ -64,4 +64,4 @@ def register_activity_provider() -> None:
     Raises:
         None.
     """
-    activity_ingestion.register_activity_provider(PROVIDER_NAME, _fetch_window)
+    activity_ingestion_integration.register_activity_provider(PROVIDER_NAME, _fetch_window)

@@ -11,6 +11,7 @@ import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.followers.models as followers_models
 import modules.followers.schema as followers_schema
+import modules.followers.serializers as followers_serializers
 from modules.followers.constants import FollowStatus
 
 logger = core_logger.get_logger(__name__)
@@ -34,21 +35,6 @@ def _invalidate_followee_cache(db: Session) -> None:
         None.
     """
     db.info.pop(_FOLLOWEE_CACHE_KEY, None)
-
-
-def _transform_follower(follower: followers_models.Follower) -> followers_schema.FollowRelationship:
-    """Convert a Follower ORM row into its serialized DTO.
-
-    Args:
-        follower: The ORM row to convert.
-
-    Returns:
-        The follow relationship DTO.
-
-    Raises:
-        ValidationError: If the row does not satisfy the DTO.
-    """
-    return followers_schema.FollowRelationship.model_validate(follower)
 
 
 @core_decorators.handle_db_errors
@@ -84,7 +70,7 @@ def get_all_followers_by_user_id(
     if accepted_only:
         stmt = stmt.where(followers_models.Follower.status == FollowStatus.ACCEPTED.value)
     stmt = stmt.order_by(followers_models.Follower.id).offset((page_number - 1) * num_records).limit(num_records)
-    return [_transform_follower(follower) for follower in db.scalars(stmt).all()]
+    return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -119,7 +105,7 @@ def get_all_following_by_user_id(
     if accepted_only:
         stmt = stmt.where(followers_models.Follower.status == FollowStatus.ACCEPTED.value)
     stmt = stmt.order_by(followers_models.Follower.id).offset((page_number - 1) * num_records).limit(num_records)
-    return [_transform_follower(follower) for follower in db.scalars(stmt).all()]
+    return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -154,7 +140,7 @@ def get_pending_requests_for_user_id(
         .offset((page_number - 1) * num_records)
         .limit(num_records)
     )
-    return [_transform_follower(follower) for follower in db.scalars(stmt).all()]
+    return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -253,7 +239,7 @@ def get_follower_for_user_id_and_target_user_id(
         followers_models.Follower.followee_id == target_user_id,
     )
     follower = db.scalars(stmt).first()
-    return _transform_follower(follower) if follower is not None else None
+    return followers_serializers.to_read_schema(follower) if follower is not None else None
 
 
 @core_decorators.handle_db_errors
@@ -349,7 +335,7 @@ def create_follower(
         )
         raise core_exceptions.ConflictError("Follow relationship already exists") from err
 
-    return _transform_follower(new_follow)
+    return followers_serializers.to_read_schema(new_follow)
 
 
 @core_decorators.handle_db_errors
@@ -392,7 +378,7 @@ def accept_follower(
     db.refresh(accept_follow)
     _invalidate_followee_cache(db)
 
-    return _transform_follower(accept_follow)
+    return followers_serializers.to_read_schema(accept_follow)
 
 
 @core_decorators.handle_db_errors

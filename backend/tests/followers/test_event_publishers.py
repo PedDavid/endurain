@@ -14,7 +14,7 @@ class TestPublishFollowerRequested:
 
         db = object()
         commit = MagicMock()
-        publish_follower_requested(1, 2, db, commit)
+        publish_follower_requested(1, 2, db, commit=commit)
 
         mock_publisher.publish_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_committing.call_args
@@ -34,7 +34,7 @@ class TestPublishFollowerAccepted:
 
         db = object()
         commit = MagicMock()
-        publish_follower_accepted(1, 2, db, commit)
+        publish_follower_accepted(1, 2, db, commit=commit)
 
         mock_publisher.publish_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_committing.call_args

@@ -13,12 +13,12 @@ request could ask for.
 from sqlalchemy.orm import Session
 
 import core.pagination as core_pagination
-import modules.activities.activity.integration_service as activity_child_collection
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_sets.crud as activity_sets_crud
 import modules.activities.activity_sets.schema as activity_sets_schema
 
-_COLLECTION: activity_child_collection.ChildCollection[activity_sets_schema.ActivitySetsPage] = (
-    activity_child_collection.ChildCollection(
+_COLLECTION: activity_integration.ChildCollection[activity_sets_schema.ActivitySetsPage] = (
+    activity_integration.ChildCollection(
         name="workout sets",
         hide_attr="hide_workout_sets_steps",
         fetch=activity_sets_crud.get_activity_sets,

@@ -197,22 +197,6 @@ def backfill_zone_percentages_for_missing_hr_streams(
         )
 
 
-def _to_hr_record(stream: activity_streams_models.ActivityStreams) -> activity_streams_contracts.HrStreamRecord:
-    """Project one stream ORM row into a package-owned record.
-
-    Args:
-        stream: The stream ORM row to project.
-
-    Returns:
-        The HR stream record.
-    """
-    return activity_streams_contracts.HrStreamRecord(
-        stream_id=stream.id,
-        activity_id=stream.activity_id,
-        waypoints=stream.stream_waypoints or [],
-    )
-
-
 @core_decorators.handle_db_errors
 def list_hr_streams_for_activities(
     activity_ids: list[int],
@@ -233,7 +217,7 @@ def list_hr_streams_for_activities(
         activity_streams_models.ActivityStreams.activity_id.in_(activity_ids),
         activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
     )
-    return [_to_hr_record(stream) for stream in db.scalars(stmt).all()]
+    return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -267,7 +251,7 @@ def list_hr_streams_missing_zones(
         .order_by(activity_streams_models.ActivityStreams.id)
         .limit(batch_size)
     )
-    return [_to_hr_record(stream) for stream in db.scalars(stmt).all()]
+    return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
 
 
 @core_decorators.handle_db_errors
@@ -293,7 +277,7 @@ def get_activity_hr_stream(
         activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
     )
     stream = db.scalars(stmt).first()
-    return _to_hr_record(stream) if stream is not None else None
+    return activity_streams_serializers.to_hr_record(stream) if stream is not None else None
 
 
 @core_decorators.handle_db_errors

@@ -14,12 +14,12 @@ could ask for.
 from sqlalchemy.orm import Session
 
 import core.pagination as core_pagination
-import modules.activities.activity.integration_service as activity_child_collection
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_laps.crud as activity_laps_crud
 import modules.activities.activity_laps.schema as activity_laps_schema
 
-_COLLECTION: activity_child_collection.ChildCollection[activity_laps_schema.ActivityLapsPage] = (
-    activity_child_collection.ChildCollection(
+_COLLECTION: activity_integration.ChildCollection[activity_laps_schema.ActivityLapsPage] = (
+    activity_integration.ChildCollection(
         name="laps",
         hide_attr="hide_laps",
         fetch=activity_laps_crud.get_activity_laps,

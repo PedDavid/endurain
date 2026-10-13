@@ -27,7 +27,7 @@ import core.logger as core_logger
 import core.scheduler as core_scheduler
 import modules.activities.activity.events as activity_events
 import modules.activities.activity_streams.constants as activity_streams_constants
-import modules.activities.activity_streams.integration_service as activity_streams_service
+import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
 import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 import modules.server_settings.events as server_settings_events
@@ -62,7 +62,7 @@ def generate_activity_thumbnail_for_event(event: Event) -> None:
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     storage = platform_runtime.get_active_platform().storage
     with core_database.SessionLocal() as db:
-        waypoints = activity_streams_service.get_stream_for_derivation(
+        waypoints = activity_streams_integration.get_stream_for_derivation(
             payload.activity_id, activity_streams_constants.STREAM_TYPE_MAP, db
         )
         if waypoints is None or len(waypoints.stream_waypoints) < _MIN_WAYPOINTS:

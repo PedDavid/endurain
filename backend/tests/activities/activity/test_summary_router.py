@@ -17,7 +17,7 @@ def stub_user_local_today():
     timezone, which is a DB read the mocked session cannot serve.
     """
     with patch(
-        f"{_SERVICE}.users_integration_service.local_today",
+        f"{_SERVICE}.users_integration.local_today",
         return_value=date(2026, 3, 12),
     ) as mock:
         yield mock
@@ -27,7 +27,7 @@ def stub_user_local_today():
 def stub_user_preferences():
     """Provide the configured week start used by summary buckets."""
     with patch(
-        f"{_SERVICE}.users_integration_service.get_user",
+        f"{_SERVICE}.users_integration.get_user",
         return_value=SimpleNamespace(first_day_of_week="sunday"),
     ) as mock:
         yield mock

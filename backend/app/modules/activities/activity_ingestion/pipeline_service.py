@@ -33,14 +33,14 @@ import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity.contracts as activities_contracts
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activities_schema
-import modules.activities.activity_file_import.integration_service as file_import_integration
-import modules.activities.activity_file_storage.integration_service as file_storage_integration
+import modules.activities.activity_file_import.integration_service as activity_file_import_integration
+import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.enrichment_service as enrichment_service
 import modules.activities.contributor_registry as contributor_registry
-import modules.users.users.integration_service as users_integration_service
+import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
 
@@ -78,9 +78,9 @@ def parse_file(
         # are pure (no db / privacy / gear / provider coupling); the
         # pipeline re-attaches that domain context afterwards — including
         # the owner's timezone, which the parsers cannot look up themselves.
-        parser = file_import_integration.get_parser(file_extension)
+        parser = activity_file_import_integration.get_parser(file_extension)
         if parser is None:
-            supported = ", ".join(file_import_integration.supported_extensions())
+            supported = ", ".join(activity_file_import_integration.supported_extensions())
             raise core_exceptions.UnsupportedFormatError(
                 f"File extension not supported. Supported file extensions are {supported}"
             )
@@ -134,7 +134,7 @@ def _retain_source_file(
     if activity_ids:
         with open(file_path, "rb") as source_file:
             file_bytes = source_file.read()
-        file_storage_integration.store_activity_file_for_ids(
+        activity_file_storage_integration.store_activity_file_for_ids(
             activity_ids,
             file_extension,
             file_bytes,
@@ -189,11 +189,11 @@ def store_activities_from_file(
         NotFoundError: When the user (or their privacy settings) cannot be found.
         ProcessingError: On an internal parse/persist failure.
     """
-    user = users_integration_service.get_user(token_user_id, db)
+    user = users_integration.get_user(token_user_id, db)
     if user is None:
         raise core_exceptions.NotFoundError("User not found")
 
-    user_privacy_settings = users_integration_service.get_privacy_settings(user.id, db)
+    user_privacy_settings = users_integration.get_privacy_settings(user.id, db)
     if user_privacy_settings is None:
         raise core_exceptions.NotFoundError("User privacy settings not found")
 
@@ -282,7 +282,7 @@ def store_activities_from_file(
             bulk_source.apply_metadata(parsed.activity, activity_metadata)
 
         parsed.source = import_source
-        created_activities.append(activities_integration.store_parsed_activity(parsed, db))
+        created_activities.append(activity_integration.store_parsed_activity(parsed, db))
 
     _retain_source_file(
         file_path,

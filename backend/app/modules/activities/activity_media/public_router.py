@@ -15,16 +15,12 @@ caller does not own.
 from typing import Annotated
 
 import jasil.providers as platform_providers
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.dependencies as core_dependencies
-import core.logger as core_logger
 import modules.activities.activity_media.service as activity_media_service
-import modules.activities.activity_media.signing as activity_media_signing
-
-logger = core_logger.get_logger(__name__)
 
 router = APIRouter()
 
@@ -52,20 +48,7 @@ def read_activity_media_file(
     to the activity, or no blob exists. A ``404`` rather than ``403`` avoids
     confirming the resource to an unauthorized caller.
     """
-    if not activity_media_signing.verify_media_token(media_id, token):
-        # Security-relevant: either a forged token or one replayed against a
-        # different media id. Logged at warning so a probing pattern is visible.
-        logger.warning(
-            "Rejected an activity media request with an invalid signed token",
-            extra=core_logger.context(activity_id=activity_id, media_id=media_id),
-        )
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity media not found")
-
-    blob = activity_media_service.read_activity_media_blob(activity_id, media_id, db, storage)
-    if blob is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Activity media not found")
-
-    data, content_type = blob
+    data, content_type = activity_media_service.read_activity_media_blob(activity_id, media_id, token, db, storage)
     return Response(
         content=data,
         media_type=content_type,

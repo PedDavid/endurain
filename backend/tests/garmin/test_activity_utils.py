@@ -39,7 +39,7 @@ async def _call(client: Mock, user_id: int = 1) -> list | None:
 def _patch_common(monkeypatch):
     """Patch dependencies shared by every test in this module."""
     monkeypatch.setattr(
-        activity_utils.activities_integration,
+        activity_utils.activity_integration,
         "get_activity_by_garminconnect_id",
         Mock(return_value=None),
     )
@@ -108,7 +108,7 @@ class TestOrphanedExtractedFileCleanup:
             AsyncMock(return_value=[extracted_path]),
         )
         monkeypatch.setattr(
-            activity_utils.activity_ingestion,
+            activity_utils.activity_ingestion_integration,
             "ingest_activity_file",
             Mock(return_value=None),
         )
@@ -131,7 +131,7 @@ class TestOrphanedExtractedFileCleanup:
             AsyncMock(return_value=[extracted_path]),
         )
         monkeypatch.setattr(
-            activity_utils.activity_ingestion,
+            activity_utils.activity_ingestion_integration,
             "ingest_activity_file",
             Mock(return_value=["created-activity"]),
         )

@@ -31,7 +31,7 @@ import modules.activities.activity.schema as activities_schema
 import modules.activities.activity.stats as activities_stats
 import modules.followers.integration_service as followers_integration
 import modules.server_settings.integration_service as server_settings_integration
-import modules.users.users.integration_service as users_integration_service
+import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
 
@@ -121,7 +121,7 @@ def _anchor_date(anchor: date | None, requester_user_id: int, db: Session) -> da
         A midnight-aligned UTC datetime for the anchor day.
     """
     if anchor is None:
-        anchor = users_integration_service.local_today(requester_user_id, db)
+        anchor = users_integration.local_today(requester_user_id, db)
     return datetime.combine(anchor, time.min, tzinfo=UTC)
 
 
@@ -148,7 +148,7 @@ def _week_bounds(
         The start and end of the week.
     """
     today = _anchor_date(anchor, requester_user_id, db)
-    requester = users_integration_service.get_user(requester_user_id, db)
+    requester = users_integration.get_user(requester_user_id, db)
     if requester is None:
         raise core_exceptions.NotFoundError("User not found")
     start_of_week = core_calendar.get_week_start(today, requester.first_day_of_week) - timedelta(weeks=week_number)
@@ -706,7 +706,7 @@ def bulk_edit_activities(
         user_id,
         ["visibility"],
         db,
-        db.commit,
+        commit=db.commit,
         source="api:bulk_edit_activities",
     )
     logger.info(
@@ -775,7 +775,7 @@ def bulk_set_activities_gear(
         user_id,
         ["gear_id"],
         db,
-        db.commit,
+        commit=db.commit,
         source=source,
     )
     logger.info(
@@ -802,7 +802,7 @@ def delete_all_strava_activities(user_id: int, db: Session, *, source: str) -> i
         The number of activities deleted.
     """
     deleted_ids = activities_crud.delete_all_strava_activities_for_user(user_id, db)
-    activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, db.commit, source=source)
+    activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, commit=db.commit, source=source)
     # Irreversible and triggered from another module, so the count is recorded
     # here rather than left to the caller.
     logger.info(
@@ -830,7 +830,7 @@ def delete_all_activities_for_user(user_id: int, db: Session, *, source: str) ->
         The number of activities deleted.
     """
     deleted_ids = activities_crud.delete_all_activities_for_user(user_id, db)
-    activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, db.commit, source=source)
+    activity_event_publishers.publish_activities_deleted(deleted_ids, user_id, db, commit=db.commit, source=source)
     logger.info(
         "Deleted all activities for user",
         extra=core_logger.context(user_id=user_id, deleted_count=len(deleted_ids)),

@@ -25,14 +25,14 @@ import core.config as core_config
 import core.logger as core_logger
 import modules.activities.activity.contracts as activities_contracts
 import modules.activities.activity.schema as activities_schema
-import modules.activities.activity_ingestion.integration_service as activity_ingestion
+import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.strava.bulk_import_utils as strava_bulk_import_utils
 
 logger = core_logger.get_logger(__name__)
 
 
 @dataclass(frozen=True)
-class StravaBulkImportSource(activity_ingestion.BulkImportSource):
+class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
     """A file from a Strava bulk export.
 
     Attributes:

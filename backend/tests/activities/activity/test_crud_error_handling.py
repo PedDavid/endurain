@@ -130,10 +130,10 @@ class TestScheduledQueriesRaise:
 
 
 _SUMMARY_CALLS = [
-    lambda db: summary_crud.get_weekly_summary(db, 1, date(2026, 1, 1), "monday"),
-    lambda db: summary_crud.get_monthly_summary(db, 1, date(2026, 1, 1), "monday"),
-    lambda db: summary_crud.get_yearly_summary(db, 1, 2026),
-    lambda db: summary_crud.get_lifetime_summary(db, 1),
+    lambda db: summary_crud.get_weekly_summary(1, date(2026, 1, 1), "monday", db),
+    lambda db: summary_crud.get_monthly_summary(1, date(2026, 1, 1), "monday", db),
+    lambda db: summary_crud.get_yearly_summary(1, 2026, db),
+    lambda db: summary_crud.get_lifetime_summary(1, db),
 ]
 
 

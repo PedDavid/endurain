@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.hashing as core_hashing
 import core.logger as core_logger
-import modules.activities.activity.integration_service as activities_service
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.crud as activity_media_crud
 import modules.activities.activity_media.schema as activity_media_schema
@@ -86,7 +86,7 @@ def _require_owned_activity(activity_id: int, user_id: int, db: Session) -> None
         NotFoundError: When the activity does not exist or is not owned by the
             user.
     """
-    if not activities_service.owns_activity(activity_id, user_id, db):
+    if not activity_integration.owns_activity(activity_id, user_id, db):
         logger.debug(
             "Rejected activity media access for an activity the caller does not own",
             extra=core_logger.context(activity_id=activity_id, user_id=user_id),
@@ -274,7 +274,7 @@ def list_activity_media(
         and "there is none" are deliberately indistinguishable here so the
         endpoint cannot be used to probe which activity ids exist.
     """
-    if not activities_service.owns_activity(activity_id, user_id, db):
+    if not activity_integration.owns_activity(activity_id, user_id, db):
         logger.debug(
             "Listing activity media for an activity the caller does not own; returning empty",
             extra=core_logger.context(activity_id=activity_id, user_id=user_id),
@@ -291,29 +291,44 @@ def list_activity_media(
 def read_activity_media_blob(
     activity_id: int,
     media_id: int,
+    token: str,
     db: Session,
     storage: platform_providers.StorageProvider,
-) -> tuple[bytes, str] | None:
+) -> tuple[bytes, str]:
     """Read one media blob for the token-gated serve route.
 
-    Authorization is the signed token the caller already presented; this only
-    resolves the record to its bytes and confirms it belongs to ``activity_id``,
-    so a token minted for one activity's photo cannot be replayed under another
-    activity's URL.
+    Authorization is the signed token the caller presented: it is bound to the
+    media id, and the record must also belong to ``activity_id``, so a token
+    minted for one activity's photo cannot be replayed under another activity's
+    URL.
 
     Args:
         activity_id: The activity from the request path.
         media_id: The media record from the request path.
+        token: The signed access token minted at serialization time.
         db: Database session.
         storage: The blob-storage provider.
 
     Returns:
-        A ``(data, content_type)`` tuple, or ``None`` when the record or its blob
-        is missing, or the record belongs to a different activity.
+        A ``(data, content_type)`` tuple.
+
+    Raises:
+        NotFoundError: When the token is invalid or forged, the record does not
+            belong to ``activity_id``, or no blob exists. A 404 rather than 403
+            avoids confirming the resource to an unauthorized caller.
     """
+    if not activity_media_signing.verify_media_token(media_id, token):
+        # Security-relevant: either a forged token or one replayed against a
+        # different media id. Logged at warning so a probing pattern is visible.
+        logger.warning(
+            "Rejected an activity media request with an invalid signed token",
+            extra=core_logger.context(activity_id=activity_id, media_id=media_id),
+        )
+        raise core_exceptions.NotFoundError("Activity media not found")
+
     media = activity_media_crud.get_activity_media_by_id(media_id, db)
     if media is None or media.activity_id != activity_id:
-        return None
+        raise core_exceptions.NotFoundError("Activity media not found")
 
     data = storage.get(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
     if data is None:
@@ -321,7 +336,7 @@ def read_activity_media_blob(
             "Activity media row has no blob behind its storage key",
             extra=core_logger.context(activity_id=activity_id, media_id=media_id),
         )
-        return None
+        raise core_exceptions.NotFoundError("Activity media not found")
 
     return data, _content_type_for(media.media_path)
 

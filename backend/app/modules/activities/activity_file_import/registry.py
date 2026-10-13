@@ -37,9 +37,9 @@ from typing import Protocol
 
 import modules.activities.activity.contracts as activities_contracts
 import modules.activities.activity_file_import.adapter as adapter
-import modules.activities.activity_file_import.utils_fit as fit_utils
-import modules.activities.activity_file_import.utils_gpx as gpx_utils
-import modules.activities.activity_file_import.utils_tcx as tcx_utils
+import modules.activities.activity_file_import.fit_utils as fit_utils
+import modules.activities.activity_file_import.gpx_utils as gpx_utils
+import modules.activities.activity_file_import.tcx_utils as tcx_utils
 
 
 class FileParser(Protocol):

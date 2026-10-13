@@ -32,13 +32,6 @@ _ALLOWED: dict[str, set[str]] = {
     "contracts": set(),
 }
 
-# Routers log nothing — with one exception: a rejected capability token on an
-# unauthenticated blob route is an authentication failure with no service
-# beneath it to report it.
-_ROUTER_TOKEN_EXCEPTIONS = {
-    "app/modules/activities/activity_media/public_router.py",
-}
-
 # Services that make no decision of their own: they declare what their child
 # collection is and hand the read to ``activity/child_collection``, which logs
 # the one decision there is (a refusal). A log line here would either duplicate
@@ -72,22 +65,9 @@ class TestLoggingRule:
         assert offenders == []
 
     def test_routers_delegate_their_logging_too(self):
-        offenders = [
-            str(p)
-            for stem in ("router", "public_router")
-            for p in _modules_named(stem)
-            if _log_calls(p) and str(p) not in _ROUTER_TOKEN_EXCEPTIONS
-        ]
+        offenders = [str(p) for stem in ("router", "public_router") for p in _modules_named(stem) if _log_calls(p)]
 
         assert offenders == []
-
-    def test_the_router_exceptions_only_log_rejected_tokens(self):
-        """The carve-out is for auth failures, not general router logging."""
-        for path in sorted(_ROUTER_TOKEN_EXCEPTIONS):
-            p = pathlib.Path(path)
-            if not p.exists():  # the route was removed; the exception is stale
-                raise AssertionError(f"stale router logging exception: {path}")
-            assert set(_log_calls(p)) <= {"warning"}
 
     def test_pure_layers_do_not_log(self):
         offenders = [

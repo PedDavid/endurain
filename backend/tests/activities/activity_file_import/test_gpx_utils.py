@@ -7,7 +7,7 @@ import pytest
 from geopy.distance import geodesic
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_file_import.utils_gpx as utils_gpx
+import modules.activities.activity_file_import.gpx_utils as gpx_utils
 import modules.activities.computation as activities_computation
 
 
@@ -38,7 +38,7 @@ def _patch_parser_side_effects(monkeypatch) -> None:
         None.
     """
     monkeypatch.setattr(
-        utils_gpx.activity_file_import_utils,
+        gpx_utils.activity_file_import_utils,
         "resolve_timezone_from_lat_lon",
         lambda _lat, _lon, fallback: fallback,
     )
@@ -84,7 +84,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -146,7 +146,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -186,7 +186,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -224,7 +224,7 @@ class TestParseGpxFile:
         )
 
         with pytest.raises(core_exceptions.InvalidInputError) as exc_info:
-            utils_gpx.parse_gpx_file(
+            gpx_utils.parse_gpx_file(
                 gpx_path,
                 user_id=1,
             )
@@ -270,7 +270,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -320,7 +320,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -355,7 +355,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -401,7 +401,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -448,7 +448,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -491,7 +491,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = utils_gpx.parse_gpx_file(
+        result = gpx_utils.parse_gpx_file(
             gpx_path,
             user_id=1,
         )
@@ -531,7 +531,7 @@ class TestExtractExtensionData:
 
         point = gpx.tracks[0].segments[0].points[0]
 
-        assert utils_gpx._extract_extension_data(point) == (150, 82, 250)
+        assert gpx_utils._extract_extension_data(point) == (150, 82, 250)
 
     def test_extract_extension_data_reads_unprefixed_values(self):
         """
@@ -556,7 +556,7 @@ class TestExtractExtensionData:
 
         point = gpx.tracks[0].segments[0].points[0]
 
-        assert utils_gpx._extract_extension_data(point) == (145, 77, 211)
+        assert gpx_utils._extract_extension_data(point) == (145, 77, 211)
 
     def test_extract_extension_data_ignores_invalid_numbers(self):
         """
@@ -581,7 +581,7 @@ class TestExtractExtensionData:
 
         point = gpx.tracks[0].segments[0].points[0]
 
-        assert utils_gpx._extract_extension_data(point) == (0, 0, 205)
+        assert gpx_utils._extract_extension_data(point) == (0, 0, 205)
 
     def test_extract_extension_data_returns_none_when_extensions_absent(self):
         """
@@ -599,7 +599,7 @@ class TestExtractExtensionData:
 
         point = gpx.tracks[0].segments[0].points[0]
 
-        assert utils_gpx._extract_extension_data(point) == (None, None, None)
+        assert gpx_utils._extract_extension_data(point) == (None, None, None)
 
     """Test suite for instant speed calculations."""
 

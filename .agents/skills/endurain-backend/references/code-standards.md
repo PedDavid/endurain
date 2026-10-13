@@ -32,7 +32,7 @@ Use `core.logger.get_logger(__name__)` and `core.logger.context(...)`; never f-s
 
 | Layer | Logs |
 | --- | --- |
-| `router`, `public_router` | nothing (exception: rejected capability token on an unauthenticated blob route) |
+| `router`, `public_router` | nothing (a rejected capability token is logged by the `service` that verifies it) |
 | `service` | INFO state change completed; WARNING request refused; DEBUG inputs to a non-obvious decision |
 | `crud` | only what it swallows: ERROR cannot complete, WARNING absorbed anomaly; never success narration |
 | `subscribers` | DEBUG when skipping, ERROR when failing |

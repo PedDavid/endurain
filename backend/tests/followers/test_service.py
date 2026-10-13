@@ -64,7 +64,7 @@ class TestFollowUser:
 
         assert result.follower_id == 1
         mock_crud.create_follower.assert_called_once_with(1, 2, db)
-        mock_pub.publish_follower_requested.assert_called_once_with(1, 2, db, db.commit)
+        mock_pub.publish_follower_requested.assert_called_once_with(1, 2, db, commit=db.commit)
 
     @patch("modules.followers.service.followers_event_publishers")
     @patch("modules.followers.service.followers_crud")
@@ -92,7 +92,7 @@ class TestAcceptFollowRequest:
         accept_follow_request(1, 2, db)
 
         mock_crud.accept_follower.assert_called_once_with(1, 2, db)
-        mock_pub.publish_follower_accepted.assert_called_once_with(1, 2, db, db.commit)
+        mock_pub.publish_follower_accepted.assert_called_once_with(1, 2, db, commit=db.commit)
 
 
 class TestDeleteRelationship:

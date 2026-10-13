@@ -50,7 +50,7 @@ class TestResolveTileSettings:
 
 
 class TestGenerateAndStoreThumbnail:
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_render")
     def test_none_when_render_skipped(self, mock_render, mock_activities):
         from modules.activities.activity_thumbnail.service import generate_and_store_thumbnail
@@ -66,7 +66,7 @@ class TestGenerateAndStoreThumbnail:
         storage.save.assert_not_called()
         mock_activities.set_thumbnail_key.assert_not_called()
 
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_render")
     def test_saves_and_records_key(self, mock_render, mock_signing, mock_activities):
@@ -103,7 +103,7 @@ class TestDeleteAndRegenerateThumbnails:
     """delete_and_regenerate_all_activity_thumbnails: storage-backed deletion."""
 
     @patch("modules.activities.activity_thumbnail.service.generate_missing_activity_thumbnails")
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_deletes_blobs_and_clears_db(self, mock_logger, mock_activities, mock_gen):
         from modules.activities.activity_thumbnail.service import delete_and_regenerate_all_activity_thumbnails
@@ -126,7 +126,7 @@ class TestDeleteAndRegenerateThumbnails:
         mock_gen.assert_called_once()
 
     @patch("modules.activities.activity_thumbnail.service.generate_missing_activity_thumbnails")
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_logs_when_delete_fails(self, mock_logger, mock_activities, mock_gen):
         from modules.activities.activity_thumbnail.service import delete_and_regenerate_all_activity_thumbnails
@@ -174,7 +174,7 @@ class TestGenerateMissingThumbnails:
             "Thumbnail scheduler: another replica holds the backfill lock; skipping",
         )
 
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_no_activities_without_thumbnail(self, mock_logger, mock_activities):
         from modules.activities.activity_thumbnail.service import generate_missing_activity_thumbnails
@@ -190,7 +190,7 @@ class TestGenerateMissingThumbnails:
             "Thumbnail scheduler: no activities without thumbnail found",
         )
 
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_clears_missing_blob_reference(self, mock_logger, mock_activities):
         from modules.activities.activity_thumbnail.service import generate_missing_activity_thumbnails
@@ -211,8 +211,8 @@ class TestGenerateMissingThumbnails:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
-    @patch("modules.activities.activity_thumbnail.service.activity_streams_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_generates_thumbnail_for_activity_with_gps(
         self,
@@ -247,8 +247,8 @@ class TestGenerateMissingThumbnails:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
-    @patch("modules.activities.activity_thumbnail.service.activity_streams_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_skips_activity_without_gps_stream(
         self,
@@ -280,8 +280,8 @@ class TestGenerateMissingThumbnails:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.service.activities_service")
-    @patch("modules.activities.activity_thumbnail.service.activity_streams_service")
+    @patch("modules.activities.activity_thumbnail.service.activity_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.service.logger")
     def test_walks_every_page_advancing_the_cursor(
         self,

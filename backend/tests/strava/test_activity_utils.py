@@ -153,7 +153,7 @@ class TestSaveActivityStreamsLaps:
             captured["db"] = db
             return activities_schema.Activity(id=42, user_id=1, distance=0, name="X", activity_type=1)
 
-        monkeypatch.setattr(activity_utils.ingestion_service, "store_parsed_activity", _fake_store)
+        monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
         activity = activities_schema.Activity(
             user_id=1, distance=1000, name="Ride", activity_type=1, strava_activity_id=555
@@ -186,7 +186,7 @@ class TestSaveActivityStreamsLaps:
             captured["parsed"] = parsed
             return activities_schema.Activity(id=1, user_id=1, distance=0, name="X", activity_type=1)
 
-        monkeypatch.setattr(activity_utils.ingestion_service, "store_parsed_activity", _fake_store)
+        monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
         activity = activities_schema.Activity(user_id=1, distance=0, name="X", activity_type=1)
         activity_utils.save_activity_streams_laps(activity, [], None, Mock())

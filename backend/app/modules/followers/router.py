@@ -28,7 +28,6 @@ router = APIRouter()
 @router.get(
     "/users/{user_id}/followers",
     response_model=followers_schema.FollowRelationshipPage,
-    status_code=status.HTTP_200_OK,
 )
 def list_user_followers(
     user_id: int,
@@ -57,7 +56,6 @@ def list_user_followers(
 @router.get(
     "/users/{user_id}/following",
     response_model=followers_schema.FollowRelationshipPage,
-    status_code=status.HTTP_200_OK,
 )
 def list_user_following(
     user_id: int,
@@ -86,7 +84,6 @@ def list_user_following(
 @router.get(
     "/users/{user_id}/relationship",
     response_model=followers_schema.RelationshipView,
-    status_code=status.HTTP_200_OK,
 )
 def read_user_relationship(
     user_id: int,
@@ -107,7 +104,6 @@ def read_user_relationship(
 @router.get(
     "/follow-requests",
     response_model=followers_schema.FollowRelationshipPage,
-    status_code=status.HTTP_200_OK,
 )
 def list_follow_requests(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
@@ -154,7 +150,6 @@ def follow_user(
 @router.patch(
     "/follow-requests/{requester_user_id}",
     response_model=followers_schema.FollowRelationship,
-    status_code=status.HTTP_200_OK,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def accept_follow_request(

@@ -10,8 +10,8 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activities_constants
 import modules.activities.activity.contracts as activities_contracts
+import modules.activities.activity_file_import.fit_frames as fit_frames
 import modules.activities.activity_file_import.utils as activity_file_import_utils
-import modules.activities.activity_file_import.utils_fit_frames as fit_frames
 import modules.activities.computation as activities_computation
 
 logger = core_logger.get_logger(__name__)

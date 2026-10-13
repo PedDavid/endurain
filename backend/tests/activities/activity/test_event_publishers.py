@@ -8,44 +8,36 @@ class TestPublishActivityCreated:
     def test_delegates_to_facade(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activity_created
 
-        publish_activity_created(7, 3)
+        db = object()
+        commit = MagicMock()
+        publish_activity_created(7, 3, db, commit=commit)
 
-        mock_publisher.publish.assert_called_once()
-        args, kwargs = mock_publisher.publish.call_args
+        mock_publisher.publish_committing.assert_called_once()
+        args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == "activity.created"
         assert args[1] == {"activity_id": 7, "user_id": 3, "duplicate_start_time": False}
         assert kwargs["source"] == "api:store_activity"
         assert kwargs["metadata"] == {"activity_id": 7, "user_id": 3}
+        assert kwargs["db"] is db
+        assert kwargs["commit"] is commit
 
 
 class TestPublishActivityDeleted:
     @patch("modules.activities.activity.event_publishers.platform_publisher")
-    def test_delegates_to_facade(self, mock_publisher):
-        from modules.activities.activity.event_publishers import publish_activity_deleted
-
-        publish_activity_deleted(9, 2)
-
-        mock_publisher.publish.assert_called_once()
-        args, kwargs = mock_publisher.publish.call_args
-        assert args[0] == "activity.deleted"
-        assert args[1] == {"activity_id": 9}
-        assert kwargs["source"] == "api:delete_activity"
-        assert kwargs["metadata"] == {"activity_id": 9, "user_id": 2}
-
-    @patch("modules.activities.activity.event_publishers.platform_publisher")
-    def test_commit_path_uses_publish_committing(self, mock_publisher):
+    def test_publishes_atomically_with_the_delete(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activity_deleted
 
         db = object()
         commit = MagicMock()
-        publish_activity_deleted(9, 2, db=db, commit=commit)
+        publish_activity_deleted(9, 2, db, commit=commit)
 
         # The atomic path stages + commits the delete and the outbox row together.
         mock_publisher.publish_committing.assert_called_once()
-        mock_publisher.publish.assert_not_called()
         args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == "activity.deleted"
         assert args[1] == {"activity_id": 9}
+        assert kwargs["source"] == "api:delete_activity"
+        assert kwargs["metadata"] == {"activity_id": 9, "user_id": 2}
         assert kwargs["commit"] is commit
         assert kwargs["db"] is db
 
@@ -54,40 +46,34 @@ class TestPublishActivityUpdated:
     """An edit must be a fact consumers can subscribe to, not a silent mutation."""
 
     @patch("modules.activities.activity.event_publishers.platform_publisher")
-    def test_delegates_to_facade(self, mock_publisher):
+    def test_publishes_atomically_with_the_update(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activity_updated
 
-        publish_activity_updated(7, 3, ["name"])
+        db = object()
+        commit = MagicMock()
+        publish_activity_updated(7, 3, ["name"], db, commit=commit)
 
-        mock_publisher.publish.assert_called_once()
-        args, kwargs = mock_publisher.publish.call_args
+        mock_publisher.publish_committing.assert_called_once()
+        args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == "activity.updated"
         assert args[1] == {"activity_id": 7, "user_id": 3, "changed_fields": ["name"]}
         assert kwargs["source"] == "api:edit_activity"
         assert kwargs["metadata"] == {"activity_id": 7, "user_id": 3}
+        assert kwargs["commit"] is commit
+        assert kwargs["db"] is db
 
     @patch("modules.activities.activity.event_publishers.platform_publisher")
     def test_changed_fields_are_sorted(self, mock_publisher):
         """Stable ordering regardless of the producer's iteration order."""
         from modules.activities.activity.event_publishers import publish_activity_updated
 
-        publish_activity_updated(7, 3, {"visibility", "name", "gear_id"})
+        publish_activity_updated(7, 3, {"visibility", "name", "gear_id"}, object(), commit=MagicMock())
 
-        assert mock_publisher.publish.call_args.args[1]["changed_fields"] == ["gear_id", "name", "visibility"]
-
-    @patch("modules.activities.activity.event_publishers.platform_publisher")
-    def test_commit_path_uses_publish_committing(self, mock_publisher):
-        from modules.activities.activity.event_publishers import publish_activity_updated
-
-        db = object()
-        commit = MagicMock()
-        publish_activity_updated(7, 3, ["name"], db=db, commit=commit)
-
-        mock_publisher.publish_committing.assert_called_once()
-        mock_publisher.publish.assert_not_called()
-        kwargs = mock_publisher.publish_committing.call_args.kwargs
-        assert kwargs["commit"] is commit
-        assert kwargs["db"] is db
+        assert mock_publisher.publish_committing.call_args.args[1]["changed_fields"] == [
+            "gear_id",
+            "name",
+            "visibility",
+        ]
 
 
 class TestPublishActivitiesUpdated:
@@ -99,7 +85,7 @@ class TestPublishActivitiesUpdated:
 
         db = object()
         commit = MagicMock()
-        publish_activities_updated([4, 5], 2, ["visibility"], db, commit, source="api:bulk_edit_activities")
+        publish_activities_updated([4, 5], 2, ["visibility"], db, commit=commit, source="api:bulk_edit_activities")
 
         mock_publisher.publish_many_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_many_committing.call_args
@@ -116,7 +102,7 @@ class TestPublishActivitiesUpdated:
     def test_metadata_is_per_activity(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activities_updated
 
-        publish_activities_updated([4, 5], 2, ["visibility"], object(), MagicMock(), source="api:bulk")
+        publish_activities_updated([4, 5], 2, ["visibility"], object(), commit=MagicMock(), source="api:bulk")
 
         metadata_for = mock_publisher.publish_many_committing.call_args.kwargs["metadata_for"]
         assert metadata_for({"activity_id": 4}) == {"activity_id": 4, "user_id": 2}
@@ -126,7 +112,7 @@ class TestPublishActivitiesUpdated:
         from modules.activities.activity.event_publishers import publish_activities_updated
 
         commit = MagicMock()
-        publish_activities_updated([], 2, ["visibility"], object(), commit, source="api:bulk")
+        publish_activities_updated([], 2, ["visibility"], object(), commit=commit, source="api:bulk")
 
         args, kwargs = mock_publisher.publish_many_committing.call_args
         assert args[1] == []
@@ -147,7 +133,7 @@ class TestPublishActivitiesDeleted:
 
         db = object()
         commit = MagicMock()
-        publish_activities_deleted([4, 5, 6], 2, db, commit, source="api:delete_user")
+        publish_activities_deleted([4, 5, 6], 2, db, commit=commit, source="api:delete_user")
 
         mock_publisher.publish_many_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_many_committing.call_args
@@ -161,7 +147,7 @@ class TestPublishActivitiesDeleted:
     def test_metadata_is_per_activity(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activities_deleted
 
-        publish_activities_deleted([4, 5], 2, object(), MagicMock(), source="api:delete_user")
+        publish_activities_deleted([4, 5], 2, object(), commit=MagicMock(), source="api:delete_user")
 
         metadata_for = mock_publisher.publish_many_committing.call_args.kwargs["metadata_for"]
         assert metadata_for({"activity_id": 4}) == {"activity_id": 4, "user_id": 2}
@@ -172,7 +158,7 @@ class TestPublishActivitiesDeleted:
         from modules.activities.activity.event_publishers import publish_activities_deleted
 
         commit = MagicMock()
-        publish_activities_deleted([], 2, object(), commit, source="api:delete_user")
+        publish_activities_deleted([], 2, object(), commit=commit, source="api:delete_user")
 
         args, kwargs = mock_publisher.publish_many_committing.call_args
         assert args[1] == []

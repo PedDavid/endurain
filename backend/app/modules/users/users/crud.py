@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
 import core.logger as core_logger
-import modules.activities.activity.integration_service as activities_integration
+import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.auth.password_policy as auth_password_policy
 import modules.health.health_weight.utils as health_weight_utils
@@ -248,7 +248,7 @@ def _delete_user_row(user_id: int, db: Session) -> None:
     # (an incomplete erasure). Going through the activities integration service
     # publishes one ``activity.deleted`` per row, and the cleanup subscribers
     # reclaim the blobs.
-    activities_integration.delete_all_activities_for_user(user_id, db)
+    activity_integration.delete_all_activities_for_user(user_id, db)
     db.delete(db_users)
     db.commit()
 

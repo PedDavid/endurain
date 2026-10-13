@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import modules.activities.activity.schema as activity_schema
-import modules.activities.activity_exercise_titles.integration_service as exercise_titles_integration
-import modules.activities.activity_laps.integration_service as laps_integration
-import modules.activities.activity_media.integration_service as media_integration
-import modules.activities.activity_sets.integration_service as sets_integration
-import modules.activities.activity_streams.integration_service as streams_integration
-import modules.activities.activity_workout_steps.integration_service as workout_steps_integration
+import modules.activities.activity_exercise_titles.integration_service as activity_exercise_titles_integration
+import modules.activities.activity_laps.integration_service as activity_laps_integration
+import modules.activities.activity_media.integration_service as activity_media_integration
+import modules.activities.activity_sets.integration_service as activity_sets_integration
+import modules.activities.activity_streams.integration_service as activity_streams_integration
+import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
 
 
 def _new_activity() -> activity_schema.Activity:
@@ -24,13 +24,13 @@ def _new_activity() -> activity_schema.Activity:
     ("integration", "store_name", "record", "uses_parent_schema"),
     [
         (
-            laps_integration,
+            activity_laps_integration,
             "_store_laps",
             {"id": 11, "activity_id": 1, "start_time": "2024-01-01T00:00:00Z"},
             False,
         ),
         (
-            sets_integration,
+            activity_sets_integration,
             "_store_sets",
             {
                 "id": 12,
@@ -42,7 +42,7 @@ def _new_activity() -> activity_schema.Activity:
             False,
         ),
         (
-            streams_integration,
+            activity_streams_integration,
             "_store_streams",
             {
                 "id": 13,
@@ -53,7 +53,7 @@ def _new_activity() -> activity_schema.Activity:
             True,
         ),
         (
-            workout_steps_integration,
+            activity_workout_steps_integration,
             "_store_workout_steps",
             {
                 "id": 14,
@@ -84,7 +84,7 @@ def test_activity_profile_contributor_filters_copies_and_rekeys(
     assert source_records == original_records
     stored_record = store.call_args.args[0][0]
     stored_data = stored_record if isinstance(stored_record, dict) else stored_record.model_dump()
-    if integration is laps_integration:
+    if integration is activity_laps_integration:
         assert "activity_id" not in stored_data
     else:
         assert stored_data["activity_id"] == 10
@@ -99,8 +99,8 @@ def test_media_profile_contributor_rekeys_without_mutating_source() -> None:
     activity = _new_activity()
     db = MagicMock()
 
-    with patch.object(media_integration, "_restore_media_records") as store:
-        restored = media_integration.profile_contributor().restore(records, 1, activity, db)
+    with patch.object(activity_media_integration, "_restore_media_records") as store:
+        restored = activity_media_integration.profile_contributor().restore(records, 1, activity, db)
 
     assert restored == 1
     assert records == original_records
@@ -118,8 +118,10 @@ def test_global_profile_contributor_restores_valid_titles_once() -> None:
     original_records = deepcopy(records)
     db = MagicMock()
 
-    with patch.object(exercise_titles_integration.exercise_titles_crud, "create_activity_exercise_titles") as store:
-        restored = exercise_titles_integration.profile_global_contributor().restore(records, db)
+    with patch.object(
+        activity_exercise_titles_integration.exercise_titles_crud, "create_activity_exercise_titles"
+    ) as store:
+        restored = activity_exercise_titles_integration.profile_global_contributor().restore(records, db)
 
     assert restored == 1
     assert records == original_records

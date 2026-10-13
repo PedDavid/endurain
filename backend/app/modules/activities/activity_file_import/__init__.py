@@ -8,5 +8,5 @@ afterwards by ``activity_ingestion.enrichment_service``, and the
 ``activity-file-import-purity`` import-linter contract keeps it that way.
 
 Importing this package does not pull in a parser: reach for the submodule you
-need (``.registry``, ``.utils_gpx``, ``.utils_fit``, ``.utils_tcx``).
+need (``.registry``, ``.gpx_utils``, ``.fit_utils``, ``.tcx_utils``).
 """

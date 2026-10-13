@@ -35,7 +35,7 @@ def _context(activity_id: int = 1, owner_id: int = 2) -> activity_contracts.Acti
 class TestRecomputeHrZonesForUser:
     @patch(f"{_SVC}.activity_streams_hr_zones.compute_hr_zone_breakdown_sync")
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=200)
-    @patch(f"{_SVC}.users_integration_service.get_user")
+    @patch(f"{_SVC}.users_integration.get_user")
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_stores_the_computed_zones(self, mock_crud, mock_activity, mock_get_user, mock_max, mock_compute):
@@ -55,7 +55,7 @@ class TestRecomputeHrZonesForUser:
         db.commit.assert_called_once()
 
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=None)
-    @patch(f"{_SVC}.users_integration_service.get_user")
+    @patch(f"{_SVC}.users_integration.get_user")
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_clears_zones_when_max_hr_unresolvable(self, mock_crud, mock_activity, mock_get_user, mock_max):
@@ -70,7 +70,7 @@ class TestRecomputeHrZonesForUser:
 
         mock_crud.set_zone_percentages.assert_called_once_with({7: None}, db)
 
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=None)
+    @patch(f"{_SVC}.users_integration.get_user", return_value=None)
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_a_missing_user_still_clears(self, mock_crud, mock_activity, mock_get_user):
@@ -83,7 +83,7 @@ class TestRecomputeHrZonesForUser:
 
         assert mock_crud.set_zone_percentages.call_args.args[0] == {7: None}
 
-    @patch(f"{_SVC}.users_integration_service.get_user", side_effect=RuntimeError("boom"))
+    @patch(f"{_SVC}.users_integration.get_user", side_effect=RuntimeError("boom"))
     @patch(f"{_SVC}.activity_streams_crud")
     def test_propagates_errors(self, mock_crud, mock_get_user):
         """The service does not translate failures; the session owner rolls back."""
@@ -96,7 +96,7 @@ class TestRecomputeHrZonesForUser:
 
 
 class TestScoreActivityHrZones:
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=None)
+    @patch(f"{_SVC}.users_integration.get_user", return_value=None)
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_noop_when_user_missing(self, mock_crud, mock_activity, mock_get_user):
@@ -108,7 +108,7 @@ class TestScoreActivityHrZones:
         mock_crud.set_zone_percentages.assert_not_called()
 
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=None)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_noop_when_no_max_hr(self, mock_crud, mock_activity, mock_get_user, mock_max):
@@ -121,7 +121,7 @@ class TestScoreActivityHrZones:
         mock_crud.set_zone_percentages.assert_not_called()
 
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=190)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_noop_when_the_activity_has_no_hr_stream(self, mock_crud, mock_activity, mock_get_user, mock_max):
@@ -136,7 +136,7 @@ class TestScoreActivityHrZones:
 
     @patch(f"{_SVC}.activity_streams_hr_zones.compute_hr_zone_breakdown_sync", return_value={"zone_1": 1})
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=190)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_stores_the_breakdown(self, mock_crud, mock_activity, mock_get_user, mock_max, mock_compute):
@@ -154,7 +154,7 @@ class TestScoreActivityHrZones:
 class TestBackfillMissingHrZones:
     @patch(f"{_SVC}.activity_streams_hr_zones.compute_hr_zone_breakdown_sync", return_value={"zone_1": 1})
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=190)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_scores_missing_streams(self, mock_crud, mock_activity, mock_get_user, mock_max, mock_compute):
@@ -167,7 +167,7 @@ class TestBackfillMissingHrZones:
         assert mock_crud.set_zone_percentages.call_args_list[0].args[0] == {5: {"hr": {"zone_1": 1}}}
 
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=None)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_skips_when_the_owner_has_no_max_hr(self, mock_crud, mock_activity, mock_get_user, mock_max):
@@ -182,7 +182,7 @@ class TestBackfillMissingHrZones:
 
     @patch(f"{_SVC}.activity_streams_hr_zones.compute_hr_zone_breakdown_sync", return_value={"zone_1": 1})
     @patch(f"{_SVC}.activity_streams_hr_zones.resolve_max_heart_rate", return_value=190)
-    @patch(f"{_SVC}.users_integration_service.get_user", return_value=MagicMock())
+    @patch(f"{_SVC}.users_integration.get_user", return_value=MagicMock())
     @patch(f"{_SVC}.activity_integration")
     @patch(f"{_SVC}.activity_streams_crud")
     def test_each_owner_is_looked_up_once_per_run(

@@ -325,7 +325,7 @@ class TestDeleteGearComponent:
 
 
 class TestGetComponentsActivityStats:
-    @patch("modules.gears.gear_components.crud.activities_integration")
+    @patch("modules.gears.gear_components.crud.activity_integration")
     def test_success(self, mock_activities, mock_db):
         import modules.activities.activity.contracts as activities_contracts
         import modules.gears.gear_components.crud as crud
@@ -350,7 +350,7 @@ class TestGetComponentsActivityStats:
         assert windows[0].end_date is None
         assert windows[1].end_date == date(2024, 9, 1)
 
-    @patch("modules.gears.gear_components.crud.activities_integration")
+    @patch("modules.gears.gear_components.crud.activity_integration")
     def test_empty(self, mock_activities, mock_db):
         import modules.gears.gear_components.crud as crud
 
@@ -383,7 +383,7 @@ class TestComponentWindowIsLocal:
     unchanged, which is asserted here.
     """
 
-    @patch("modules.gears.gear_components.crud.activities_integration")
+    @patch("modules.gears.gear_components.crud.activity_integration")
     def test_component_bounds_are_passed_through_as_calendar_dates(self, mock_activities):
         import modules.gears.gear_components.crud as crud
 
