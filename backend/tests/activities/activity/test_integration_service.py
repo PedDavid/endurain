@@ -98,3 +98,45 @@ class TestIntegrationService:
 
         assert result == 2
         mock_service.delete_all_activities_for_user.assert_called_once_with(7, db, source="api:delete_user")
+
+
+class TestDerivedArtifactWritesStageOnly:
+    """The thumbnail and geocoding writes stage in CRUD; the caller commits.
+
+    A cross-module call must not end the caller's transaction, so none of these
+    commits or rolls back.
+    """
+
+    @patch("modules.activities.activity.integration_service.activity_crud")
+    def test_set_thumbnail_key_stages_without_committing(self, mock_crud):
+        from modules.activities.activity import integration_service
+
+        db = MagicMock()
+        integration_service.set_thumbnail_key(7, "7.png", db)
+
+        mock_crud.set_activity_thumbnail_path.assert_called_once_with(7, "7.png", db)
+        db.commit.assert_not_called()
+        db.rollback.assert_not_called()
+
+    @patch("modules.activities.activity.integration_service.activity_crud")
+    def test_clear_all_thumbnail_keys_stages_without_committing(self, mock_crud):
+        from modules.activities.activity import integration_service
+
+        db = MagicMock()
+        integration_service.clear_all_thumbnail_keys(db)
+
+        mock_crud.clear_all_activity_thumbnail_paths.assert_called_once_with(db)
+        db.commit.assert_not_called()
+
+    @patch("modules.activities.activity.integration_service.activity_crud")
+    def test_set_activity_location_reports_whether_a_row_changed(self, mock_crud):
+        from modules.activities.activity import integration_service
+
+        db = MagicMock()
+        mock_crud.update_activity_location.return_value = True
+        assert integration_service.set_activity_location(7, "Lisbon", None, "Portugal", db) is True
+        mock_crud.update_activity_location.return_value = False
+        assert integration_service.set_activity_location(999, "Lisbon", None, "Portugal", db) is False
+
+        mock_crud.update_activity_location.assert_called_with(999, "Lisbon", None, "Portugal", db)
+        db.commit.assert_not_called()

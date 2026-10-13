@@ -10,8 +10,7 @@ from core.database import Base
 
 
 class ActivityStreams(Base):
-    """
-    ORM model for activity stream data.
+    """ORM model for activity stream data.
 
     Attributes:
         id: Primary key, auto-incremented.

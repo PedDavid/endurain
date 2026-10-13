@@ -79,13 +79,14 @@ def geocode_and_store_activity_location(activity_id: int, geocoding: GeocodingPr
     if location is None:
         return False
 
-    activity_integration.set_activity_location(
+    if activity_integration.set_activity_location(
         activity_id,
         location.city,
         location.town,
         location.country,
         db,
-    )
+    ):
+        db.commit()
     logger.debug(
         "Stored the resolved activity location",
         extra=core_logger.context(
@@ -126,14 +127,15 @@ def backfill_missing_activity_locations(geocoding: GeocodingProvider, db: Sessio
         location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
         if location is None:
             continue
-        activity_integration.set_activity_location(
+        if activity_integration.set_activity_location(
             activity_id,
             location.city,
             location.town,
             location.country,
             db,
-        )
-        stored += 1
+        ):
+            db.commit()
+            stored += 1
 
     # Level varies so an idle scheduler pass stays at debug instead of emitting
     # an INFO line every tick.

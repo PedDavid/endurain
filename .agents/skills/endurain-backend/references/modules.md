@@ -66,6 +66,6 @@ Never import `modules.auth._internal` or any `modules.auth.*.crud`. No `ignore_i
 
 ## Enforcement
 
-- `backend/.importlinter`: cross-module contracts, wildcards so new activity children inherit them.
-- `tests/architecture/test_module_boundaries.py`: own-package vs peer privacy, DAG, only crud executes, content matches role, module inventory, surface callers.
-- Allowlist entries (`_INTRA_MODULE_SEAMS`, `_INBOUND_EXCEPTIONS`) are exact composition or read-model edges with a reason.
+- `backend/.importlinter`: external packages, platform direction, auth boundary, migration surface, named design seams. Not layer rules: it matches exact module names.
+- `tests/architecture/test_module_boundaries.py`: `TestLayerRules` (ORM ownership, transport delegation, persistence purity, outbound reach through a surface, direction), own-package vs peer privacy, DAG, only crud executes, content matches role, module inventory, surface callers and transactions.
+- Allowlist entries (`_LAYER_EXCEPTIONS`, `_INTRA_MODULE_SEAMS`, `_INBOUND_EXCEPTIONS`) are exact composition or read-model edges with a reason.

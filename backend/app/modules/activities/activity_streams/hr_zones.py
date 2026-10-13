@@ -30,8 +30,7 @@ def resolve_max_heart_rate(
     birthdate: datetime.date | None,
     timezone_name: str | None,
 ) -> int | None:
-    """
-    Resolve an athlete's max heart rate.
+    """Resolve an athlete's max heart rate.
 
     Args:
         max_heart_rate: The stored max heart rate, if the athlete set one.
@@ -76,8 +75,7 @@ def compute_hr_zone_breakdown_sync(
     max_heart_rate: int,
     total_timer_time: float | None,
 ) -> dict | None:
-    """
-    Compute the HR zone breakdown for a set of waypoints.
+    """Compute the HR zone breakdown for a set of waypoints.
 
     Args:
         waypoints: List of waypoint dicts (each may contain an "hr" key).
@@ -87,7 +85,6 @@ def compute_hr_zone_breakdown_sync(
     Returns:
         A dict of zone_1..zone_5 entries, or None if it cannot be computed.
     """
-
     if not waypoints or not isinstance(waypoints, list):
         return None
 
@@ -103,8 +100,7 @@ def compute_hr_zone_breakdown_sync(
         zone_3: float,
         zone_4: float,
     ) -> list[float] | None:
-        """
-        Compute per-zone percentage counts from waypoints.
+        """Compute per-zone percentage counts from waypoints.
 
         Args:
             waypoints: List of waypoint dicts with optional "hr" key.

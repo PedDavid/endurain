@@ -11,8 +11,7 @@ from pydantic import (
 
 
 class SummaryMetrics(BaseModel):
-    """
-    Base metrics shared by all summary responses.
+    """Base metrics shared by all summary responses.
 
     Attributes:
         total_distance: Total distance in meters.
@@ -52,8 +51,7 @@ class SummaryMetrics(BaseModel):
 
 
 class DaySummary(SummaryMetrics):
-    """
-    Daily activity summary within a week.
+    """Daily activity summary within a week.
 
     Attributes:
         day_of_week: Day of week (0=Mon, 6=Sun).
@@ -66,8 +64,7 @@ class DaySummary(SummaryMetrics):
 
 
 class WeekSummary(SummaryMetrics):
-    """
-    Weekly activity summary within a month.
+    """Weekly activity summary within a month.
 
     Attributes:
         week_number: Calendar week number within the month.
@@ -80,8 +77,7 @@ class WeekSummary(SummaryMetrics):
 
 
 class MonthSummary(SummaryMetrics):
-    """
-    Monthly activity summary within a year.
+    """Monthly activity summary within a year.
 
     Attributes:
         month_number: Month (1=Jan, 12=Dec).
@@ -94,8 +90,7 @@ class MonthSummary(SummaryMetrics):
 
 
 class YearlyPeriodSummary(SummaryMetrics):
-    """
-    Yearly activity summary within lifetime view.
+    """Yearly activity summary within lifetime view.
 
     Attributes:
         year_number: Calendar year.
@@ -108,8 +103,7 @@ class YearlyPeriodSummary(SummaryMetrics):
 
 
 class TypeBreakdownItem(SummaryMetrics):
-    """
-    Summary metrics broken down by activity type.
+    """Summary metrics broken down by activity type.
 
     Attributes:
         activity_type_id: Numeric activity type ID.
@@ -127,8 +121,7 @@ class TypeBreakdownItem(SummaryMetrics):
 
 
 class WeeklySummaryResponse(SummaryMetrics):
-    """
-    Weekly summary with daily breakdowns.
+    """Weekly summary with daily breakdowns.
 
     Attributes:
         breakdown: List of daily summaries.
@@ -146,8 +139,7 @@ class WeeklySummaryResponse(SummaryMetrics):
 
 
 class MonthlySummaryResponse(SummaryMetrics):
-    """
-    Monthly summary with weekly breakdowns.
+    """Monthly summary with weekly breakdowns.
 
     Attributes:
         breakdown: List of weekly summaries.
@@ -165,8 +157,7 @@ class MonthlySummaryResponse(SummaryMetrics):
 
 
 class YearlySummaryResponse(SummaryMetrics):
-    """
-    Yearly summary with monthly breakdowns.
+    """Yearly summary with monthly breakdowns.
 
     Attributes:
         breakdown: List of monthly summaries.
@@ -184,8 +175,7 @@ class YearlySummaryResponse(SummaryMetrics):
 
 
 class LifetimeSummaryResponse(SummaryMetrics):
-    """
-    Lifetime summary with yearly breakdowns.
+    """Lifetime summary with yearly breakdowns.
 
     Attributes:
         breakdown: List of yearly summaries.

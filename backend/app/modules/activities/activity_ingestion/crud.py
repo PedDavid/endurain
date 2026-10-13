@@ -30,8 +30,7 @@ def create_ingestion_job(
     idempotency_key: str | None = None,
     request_fingerprint: str | None = None,
 ) -> activity_ingestion_schema.ActivityIngestionJob:
-    """
-    Stage an accepted ingestion request in the pending state (not committed).
+    """Stage an accepted ingestion request in the pending state (not committed).
 
     Args:
         job_id: Caller-generated job identifier (UUIDv4 string).
@@ -77,8 +76,7 @@ def get_ingestion_job(
     user_id: int,
     db: Session,
 ) -> activity_ingestion_schema.ActivityIngestionJob | None:
-    """
-    Retrieve one ingestion job belonging to a user.
+    """Retrieve one ingestion job belonging to a user.
 
     Always filtered by ``user_id``: a job id is a bearer-ish handle, and
     scoping the read here means no caller can accidentally expose another user's
@@ -105,8 +103,7 @@ def get_ingestion_job(
 
 @core_decorators.handle_db_errors
 def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
-    """
-    Read the owner and staged key of a job, for the background executor.
+    """Read the owner and staged key of a job, for the background executor.
 
     Not user-scoped, unlike :func:`get_upload_job`: the caller here is the
     worker acting on an event it was handed, not an HTTP client naming a job.
@@ -137,8 +134,7 @@ def get_job_for_idempotency(
     kind: activity_ingestion_schema.IngestionJobKind,
     db: Session,
 ) -> tuple[activity_ingestion_schema.ActivityIngestionJob, str | None] | None:
-    """
-    Retrieve a user's job by the idempotency key it was accepted with.
+    """Retrieve a user's job by the idempotency key it was accepted with.
 
     Returns the stored request fingerprint alongside the job: the caller has to
     compare it before treating the request as a replay, because the same key
@@ -172,8 +168,7 @@ def get_job_for_idempotency(
 
 @core_decorators.handle_db_errors
 def get_job_owner(job_id: str, db: Session) -> int | None:
-    """
-    Read the owner of a job, for the background executor.
+    """Read the owner of a job, for the background executor.
 
     Not user-scoped, unlike :func:`get_ingestion_job`: the caller is the worker
     acting on an event it was handed, not an HTTP client naming a job. Reading
@@ -196,8 +191,7 @@ def get_job_owner(job_id: str, db: Session) -> int | None:
 
 @core_decorators.handle_db_errors
 def mark_processing(job_id: str, db: Session) -> None:
-    """
-    Stage a move of a job to the processing state (not committed).
+    """Stage a move of a job to the processing state (not committed).
 
     Args:
         job_id: The job identifier.
@@ -219,8 +213,7 @@ def mark_processing(job_id: str, db: Session) -> None:
 
 @core_decorators.handle_db_errors
 def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
-    """
-    Stage a move of a job to the completed state and record what it created.
+    """Stage a move of a job to the completed state and record what it created.
 
     Args:
         job_id: The job identifier.
@@ -252,8 +245,7 @@ def mark_failed(
     error_code: activity_ingestion_schema.IngestionJobErrorCode,
     db: Session,
 ) -> None:
-    """
-    Stage a move of a job to the failed state with a sanitized reason.
+    """Stage a move of a job to the failed state with a sanitized reason.
 
     Args:
         job_id: The job identifier.
@@ -280,8 +272,7 @@ def mark_failed(
 
 @core_decorators.handle_db_errors
 def delete_jobs_before(cutoff: datetime, db: Session) -> int:
-    """
-    Stage the deletion of terminal ingestion jobs older than a cutoff.
+    """Stage the deletion of terminal ingestion jobs older than a cutoff.
 
     Args:
         cutoff: Jobs that reached a terminal state before this are removed.

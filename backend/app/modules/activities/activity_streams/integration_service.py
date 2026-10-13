@@ -175,7 +175,9 @@ def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> di
 
 
 def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
-    """Recompute stored HR-zone breakdowns after user settings change.
+    """Stage recomputing stored HR-zone breakdowns after user settings change.
+
+    The caller commits.
 
     Args:
         user_id: ID of the user.

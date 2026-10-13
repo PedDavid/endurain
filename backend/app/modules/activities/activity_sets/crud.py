@@ -21,8 +21,7 @@ def get_activity_sets(
     page_number: int = 1,
     num_records: int = 200,
 ) -> list[activity_sets_schema.ActivitySetsRead]:
-    """
-    Retrieve one page of an activity's workout sets, in recorded order.
+    """Retrieve one page of an activity's workout sets, in recorded order.
 
     Performs no access check: whether the caller may read these rows is decided
     by :mod:`modules.activities.activity_sets.service`.
@@ -53,8 +52,7 @@ def get_activity_sets(
 
 @core_decorators.handle_db_errors
 def count_activity_sets(activity_id: int, db: Session) -> int:
-    """
-    Count an activity's workout sets.
+    """Count an activity's workout sets.
 
     Args:
         activity_id: The activity ID.
@@ -79,8 +77,7 @@ def get_activities_sets(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_sets_schema.ActivitySetsRead]:
-    """
-    Retrieve the workout sets of several activities at once.
+    """Retrieve the workout sets of several activities at once.
 
     Performs no access check and joins no parent row: which activities the
     caller may read is decided before this is reached, by the activities
@@ -111,8 +108,7 @@ def create_activity_sets(
     activity_id: int,
     db: Session,
 ) -> None:
-    """
-    Stage activity sets for an activity (flushed, not committed).
+    """Stage activity sets for an activity (flushed, not committed).
 
     Args:
         activity_sets: List of Pydantic schemas or

@@ -234,8 +234,8 @@ def _is_route(node: ast.AsyncFunctionDef) -> bool:
 def test_http_exceptions_stay_at_the_transport_boundary() -> None:
     """Only routers and FastAPI dependencies may raise ``HTTPException``.
 
-    Everything else raises ``core.exceptions``. The ``persistence-no-http``
-    import contract covers CRUD, but services and subscribers are equally capable
+    Everything else raises ``core.exceptions``. ``TestLayerRules`` covers the
+    persistence layer, but services and subscribers are equally capable
     of coupling themselves to HTTP — and a subscriber that does is running in the
     durable-job worker, which serves no HTTP at all.
     """

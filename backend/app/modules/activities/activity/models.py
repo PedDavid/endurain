@@ -18,8 +18,7 @@ from core.database import Base
 
 
 class Activity(Base):
-    """
-    Fitness activity record.
+    """Fitness activity record.
 
     Attributes:
         id: Primary key.

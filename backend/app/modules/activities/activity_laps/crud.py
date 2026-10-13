@@ -20,8 +20,7 @@ def get_activity_laps(
     page_number: int = 1,
     num_records: int = 200,
 ) -> list[activity_laps_schema.ActivityLapsRead]:
-    """
-    Retrieve one page of an activity's laps, in recorded order.
+    """Retrieve one page of an activity's laps, in recorded order.
 
     Performs no access check: whether the caller may read these rows is decided
     by :mod:`modules.activities.activity_laps.service`.
@@ -54,8 +53,7 @@ def get_activity_laps(
 
 @core_decorators.handle_db_errors
 def count_activity_laps(activity_id: int, db: Session) -> int:
-    """
-    Count an activity's laps.
+    """Count an activity's laps.
 
     Args:
         activity_id: The activity ID.
@@ -80,8 +78,7 @@ def get_activities_laps(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_laps_schema.ActivityLapsRead]:
-    """
-    Retrieve the laps of several activities at once.
+    """Retrieve the laps of several activities at once.
 
     Performs no access check and joins no parent row: which activities the
     caller may read is decided before this is reached, by the activities
@@ -112,8 +109,7 @@ def create_activity_laps(
     activity_id: int,
     db: Session,
 ) -> None:
-    """
-    Stage activity laps for an activity (flushed, not committed).
+    """Stage activity laps for an activity (flushed, not committed).
 
     Args:
         activity_laps: List of lap dicts from

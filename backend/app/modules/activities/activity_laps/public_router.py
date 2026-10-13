@@ -22,9 +22,7 @@ def read_public_activities_laps_for_activity_all(
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_laps_schema.ActivityLapsPage:
-    """
-    Return one page of public laps for an activity exposed via shareable link.
-    """
+    """Return one page of public laps for an activity exposed via shareable link."""
     return activity_laps_service.list_public_activity_laps(
         activity_id,
         db,

@@ -22,8 +22,7 @@ def get_activity_streams(
     activity_id: int,
     db: Session,
 ) -> list[activity_streams_schema.ActivityStreamsRead]:
-    """
-    Get every stream belonging to an activity.
+    """Get every stream belonging to an activity.
 
     Performs no access check and no per-type masking: both are decided by
     :mod:`modules.activities.activity_streams.service`.
@@ -51,8 +50,7 @@ def get_activities_streams(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_streams_schema.ActivityStreamsRead]:
-    """
-    Get streams for multiple activities.
+    """Get streams for multiple activities.
 
     Performs no access check: which activities the caller may read is decided
     before this is reached, by the activities integration service that owns them.
@@ -86,8 +84,7 @@ def get_activity_stream_by_type(
     stream_type: int,
     db: Session,
 ) -> activity_streams_schema.ActivityStreamsRead | None:
-    """
-    Get a specific stream type for an activity.
+    """Get a specific stream type for an activity.
 
     Performs no access check and no masking: both are decided by
     :mod:`modules.activities.activity_streams.service`.
@@ -227,8 +224,7 @@ def list_hr_streams_missing_zones(
     after_id: int = 0,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_streams_contracts.HrStreamRecord]:
-    """
-    Return a batch of HR streams that carry no zone breakdown yet.
+    """Return a batch of HR streams that carry no zone breakdown yet.
 
     Args:
         db: Database session.
@@ -259,8 +255,7 @@ def get_activity_hr_stream(
     activity_id: int,
     db: Session,
 ) -> activity_streams_contracts.HrStreamRecord | None:
-    """
-    Return one activity's HR stream, ready for zone scoring.
+    """Return one activity's HR stream, ready for zone scoring.
 
     Args:
         activity_id: The activity whose HR stream to read.
@@ -282,8 +277,7 @@ def get_activity_hr_stream(
 
 @core_decorators.handle_db_errors
 def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session) -> None:
-    """
-    Stage the computed HR zone breakdown against each stream (not committed).
+    """Stage the computed HR zone breakdown against each stream (not committed).
 
     Args:
         zones_by_stream_id: Stream id -> breakdown, or None to clear it.
@@ -311,8 +305,7 @@ def create_activity_streams(
     activity: activity_schema.Activity,
     db: Session,
 ) -> None:
-    """
-    Stage activity streams (waypoints only; flushed, not committed).
+    """Stage activity streams (waypoints only; flushed, not committed).
 
     HR ``zone_percentages`` are no longer computed here: that work is decoupled to
     the ``activity.created`` subscriber so ingestion stays synchronous

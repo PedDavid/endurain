@@ -28,8 +28,7 @@ def to_read_schema(
 def to_read_schema(
     activity_streams: activity_streams_models.ActivityStreams | list[activity_streams_models.ActivityStreams],
 ) -> activity_streams_schema.ActivityStreamsRead | list[activity_streams_schema.ActivityStreamsRead]:
-    """
-    Transform a stream or list of streams to a Pydantic schema or list of schemas.
+    """Transform a stream or list of streams to a Pydantic schema or list of schemas.
 
     Args:
         activity_streams: The stream ORM instance or list of stream ORM instances.
@@ -45,8 +44,7 @@ def to_read_schema(
 def to_hr_record(
     stream: activity_streams_models.ActivityStreams,
 ) -> activity_streams_contracts.HrStreamRecord:
-    """
-    Project one stream ORM row into a package-owned record.
+    """Project one stream ORM row into a package-owned record.
 
     Args:
         stream: The stream ORM row to project.

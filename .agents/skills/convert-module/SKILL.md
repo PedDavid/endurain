@@ -43,6 +43,8 @@ Rules and file roles: `docs/developer-guide/module-structure.md` and the `endura
     - Add the module's name to `CONVERTED_MODULES` (and remove it from `UNCONVERTED_MODULES`) in `tests/_helpers/module_roles.py`.
     - Add it to the source lists of the cross-module contracts in `backend/.importlinter`; add a flat-module contract set if it has no sub-packages.
     - Add allowlist entries only for exact composition or read-model edges, each with a reason.
+    - Remove the module from the ruff `D` per-file-ignores in `backend/pyproject.toml` and fix what the docstring lint finds; `TestDocstringScope` fails until it matches `UNCONVERTED_MODULES`.
+    - The layer rules (`TestLayerRules`) apply to it automatically once it is in `CONVERTED_MODULES`; list a deliberate exception in `_LAYER_EXCEPTIONS` with its reason, and a surface operation that must commit in `_SURFACE_UNITS_OF_WORK`.
 12. **Docs.** Update Known debt in `module-structure.md`; add a row if the module revealed a new rule.
 
 ## Gates

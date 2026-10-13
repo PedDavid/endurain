@@ -17,6 +17,7 @@ with the reason it still exists, and anything not listed fails.
 import ast
 import fnmatch
 import pathlib
+import tomllib
 
 from tests._helpers.module_roles import CONVERTED_MODULES, UNCONVERTED_MODULES
 from tests._helpers.module_roles import role_of as _role
@@ -28,6 +29,10 @@ from tests._helpers.module_roles import role_of as _role
 _CONVERTED = CONVERTED_MODULES
 
 _MODULES_ROOT = pathlib.Path("app/modules")
+
+#: The backend directory, anchored to this file so config lookups do not depend on
+#: the working directory the tests are started from.
+_BACKEND_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 _APP_ROOT = pathlib.Path("app")
 
@@ -227,6 +232,255 @@ def _symbol_reference_nodes(tree: ast.AST, symbols: set[str]) -> list[tuple[ast.
             continue
         references.extend((node, candidate) for candidate in candidates if candidate in symbols)
     return references
+
+
+#: Layer rules are stated once, by role, and apply to every file whose stem
+#: declares that role (``summary_crud`` is a ``crud``, ``pipeline_service`` a
+#: ``service``). They replace per-module import-linter denylists, which matched
+#: exact module names, so a qualified stem escaped them and a flat module needed
+#: its own copy. An allowlist fails closed: a new file is covered the day it is
+#: written, and a role that is not named is not trusted.
+
+#: Roles that may import an ORM ``models`` module. ``model_registry`` names its
+#: models by string and so imports none.
+_ORM_READERS = frozenset({"models", "crud", "serializers", "query"})
+
+#: Persistence-layer roles: they take no HTTP types and ask no other package.
+_PERSISTENCE_ROLES = frozenset({"crud", "query", "serializers"})
+
+#: Roles a transport adapter may not reach: it validates, delegates to its
+#: service and returns.
+_TRANSPORT_FORBIDDEN = frozenset({"crud", "models", "query", "event_publishers"})
+
+#: Roles of another package that persistence may name: data shapes, not
+#: behaviour.
+_DATA_ROLES = frozenset({"schema", "contracts", "constants"})
+
+#: Roles of another top-level module that a converted module may import: its
+#: published surface. ``identity_service`` is ``auth``'s surface under another
+#: name (see the guide); no other module may follow it.
+_OUTBOUND_ROLES = frozenset({"integration_service", "schema", "contracts", "constants", "events", "dependencies"})
+_OUTBOUND_SURFACE_STEMS = frozenset({"identity_service"})
+
+#: Layer-rule exceptions as ``{(importer, imported): reason}``, in dotted paths
+#: rooted at ``app``. Every entry is a deliberate seam; anything else fails.
+_LAYER_EXCEPTIONS: dict[tuple[str, str], str] = {
+    ("modules.activities.activity.serializers", "modules.activities.contributor_registry"): (
+        "The activity row is serialized with its thumbnail URL, which the thumbnail package derives "
+        "from that row. The root asks this registry and composition installs the answer, so "
+        "activity never imports its child."
+    ),
+}
+
+#: Top-level modules that sit below another, as ``{module: modules it may not import}``.
+_MUST_NOT_IMPORT: dict[str, tuple[str, ...]] = {
+    "followers": ("modules.activities",),
+}
+
+
+def _module_dotted(path: pathlib.Path) -> str:
+    """
+    Return a file's fully qualified dotted path rooted at ``app``.
+
+    Args:
+        path: The Python file.
+
+    Returns:
+        The dotted path, e.g. ``modules.activities.activity.crud``.
+    """
+    return ".".join(path.relative_to(_APP_ROOT).with_suffix("").parts)
+
+
+def _package_of(dotted: str) -> str:
+    """
+    Return the package a module path belongs to.
+
+    Args:
+        dotted: A dotted path rooted at ``app``.
+
+    Returns:
+        ``modules.<namespace>.<package>`` inside a composition namespace
+        (``modules.activities.activity``), otherwise ``modules.<module>``.
+    """
+    parts = dotted.split(".")
+    if len(parts) >= 3 and parts[0] == "modules" and (_MODULES_ROOT / parts[1] / parts[2]).is_dir():
+        return ".".join(parts[:3])
+    return ".".join(parts[:2])
+
+
+def _layer_imports(*, only_roles: frozenset[str] | None = None) -> list[tuple[pathlib.Path, str, str, str]]:
+    """
+    Return every ``modules.*`` import made by a converted-module file.
+
+    Args:
+        only_roles: Keep only importers whose file role is in this set.
+
+    Returns:
+        ``(file, importer dotted path, imported dotted path, importer role)``.
+    """
+    found: list[tuple[pathlib.Path, str, str, str]] = []
+    for module_name in _CONVERTED:
+        for path in _python_files(_MODULES_ROOT / module_name):
+            role = _role(path.stem)
+            if only_roles is not None and role not in only_roles:
+                continue
+            for target in _imported_modules(path):
+                if target.startswith("modules.") and target.count(".") >= 2:
+                    found.append((path, _module_dotted(path), target, role))
+    return found
+
+
+def _excepted(importer: str, imported: str) -> bool:
+    """
+    Return whether an import is a listed layer exception.
+
+    Args:
+        importer: The importing module's dotted path.
+        imported: The imported module's dotted path.
+
+    Returns:
+        True when the pair is in ``_LAYER_EXCEPTIONS``.
+    """
+    return (importer, imported) in _LAYER_EXCEPTIONS
+
+
+#: Surface operations that end the caller's transaction, as
+#: ``{"<package>.integration_service.<function>": reason}``. A cross-module call
+#: must not commit or roll back the caller's unit of work: partial persistence of
+#: someone else's operation is how an invariant breaks. The rule is that a
+#: surface write **stages** and its caller commits; what is listed here is
+#: deliberately a self-contained unit of work, with the reason it has to be.
+_SURFACE_UNITS_OF_WORK: dict[str, str] = {
+    "activity.integration_service.store_parsed_activity": (
+        "Stores the activity and its components and publishes activity.created in one commit, so "
+        "the row and the outbox event are atomic (the publisher takes the commit callable)."
+    ),
+    "activity.integration_service.bulk_set_activities_gear": (
+        "Stages the rows and publishes the update events in one commit; the publisher must own the "
+        "commit ordering for the outbox row to be atomic with the change."
+    ),
+    "activity.integration_service.delete_all_strava_activities": (
+        "Deletes the rows and publishes one deleted event per row in a single commit."
+    ),
+    "activity.integration_service.delete_all_activities_for_user": (
+        "Deletes the rows and publishes one deleted event per row in a single commit."
+    ),
+    "activity_ingestion.integration_service.ingest_activity_file": (
+        "The background ingestion entry for provider syncs: it commits each activity and rolls back "
+        "a failed file so the rest of the batch continues on the same session."
+    ),
+    "activity_media.integration_service.attach_media_bytes": (
+        "A race on the unique media hash leaves the session unusable until it is rolled back, so the "
+        "write has to own the rollback before it looks up the winner."
+    ),
+}
+
+#: Modules whose functions a transaction walk does not enter: they stage or describe, and a
+#: commit in one would already fail ``test_crud_does_not_end_transactions``.
+_FOLLOW_STOP_ROLES = frozenset({"crud", "query", "serializers", "models", "schema", "contracts", "constants", "events"})
+
+
+def _ends_a_transaction(function: ast.AST) -> bool:
+    """
+    Return whether a function body ends or hands over a transaction.
+
+    Args:
+        function: A function definition.
+
+    Returns:
+        True when it calls ``commit``/``rollback``, passes a ``commit=`` argument,
+        or hands a bound ``commit`` to something else.
+    """
+    for node in ast.walk(function):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _TRANSACTION_CONTROL
+        ):
+            return True
+        if isinstance(node, ast.keyword) and node.arg == "commit":
+            return True
+        if isinstance(node, ast.Attribute) and node.attr == "commit" and isinstance(node.ctx, ast.Load):
+            return True
+    return False
+
+
+def _transaction_ending_surface() -> set[str]:
+    """
+    Return every converted-module surface function that can end the caller's transaction.
+
+    Follows a call from a surface function through the modules it imports and
+    through same-module helpers, so a commit buried in the module's own
+    ``service`` or pipeline is found. Persistence modules and data shapes are not
+    followed. Calls made through a function object passed as a value are not
+    followed; the surface functions that do this are reads.
+
+    Returns:
+        ``"<package>.integration_service.<function>"`` names.
+    """
+    trees: dict[str, ast.Module] = {}
+
+    def load(dotted: str) -> ast.Module | None:
+        if dotted not in trees:
+            path = _APP_ROOT.joinpath(*dotted.split(".")).with_suffix(".py")
+            trees[dotted] = ast.parse(path.read_text()) if path.is_file() else None  # type: ignore[assignment]
+        return trees[dotted]
+
+    def aliases(tree: ast.Module) -> dict[str, str]:
+        return {
+            alias.asname: alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Import)
+            for alias in node.names
+            if alias.asname and alias.name.startswith("modules.")
+        }
+
+    def reaches(dotted: str, name: str, seen: set[tuple[str, str]], depth: int = 0) -> bool:
+        tree = load(dotted)
+        if tree is None or depth > 8 or (dotted, name) in seen:
+            return False
+        seen.add((dotted, name))
+        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)}
+        function = functions.get(name)
+        if function is None:
+            return False
+        if _ends_a_transaction(function):
+            return True
+        bound = aliases(tree)
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Call):
+                continue
+            callee = node.func
+            if isinstance(callee, ast.Name) and callee.id in functions:
+                if reaches(dotted, callee.id, seen, depth + 1):
+                    return True
+            elif isinstance(callee, ast.Attribute) and isinstance(callee.value, ast.Name):
+                target = bound.get(callee.value.id)
+                if (
+                    target
+                    and _role(target.rsplit(".", 1)[-1]) not in _FOLLOW_STOP_ROLES
+                    and reaches(target, callee.attr, seen, depth + 1)
+                ):
+                    return True
+        return False
+
+    found: set[str] = set()
+    for module_name in _CONVERTED:
+        for path in _python_files(_MODULES_ROOT / module_name):
+            if path.name != "integration_service.py":
+                continue
+            dotted = _module_dotted(path)
+            tree = load(dotted)
+            assert tree is not None
+            package = _module_path(path, _MODULES_ROOT / module_name)
+            for node in tree.body:
+                if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) or node.name.startswith("_"):
+                    continue
+                if reaches(dotted, node.name, set()):
+                    # A flat module's surface is the module itself (``followers``).
+                    label = package if "." in package else f"{module_name}.{package}"
+                    found.add(f"{label}.{node.name}")
+    return found
 
 
 def _names_reached_through(tree: ast.AST, module: str) -> set[str]:
@@ -521,6 +775,174 @@ class TestModuleInventory:
         assert not stale, "Listed in module_roles.py but not on disk:\n  " + "\n  ".join(stale)
         assert not set(CONVERTED_MODULES) & set(UNCONVERTED_MODULES), (
             "A module cannot be both converted and outstanding"
+        )
+
+
+class TestLayerRules:
+    """Layer rules by role, so a qualified filename cannot escape them."""
+
+    def test_only_persistence_reaches_orm_models(self):
+        """An ORM row never leaves ``crud`` and its edge helpers.
+
+        Application layers go through ``crud``, which returns schemas and DTOs,
+        so a service or router cannot hold a live ORM instance and mutate it
+        outside the transaction that owns it.
+        """
+        offenders = sorted(
+            f"{importer} -> {imported}"
+            for _path, importer, imported, role in _layer_imports()
+            if _role(imported.rsplit(".", 1)[-1]) == "models"
+            and role not in _ORM_READERS
+            and not _excepted(importer, imported)
+        )
+        assert not offenders, (
+            "Only models/crud/serializers/query may import an ORM models module. "
+            "Read it through the owning crud:\n  " + "\n  ".join(offenders)
+        )
+
+    def test_transport_delegates_to_its_service(self):
+        """A router validates, calls its service and returns.
+
+        No persistence, no ORM and no event publishing in the transport layer:
+        the access decision and the transaction live in ``service``, so a handler
+        cannot quietly skip them.
+        """
+        offenders = sorted(
+            f"{importer} -> {imported}"
+            for _path, importer, imported, _role_ in _layer_imports(only_roles=frozenset({"router", "public_router"}))
+            if _role(imported.rsplit(".", 1)[-1]) in _TRANSPORT_FORBIDDEN and not _excepted(importer, imported)
+        )
+        assert not offenders, "A router must delegate to its service:\n  " + "\n  ".join(offenders)
+
+    def test_persistence_raises_domain_errors_not_http_ones(self):
+        """Persistence describes what went wrong, not which status to send.
+
+        The durable-job worker serves no HTTP, so a persistence module that
+        imports FastAPI drags a transport into a place with none.
+        """
+        offenders: list[str] = []
+        for module_name in _CONVERTED:
+            for path in _python_files(_MODULES_ROOT / module_name):
+                if _role(path.stem) not in _PERSISTENCE_ROLES | {"models"}:
+                    continue
+                offenders.extend(
+                    f"{_module_dotted(path)} -> {target}"
+                    for target in _imported_modules(path)
+                    if target == "fastapi" or target.startswith("fastapi.")
+                )
+        assert not offenders, "Persistence raises core.exceptions, not HTTP errors:\n  " + "\n  ".join(
+            sorted(offenders)
+        )
+
+    def test_persistence_asks_no_other_package(self):
+        """A query that must ask another bounded context first is a service decision.
+
+        The value is resolved by the layer above and passed in, so the query can
+        be reasoned about, tested and reused with no other package present. Data
+        shapes (schema, contracts, constants) stay allowed: a shape is not a
+        question.
+        """
+        offenders = sorted(
+            f"{importer} -> {imported}"
+            for _path, importer, imported, _role_ in _layer_imports(only_roles=_PERSISTENCE_ROLES)
+            if _package_of(imported) != _package_of(importer)
+            and _role(imported.rsplit(".", 1)[-1]) not in _DATA_ROLES
+            and not _excepted(importer, imported)
+        )
+        assert not offenders, (
+            "Persistence may import another package only for its data shapes. Resolve "
+            "the value in service and pass it in, or add a reasoned seam to "
+            "_LAYER_EXCEPTIONS:\n  " + "\n  ".join(offenders)
+        )
+
+    def test_outbound_reach_uses_a_published_surface(self):
+        """A converted module reaches another top-level module only through its surface.
+
+        Stated as an allowlist, so a file added to an unconverted module (a new
+        ``utils.py``) is not importable until someone publishes it, instead of
+        being importable until someone remembers to deny it.
+        """
+        offenders: list[str] = []
+        for _path, importer, imported, _importer_role in _layer_imports():
+            if imported.split(".")[1] == importer.split(".")[1]:
+                continue
+            stem = imported.rsplit(".", 1)[-1]
+            if _role(stem) in _OUTBOUND_ROLES or stem in _OUTBOUND_SURFACE_STEMS:
+                continue
+            if not _excepted(importer, imported):
+                offenders.append(f"{importer} -> {imported}")
+        assert not offenders, (
+            "Reach into another module's internals. Add the operation to its integration_service:\n  "
+            + "\n  ".join(sorted(offenders))
+        )
+
+    def test_lower_modules_do_not_import_the_modules_above_them(self):
+        """Followers sits below activities, which consumes it, never the reverse."""
+        offenders = sorted(
+            f"{importer} -> {imported}"
+            for _path, importer, imported, _role_ in _layer_imports()
+            if any(
+                importer.split(".")[1] == module and imported.startswith(forbidden)
+                for module, forbidden_modules in _MUST_NOT_IMPORT.items()
+                for forbidden in forbidden_modules
+            )
+        )
+        assert not offenders, "Dependency direction is one-way:\n  " + "\n  ".join(offenders)
+
+    def test_layer_exceptions_are_still_used(self):
+        """An exception that no import needs any more is removed, not left to rot."""
+        used = {(importer, imported) for _path, importer, imported, _role_ in _layer_imports()}
+        stale = sorted(f"{a} -> {b}" for a, b in _LAYER_EXCEPTIONS if (a, b) not in used)
+        assert not stale, "Remove from _LAYER_EXCEPTIONS:\n  " + "\n  ".join(stale)
+
+
+class TestSurfaceTransactions:
+    """A cross-module call must not end the caller's transaction."""
+
+    def test_surface_operations_stage_unless_they_are_a_listed_unit_of_work(self):
+        """Stage-and-let-the-caller-commit is the default for a surface write.
+
+        A caller that composes two surface calls needs them atomic, and a
+        module that can commit another module's session can persist half of an
+        operation it does not own. The few operations that must own the commit
+        (they publish an event that has to be atomic with the change, or own a
+        rollback) are listed with the reason.
+        """
+        ending = _transaction_ending_surface()
+        unexpected = sorted(ending - set(_SURFACE_UNITS_OF_WORK))
+        assert not unexpected, (
+            "These surface operations end the caller's transaction. Stage through crud "
+            "and let the caller commit, or list them in _SURFACE_UNITS_OF_WORK with the "
+            "reason they must own it:\n  " + "\n  ".join(unexpected)
+        )
+
+    def test_listed_units_of_work_still_end_a_transaction(self):
+        """An entry that no longer commits is removed, so the list cannot rot."""
+        stale = sorted(set(_SURFACE_UNITS_OF_WORK) - _transaction_ending_surface())
+        assert not stale, "Remove from _SURFACE_UNITS_OF_WORK:\n  " + "\n  ".join(stale)
+
+
+class TestDocstringScope:
+    """The docstring lint applies exactly to the converted modules."""
+
+    def test_unconverted_modules_are_the_ones_exempt_from_the_docstring_lint(self):
+        """Converting a module is removing it from the ruff ``D`` ignore list.
+
+        ``pyproject.toml`` exempts a module from the pydocstyle rules by name, so
+        the exemption list and ``UNCONVERTED_MODULES`` are one fact stated twice.
+        This test is what keeps them one: a module cannot be converted and stay
+        exempt, nor be unconverted and silently linted.
+        """
+        config = tomllib.loads((_BACKEND_ROOT / "pyproject.toml").read_text())
+        ignores = config["tool"]["ruff"]["lint"]["per-file-ignores"]
+        exempt = {
+            pattern.split("/")[2]
+            for pattern, rules in ignores.items()
+            if pattern.startswith("app/modules/") and "D" in rules
+        }
+        assert exempt == set(UNCONVERTED_MODULES), (
+            "pyproject.toml per-file-ignores for rule D must list exactly the unconverted "
+            f"modules; exempt={sorted(exempt)}, unconverted={sorted(UNCONVERTED_MODULES)}"
         )
 
 

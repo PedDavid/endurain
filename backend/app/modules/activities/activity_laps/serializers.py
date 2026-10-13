@@ -49,8 +49,7 @@ _LAP_COLUMNS: tuple[str, ...] = (
 def to_read_schema(
     orm_lap: activity_laps_models.ActivityLaps,
 ) -> activity_laps_schema.ActivityLapsRead:
-    """
-    Convert an ORM row to its Read schema.
+    """Convert an ORM row to its Read schema.
 
     Args:
         orm_lap: The ORM model instance.
@@ -62,8 +61,7 @@ def to_read_schema(
 
 
 def to_orm(lap: dict, activity_id: int) -> activity_laps_models.ActivityLaps:
-    """
-    Build an ORM row from a parsed lap dict.
+    """Build an ORM row from a parsed lap dict.
 
     Args:
         lap: Lap dict from a file parser or profile archive; missing keys become None.

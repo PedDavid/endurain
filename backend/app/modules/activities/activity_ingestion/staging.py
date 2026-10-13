@@ -73,6 +73,7 @@ def stage_file(user_id: int, file_path: str, storage: platform_providers.Storage
     Args:
         user_id: Owner of the import.
         file_path: Absolute path of the dropped file.
+        storage: The blob-storage provider the bytes are staged in.
 
     Returns:
         The storage key the bytes now live under.

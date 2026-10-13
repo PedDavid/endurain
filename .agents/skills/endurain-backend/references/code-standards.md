@@ -2,15 +2,21 @@
 
 ## Python
 - Python 3.13 syntax: `int | None`, `list[str]`; no `typing.Optional/List/Dict`.
-- Code lines up to 120 characters; comments and docstrings up to 72.
+- Lines up to 120 characters, code and prose alike (the formatter does not wrap docstrings; keep paragraphs readable).
 - Imports grouped stdlib / third-party / local; `TYPE_CHECKING` to avoid cycles.
 - Every module has a top-level docstring.
 - `__init__.py` follows the module guide (docstring only), not `__all__`.
 
-## Docstrings (PEP 257)
-- One-line summary, blank line, then `Args` / `Returns` / `Raises` (always, even when obvious).
+## Docstrings (PEP 257, Google sections)
+Enforced by ruff `D` with `convention = "google"` on the converted modules (`activities`, `followers`); other modules are exempt until converted.
+- Summary on the opening line, then a blank line, then sections.
+- Every public module, class, function and method has a docstring.
+- `Args`: every parameter (D417 enforces it).
+- `Returns`: when a value comes back. `Returns: None.` is not required.
+- `Raises`: the exceptions the function raises or deliberately lets propagate, including those raised by a decorator such as `handle_db_errors`, and especially the ones that carry a security meaning (`PermissionDeniedError`, `NotFoundError` as an anti-enumeration answer). Omit it when there are none; do not write `Raises: None.`.
 - Classes: summary plus `Attributes`.
-- No examples, no extended explanations.
+- No examples; extended explanation only where the *why* is not obvious from the code.
+- A docstring with backslashes is a raw string (`r"""`).
 
 ## SQLAlchemy 2
 - `Mapped[...]` with `mapped_column()`; every column typed.

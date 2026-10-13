@@ -317,8 +317,9 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     """Recompute every stored HR-zone breakdown for one user.
 
     Called after the user's max heart rate or birthdate changes, so activities
-    imported earlier reflect the new zones. Each batch is committed as it is
-    scored; a failure propagates and the session is rolled back by its owner.
+    imported earlier reflect the new zones. Each batch is flushed as it is scored
+    and nothing is committed: the caller owns the unit of work, so a failure
+    leaves no half-recomputed set and the session is rolled back by its owner.
 
     Args:
         user_id: The user whose HR streams should be refreshed.
@@ -348,7 +349,7 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
             {stream.stream_id: _zones_for(stream, max_heart_rate) for stream in batch},
             db,
         )
-        db.commit()
+        db.flush()
         last_activity_id = contexts[-1].activity_id
     logger.info(
         "Recomputed HR zone percentages for a user",

@@ -1,3 +1,9 @@
+"""Garmin FIT file parsing.
+
+Pure: file bytes in, parsed activity data out, with no database, provider or
+crud coupling, so a parser is unit-testable with a file alone.
+"""
+
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -439,8 +445,7 @@ def split_records_by_activity(parsed_data: dict) -> list[dict]:
 
 @dataclass
 class FitParseState:
-    """
-    Mutable state accumulated while parsing a FIT file.
+    """Mutable state accumulated while parsing a FIT file.
 
     Groups the FIT-specific session/lap/split collections together with
     the GPX-style waypoint streams, presence flags, and the per-record

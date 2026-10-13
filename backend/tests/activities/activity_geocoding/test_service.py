@@ -89,6 +89,17 @@ class TestGeocodeAndStore:
         mock_stream.return_value = MagicMock(stream_waypoints=[{"lat": 38.0, "lon": -9.0}])
         assert geocode_and_store_activity_location(42, MagicMock(), db) is True
         mock_update.assert_called_once_with(42, "Lisbon", "Belem", "Portugal", db)
+        # The surface only stages; the geocoding service owns the commit.
+        db.commit.assert_called_once()
+
+    @patch(f"{_SVC}.reverse_geocode", return_value=GeocodedPlace("Lisbon", "Belem", "Portugal"))
+    @patch(f"{_SVC}.activity_streams_integration.get_stream_for_derivation")
+    @patch(f"{_SVC}.activity_integration.set_activity_location", return_value=False)
+    def test_does_not_commit_when_no_row_changed(self, _mock_update, mock_stream, _mock_geo):
+        db = MagicMock()
+        mock_stream.return_value = MagicMock(stream_waypoints=[{"lat": 38.0, "lon": -9.0}])
+        geocode_and_store_activity_location(999, MagicMock(), db)
+        db.commit.assert_not_called()
 
     @patch(f"{_SVC}.reverse_geocode")
     @patch(f"{_SVC}.activity_streams_integration.get_stream_for_derivation")
@@ -121,6 +132,22 @@ class TestBackfill:
         stored = backfill_missing_activity_locations(MagicMock(), db)
         assert stored == 1
         mock_update.assert_called_once_with(1, "Lisbon", None, "Portugal", db)
+        # The surface only stages; the geocoding service commits each stored row.
+        db.commit.assert_called_once()
+
+    @patch(f"{_SVC}.reverse_geocode", return_value=GeocodedPlace("Lisbon", None, "Portugal"))
+    @patch(f"{_SVC}.activity_streams_integration.get_gps_waypoints_for_activities")
+    @patch(f"{_SVC}.activity_integration.list_activities_missing_location")
+    @patch(f"{_SVC}.activity_integration.set_activity_location", return_value=False)
+    def test_does_not_count_or_commit_a_row_that_did_not_change(
+        self, _mock_update, mock_candidates, mock_waypoints, _mock_geo
+    ):
+        """An activity deleted between listing and writing is neither stored nor committed."""
+        db = MagicMock()
+        mock_candidates.return_value = [MagicMock(id=1)]
+        mock_waypoints.return_value = {1: [{"lat": 38.0, "lon": -9.0}]}
+        assert backfill_missing_activity_locations(MagicMock(), db) == 0
+        db.commit.assert_not_called()
 
     @patch(f"{_SVC}.reverse_geocode")
     @patch(f"{_SVC}.activity_streams_integration.get_gps_waypoints_for_activities")

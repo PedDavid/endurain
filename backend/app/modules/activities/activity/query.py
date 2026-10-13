@@ -24,10 +24,10 @@ MAX_UTC_OFFSET = core_timezone.MAX_UTC_OFFSET
 
 
 def escape_like(term: str) -> str:
-    """Escape SQL LIKE wildcards in a user-provided term.
+    r"""Escape SQL LIKE wildcards in a user-provided term.
 
-    Escapes ``\\``, ``%`` and ``_`` so they are matched literally. Use together
-    with ``.like(..., escape="\\\\")`` to keep user input from injecting LIKE
+    Escapes ``\``, ``%`` and ``_`` so they are matched literally. Use together
+    with ``.like(..., escape="\\")`` to keep user input from injecting LIKE
     wildcards into search filters.
 
     Args:

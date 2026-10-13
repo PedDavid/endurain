@@ -20,8 +20,7 @@ logger = core_logger.get_logger(__name__)
 def _parse_lap_power(
     lap: Any,
 ) -> tuple[float | None, float | None, float | None]:
-    """
-    Extract power metrics from a single TCX lap.
+    """Extract power metrics from a single TCX lap.
 
     Args:
         lap: A TCX lap object from tcxreader.
@@ -49,8 +48,7 @@ def _parse_lap_power(
 def _parse_laps(
     tcx_file: Any,
 ) -> list[dict]:
-    """
-    Parse all TCX laps into structured dicts.
+    """Parse all TCX laps into structured dicts.
 
     Args:
         tcx_file: Parsed TCX file object.
@@ -106,8 +104,7 @@ def _extract_waypoints(
     trackpoints: list[dict],
     tcx_file: Any,
 ) -> dict:
-    """
-    Extract typed waypoint lists from trackpoints.
+    """Extract typed waypoint lists from trackpoints.
 
     Args:
         trackpoints: Trackpoints as dicts from
@@ -245,8 +242,7 @@ def _build_activity(
     max_power: float | None,
     norm_power: float | None,
 ) -> activity_contracts.ActivityCore:
-    """
-    Construct an ActivityCore ingestion contract from parsed TCX data.
+    """Construct an ActivityCore ingestion contract from parsed TCX data.
 
     Domain fields (privacy, gear, provider ids) are intentionally left unset —
     the ``activity_ingestion`` enrichment seam populates them after parsing so
@@ -315,14 +311,15 @@ def parse_tcx_file(
     activity_name_input: str | None = None,
     default_timezone: str | None = None,
 ) -> dict:
-    """
-    Parse a TCX file and return activity data.
+    """Parse a TCX file and return activity data.
 
     Args:
         file: Path to the TCX file.
         user_id: ID of the owning user.
         activity_name_input: Optional custom activity
             name.
+        default_timezone: The owner's IANA timezone, used only when the file yields
+            none of its own.
 
     Returns:
         Dict with activity, waypoints, laps and

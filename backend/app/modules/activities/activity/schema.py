@@ -30,8 +30,7 @@ ActivityName = Annotated[StrictStr, Field(max_length=250)]
 
 
 class ActivityBase(BaseModel):
-    """
-    The fields that describe an activity, shared by the read and write shapes.
+    """The fields that describe an activity, shared by the read and write shapes.
 
     Split out from :class:`Activity` so the ingestion contract
     (:class:`~modules.activities.activity.contracts.ActivityCore`) can extend
@@ -183,8 +182,7 @@ class ActivityBase(BaseModel):
 
 
 class Activity(ActivityBase):
-    """
-    Schema representing a stored fitness activity — what the API returns.
+    """Schema representing a stored fitness activity — what the API returns.
 
     Extends :class:`ActivityBase` with the fields the **server** owns: they are
     read out of a stored row and are never accepted from an ingestion producer,
@@ -202,8 +200,7 @@ class Activity(ActivityBase):
 
 
 class ActivitySportStats(BaseModel):
-    """
-    Aggregated stats for a single sport over a timeframe.
+    """Aggregated stats for a single sport over a timeframe.
 
     Attributes:
         distance: Total distance in meters.
@@ -219,8 +216,7 @@ class ActivitySportStats(BaseModel):
 
 
 class ActivityStats(BaseModel):
-    """
-    Per-sport aggregated stats for a timeframe (week/month).
+    """Per-sport aggregated stats for a timeframe (week/month).
 
     Attributes:
         run: Stats for running activities.
@@ -297,8 +293,7 @@ class VisibilityUpdateResponse(BaseModel):
 
 
 class ActivitiesBulkEdit(BaseModel):
-    """
-    Schema for a bulk (PATCH) update across the caller's own activities.
+    """Schema for a bulk (PATCH) update across the caller's own activities.
 
     Every field is optional and only the fields present in the request body are
     applied, so adding a second bulk-editable attribute later does not need a
@@ -317,8 +312,7 @@ class ActivitiesBulkEdit(BaseModel):
 
 
 class ActivityEdit(BaseModel):
-    """
-    Schema for partial (PATCH) updates to an activity.
+    """Schema for partial (PATCH) updates to an activity.
 
     Every field is optional: only the fields present in the request body are
     applied (``exclude_unset``), and unknown fields are rejected

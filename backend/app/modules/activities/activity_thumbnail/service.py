@@ -155,6 +155,7 @@ def generate_and_store_thumbnail(
         activity_thumbnail_render.THUMBNAIL_CONTENT_TYPE,
     )
     activity_integration.set_thumbnail_key(activity_id, key, db)
+    db.commit()
     return key
 
 
@@ -216,8 +217,7 @@ def delete_and_regenerate_all_activity_thumbnails(
     lock: platform_providers.LockProvider,
     db: Session,
 ) -> None:
-    """
-    Delete all existing thumbnails and regenerate from scratch.
+    """Delete all existing thumbnails and regenerate from scratch.
 
     Called when the tile server settings change and the admin has
     enabled automatic thumbnail regeneration. Deletes every stored
@@ -252,6 +252,7 @@ def delete_and_regenerate_all_activity_thumbnails(
             )
     # Clear DB references so generate_missing picks them all up.
     activity_integration.clear_all_thumbnail_keys(db)
+    db.commit()
 
     logger.info("Thumbnail regeneration: deleted thumbnails", extra=core_logger.context(deleted=deleted))
 
@@ -264,8 +265,7 @@ def generate_missing_activity_thumbnails(
     lock: platform_providers.LockProvider,
     db: Session,
 ) -> None:
-    """
-    Generate thumbnails for activities that are missing one.
+    """Generate thumbnails for activities that are missing one.
 
     Intended to be called periodically by the scheduler. Acquires the
     coordination lock so only one replica runs the pass, then reconciles
@@ -306,6 +306,7 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
         key = activity.map_thumbnail_path
         if key is not None and not storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
             activity_integration.set_thumbnail_key(activity.id, None, db)
+            db.commit()
             logger.info(
                 "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
                 extra=core_logger.context(activity_id=activity.id),

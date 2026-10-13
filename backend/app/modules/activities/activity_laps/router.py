@@ -29,9 +29,7 @@ def read_activities_laps_for_activity_all(
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_laps_schema.ActivityLapsPage:
-    """
-    Return one page of the given activity's laps, with the matching total.
-    """
+    """Return one page of the given activity's laps, with the matching total."""
     return activity_laps_service.list_activity_laps(
         activity_id,
         token_user_id,

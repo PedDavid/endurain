@@ -12,8 +12,7 @@ import core.pagination as core_pagination
 
 
 class ActivityWorkoutSteps(BaseModel):
-    """
-    Activity workout step schema.
+    """Activity workout step schema.
 
     Attributes:
         id: Primary key.

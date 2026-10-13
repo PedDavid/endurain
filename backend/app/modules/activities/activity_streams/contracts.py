@@ -48,8 +48,7 @@ class HrStreamForScoring:
 
 
 class ActivityStreamsCreate(activity_streams_schema.ActivityStreamsBase):
-    """
-    A parsed or archived stream to persist for an activity.
+    """A parsed or archived stream to persist for an activity.
 
     Inherits all fields from ``ActivityStreamsBase``. Internal: it never reaches
     a client, so it is not part of ``schema``.

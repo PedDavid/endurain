@@ -14,8 +14,7 @@ import core.pagination as core_pagination
 
 
 class ActivitySetsBase(BaseModel):
-    """
-    Base schema for activity workout sets.
+    """Base schema for activity workout sets.
 
     Attributes:
         duration: Set duration.
@@ -42,8 +41,7 @@ class ActivitySetsBase(BaseModel):
 
 
 class ActivitySetsRead(ActivitySetsBase):
-    """
-    Schema for reading activity workout sets.
+    """Schema for reading activity workout sets.
 
     ``start_time`` crosses the API as a timezone-aware UTC instant, matching the
     parent activity. Clients localize it for display using that activity's

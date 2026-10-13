@@ -10,8 +10,8 @@ Before this existed, activities imported ``users.users.utils``,
 ``users_default_gear.utils`` directly — four entry points into another module's
 internals, one of which (``users.users.utils``) also drags in FastAPI, the file-
 upload helpers and the health-targets CRUD for callers that only wanted a
-timezone. Narrowing it to the functions below is what lets the
-``consumer-users-boundary`` import-linter contract hold the line.
+timezone. Narrowing it to the functions below is what lets the outbound-reach
+rule in ``docs/developer-guide/module-structure.md`` hold the line.
 
 Everything here returns schemas or primitives; no ORM row and no ``users``
 internal type crosses the boundary.

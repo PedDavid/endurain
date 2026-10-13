@@ -28,8 +28,7 @@ _ELEVATION_MAX = 9999.99
 
 @dataclass
 class ParseState:
-    """
-    Mutable state accumulated while parsing a GPX file.
+    """Mutable state accumulated while parsing a GPX file.
 
     Attributes are grouped into activity metadata, aggregate metrics,
     waypoint streams, segment-local cursors, and stream-presence flags.
@@ -89,8 +88,7 @@ class ParseState:
 
 
 class ParsedGpxData(TypedDict):
-    """
-    Typed dictionary for parsed GPX file output.
+    """Typed dictionary for parsed GPX file output.
 
     Attributes:
         activity: The parsed ingestion contract.
@@ -128,8 +126,7 @@ class ParsedGpxData(TypedDict):
 
 
 def _extension_local_name(tag: str) -> str:
-    """
-    Return a lowercase XML local name from a namespaced tag.
+    """Return a lowercase XML local name from a namespaced tag.
 
     Args:
         tag: ElementTree tag in plain, prefixed, or Clark notation.
@@ -141,8 +138,7 @@ def _extension_local_name(tag: str) -> str:
 
 
 def _safe_optional_int(text: str | None) -> int | None:
-    """
-    Convert extension text to an integer if possible.
+    """Convert extension text to an integer if possible.
 
     Args:
         text: Raw extension text.
@@ -160,8 +156,7 @@ def _safe_optional_int(text: str | None) -> int | None:
 
 
 def _safe_int(text: str | None) -> int:
-    """
-    Convert extension text to an integer if possible.
+    """Convert extension text to an integer if possible.
 
     Args:
         text: Raw extension text.
@@ -174,8 +169,7 @@ def _safe_int(text: str | None) -> int:
 
 
 def _sanitize_elevation(elevation: float | None) -> float | None:
-    """
-    Return elevation only when it is finite and plausible.
+    """Return elevation only when it is finite and plausible.
 
     Args:
         elevation: Raw elevation value from a GPX trackpoint.
@@ -195,8 +189,7 @@ def _sanitize_elevation(elevation: float | None) -> float | None:
 def _extract_extension_data(
     point: gpxpy.gpx.GPXTrackPoint,
 ) -> tuple[int | None, int | None, int | None]:
-    """
-    Extract HR, cadence, and power from extensions.
+    """Extract HR, cadence, and power from extensions.
 
     Args:
         point: A gpxpy trackpoint with optional extension elements.
@@ -229,8 +222,7 @@ def _extract_extension_data(
 def _extract_track_calories(
     track: gpxpy.gpx.GPXTrack,
 ) -> int | None:
-    """
-    Extract total calories from track-level extensions.
+    """Extract total calories from track-level extensions.
 
     Sums every ``Calories`` element found beneath the track's extension
     blocks so files with multiple extension containers aggregate correctly.
@@ -261,8 +253,7 @@ def _init_parsing_state(
     activity_name_input: str | None,
     timezone: str,
 ) -> ParseState:
-    """
-    Initialize mutable state for a GPX parse run.
+    """Initialize mutable state for a GPX parse run.
 
     Args:
         activity_name_input: Optional user-supplied name.
@@ -282,8 +273,7 @@ def _process_track_metadata(
     gpx: gpxpy.gpx.GPX,
     state: ParseState,
 ) -> None:
-    """
-    Extract track-level metadata into parsing state.
+    """Extract track-level metadata into parsing state.
 
     Args:
         track: GPX track object.
@@ -306,8 +296,7 @@ def _process_trackpoint(
     point: gpxpy.gpx.GPXTrackPoint,
     state: ParseState,
 ) -> None:
-    """
-    Process a single trackpoint and update parsing state.
+    """Process a single trackpoint and update parsing state.
 
     Args:
         point: GPX trackpoint to process.
@@ -415,8 +404,7 @@ def _process_trackpoint(
 def _compute_derived_metrics(
     state: ParseState,
 ) -> None:
-    """
-    Compute derived activity metrics and update state.
+    """Compute derived activity metrics and update state.
 
     Args:
         state: Mutable parse state.
@@ -478,8 +466,7 @@ def _build_activity_schema(
     state: ParseState,
     user_id: int,
 ) -> activity_contracts.ActivityCore:
-    """
-    Build an ActivityCore ingestion contract from parsed state.
+    """Build an ActivityCore ingestion contract from parsed state.
 
     Domain fields (privacy, gear, provider ids) are intentionally left unset —
     the ``activity_ingestion`` enrichment seam populates them after parsing so
@@ -535,13 +522,14 @@ def parse_gpx_file(
     activity_name_input: str | None = None,
     default_timezone: str | None = None,
 ) -> ParsedGpxData:
-    """
-    Parse a GPX file into structured activity data.
+    """Parse a GPX file into structured activity data.
 
     Args:
         file: Path to the GPX file on disk.
         user_id: ID of the user uploading the file.
         activity_name_input: Optional override for the activity name.
+        default_timezone: The owner's IANA timezone, used only when the file yields
+            none of its own.
 
     Returns:
         ParsedGpxData with Activity schema, waypoint

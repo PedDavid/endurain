@@ -28,8 +28,7 @@ import modules.activities.contributor_registry as activities_contributor_registr
 def to_read_schema(
     activity: activity_models.Activity,
 ) -> activity_schema.Activity:
-    """
-    Convert an ORM Activity to its API schema.
+    """Convert an ORM Activity to its API schema.
 
     Does NOT mutate the ORM object.
 

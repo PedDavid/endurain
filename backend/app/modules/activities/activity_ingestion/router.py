@@ -80,8 +80,7 @@ def create_activity_with_uploaded_file(
         ),
     ] = None,
 ) -> activity_ingestion_schema.ActivityIngestionJob:
-    """
-    Upload an activity file (GPX, FIT, TCX, GZ) for import.
+    """Upload an activity file (GPX, FIT, TCX, GZ) for import.
 
     Returns ``202`` once the file is stored and queued: parsing is seconds of
     CPU work, and doing it inline held a shared request thread for the duration.
@@ -132,8 +131,7 @@ def get_activity_ingestion_job(
         Depends(core_database.get_db),
     ],
 ) -> activity_ingestion_schema.ActivityIngestionJob:
-    """
-    Read the state of one of your ingestion requests.
+    """Read the state of one of your ingestion requests.
 
     Serves both uploads and provider refreshes: the caller's question is the
     same either way, so there is one route rather than two near-identical ones.

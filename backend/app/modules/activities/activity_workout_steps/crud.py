@@ -20,8 +20,7 @@ def get_activity_workout_steps(
     page_number: int = 1,
     num_records: int = 200,
 ) -> list[activity_workout_steps_schema.ActivityWorkoutSteps]:
-    """
-    Get one page of an activity's planned workout steps, in step order.
+    """Get one page of an activity's planned workout steps, in step order.
 
     Performs no access check: whether the caller may read these rows is decided
     by :mod:`modules.activities.activity_workout_steps.service`.
@@ -52,8 +51,7 @@ def get_activity_workout_steps(
 
 @core_decorators.handle_db_errors
 def count_activity_workout_steps(activity_id: int, db: Session) -> int:
-    """
-    Count an activity's planned workout steps.
+    """Count an activity's planned workout steps.
 
     Args:
         activity_id: Activity ID to count steps for.
@@ -78,8 +76,7 @@ def get_activities_workout_steps(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_workout_steps_schema.ActivityWorkoutSteps]:
-    """
-    Retrieve the workout steps of several activities at once.
+    """Retrieve the workout steps of several activities at once.
 
     Performs no access check and joins no parent row: which activities the
     caller may read is decided before this is reached, by the activities
@@ -110,8 +107,7 @@ def create_activity_workout_steps(
     activity_id: int,
     db: Session,
 ) -> None:
-    """
-    Stage workout steps for an activity (flushed, not committed).
+    """Stage workout steps for an activity (flushed, not committed).
 
     Args:
         activity_workout_steps: List of workout step

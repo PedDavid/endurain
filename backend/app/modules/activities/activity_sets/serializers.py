@@ -13,8 +13,7 @@ import modules.activities.activity_sets.schema as activity_sets_schema
 def to_read_schema(
     orm_set: activity_sets_models.ActivitySets,
 ) -> activity_sets_schema.ActivitySetsRead:
-    """
-    Convert an ORM row to its Read schema.
+    """Convert an ORM row to its Read schema.
 
     Args:
         orm_set: The ORM model instance.
@@ -28,8 +27,7 @@ def to_read_schema(
 def _extract_value(
     value: int | tuple | None,
 ) -> int | None:
-    """
-    Extract a scalar from a value that may be a tuple.
+    """Extract a scalar from a value that may be a tuple.
 
     Args:
         value: A scalar, tuple, or None.
@@ -48,8 +46,7 @@ def to_orm(
     activity_set: activity_sets_contracts.ActivitySetsCreate | list,
     activity_id: int,
 ) -> activity_sets_models.ActivitySets:
-    """
-    Build an ORM row from a set schema or a raw FIT parser row.
+    """Build an ORM row from a set schema or a raw FIT parser row.
 
     Args:
         activity_set: A ``ActivitySetsCreate`` schema, or the raw list the FIT

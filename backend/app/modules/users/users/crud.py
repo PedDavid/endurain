@@ -154,6 +154,7 @@ def _persist_user_edits(
     if max_heart_rate_before != db_users.max_heart_rate or birthdate_before != db_users.birthdate:
         try:
             activity_streams_integration.recompute_hr_zones_for_user(db_users.id, db)
+            db.commit()
         except Exception as err:
             db.rollback()
             logger.error(

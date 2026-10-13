@@ -6,8 +6,7 @@ import core.dependencies as core_dependencies
 def validate_activity_stream_type(
     stream_type: int,
 ) -> None:
-    """
-    Validate the activity stream type value.
+    """Validate the activity stream type value.
 
     Args:
         stream_type: The stream type to validate.

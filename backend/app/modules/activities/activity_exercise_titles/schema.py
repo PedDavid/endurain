@@ -4,8 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
 
 class ActivityExerciseTitles(BaseModel):
-    """
-    Schema describing an activity exercise title entry.
+    """Schema describing an activity exercise title entry.
 
     Attributes:
         id: Optional database identifier.

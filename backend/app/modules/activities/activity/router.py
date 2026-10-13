@@ -3,9 +3,9 @@
 RESTful surface. Route handlers are thin transport adapters: they validate,
 delegate to :mod:`activity/service.py`, and return. They hold no domain rule and
 no persistence orchestration, and they never reach past the service into ``crud``
-or the event publishers — enforced by the ``activities-router-delegates``
-import-linter contract. Literal paths are declared before ``/{activity_id}`` so
-FastAPI matches them first.
+or the event publishers (the transport rule in the module-structure guide).
+Literal paths are declared before ``/{activity_id}`` so FastAPI matches them
+first.
 """
 
 from collections.abc import Callable

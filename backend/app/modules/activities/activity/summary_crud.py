@@ -49,8 +49,7 @@ def _apply_activity_type_filter(
     stmt: Select[Any],
     activity_type: str | None,
 ) -> tuple[Select[Any], int | None]:
-    """
-    Apply activity type name filter to a statement.
+    """Apply activity type name filter to a statement.
 
     Args:
         stmt: SQLAlchemy select statement.
@@ -79,8 +78,7 @@ def _get_type_breakdown(
     db: Session,
     activity_type: str | None = None,
 ) -> list[TypeBreakdownItem]:
-    """
-    Get summary breakdown by activity type.
+    """Get summary breakdown by activity type.
 
     Args:
         db: Database session.
@@ -146,8 +144,7 @@ def get_weekly_summary(
     db: Session,
     activity_type: str | None = None,
 ) -> WeeklySummaryResponse:
-    """
-    Get weekly activity summary for a user.
+    """Get weekly activity summary for a user.
 
     Args:
         db: Database session.
@@ -246,8 +243,7 @@ def get_monthly_summary(
     db: Session,
     activity_type: str | None = None,
 ) -> MonthlySummaryResponse:
-    """
-    Get monthly activity summary for a user.
+    """Get monthly activity summary for a user.
 
     Args:
         db: Database session.
@@ -334,8 +330,7 @@ def get_yearly_summary(
     db: Session,
     activity_type: str | None = None,
 ) -> YearlySummaryResponse:
-    """
-    Get yearly activity summary for a user.
+    """Get yearly activity summary for a user.
 
     Args:
         db: Database session.
@@ -423,8 +418,7 @@ def get_lifetime_summary(
     db: Session,
     activity_type: str | None = None,
 ) -> LifetimeSummaryResponse:
-    """
-    Get lifetime activity summary for a user.
+    """Get lifetime activity summary for a user.
 
     Args:
         db: Database session.

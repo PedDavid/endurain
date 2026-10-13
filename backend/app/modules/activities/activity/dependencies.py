@@ -19,8 +19,7 @@ logger = core_logger.get_logger(__name__)
 
 
 def validate_activity_id(activity_id: int) -> None:
-    """
-    Validate that the activity ID is a positive integer.
+    """Validate that the activity ID is a positive integer.
 
     Args:
         activity_id: The ID of the activity to validate.
@@ -35,8 +34,7 @@ def validate_activity_id(activity_id: int) -> None:
 
 
 def validate_activity_type(activity_type: int | None = Query(None)) -> None:
-    """
-    Validate the activity type filter against the known activity types.
+    """Validate the activity type filter against the known activity types.
 
     Args:
         activity_type: The activity type to validate; ``None`` means no filter.
@@ -59,8 +57,7 @@ def validate_activity_type(activity_type: int | None = Query(None)) -> None:
 
 
 def validate_sort_by(sort_by: str | None = Query(None)) -> None:
-    """
-    Validate the ``sort_by`` query parameter.
+    """Validate the ``sort_by`` query parameter.
 
     Args:
         sort_by: The sort field; ``None`` means the default order. Allowed values
@@ -84,8 +81,7 @@ def validate_sort_by(sort_by: str | None = Query(None)) -> None:
 
 
 def validate_sort_order(sort_order: str | None = Query(None)) -> None:
-    """
-    Validate the ``sort_order`` query parameter.
+    """Validate the ``sort_order`` query parameter.
 
     Args:
         sort_order: The sort direction; ``None`` means the default. Allowed values

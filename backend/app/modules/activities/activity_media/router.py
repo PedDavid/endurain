@@ -40,8 +40,7 @@ def read_activities_media_user(
         Depends(core_database.get_db),
     ],
 ) -> list[activity_media_schema.ActivityMedia]:
-    """
-    Retrieve activity media records for an activity owned by the user.
+    """Retrieve activity media records for an activity owned by the user.
 
     Returns an empty list when the activity has no media or is not accessible to
     the caller — previously ``200 null``, which made a collection endpoint answer
@@ -77,8 +76,7 @@ def upload_media(
         Depends(core_dependencies.get_storage),
     ],
 ) -> activity_media_schema.ActivityMedia:
-    """
-    Upload an image file to associate with an activity.
+    """Upload an image file to associate with an activity.
 
     The file is validated by magic number (not extension) and size limits via
     the centralized image upload helper before the ownership check, stored through the platform
@@ -124,8 +122,7 @@ def delete_activity_media(
         Depends(core_dependencies.get_storage),
     ],
 ) -> None:
-    """
-    Delete an activity media record and remove its stored blob.
+    """Delete an activity media record and remove its stored blob.
 
     Not found when the media is missing, does not belong to this activity, or its
     activity is not the caller's.

@@ -10,8 +10,7 @@ import core.pagination as core_pagination
 
 
 class ActivityStreamsBase(BaseModel):
-    """
-    Schema for activity stream data.
+    """Schema for activity stream data.
 
     Attributes:
         id: Unique stream identifier.
@@ -35,8 +34,7 @@ class ActivityStreamsBase(BaseModel):
 
 
 class ActivityStreamsRead(ActivityStreamsBase):
-    """
-    Schema for activity stream reading.
+    """Schema for activity stream reading.
 
     Attributes:
         id: Unique stream identifier.

@@ -28,9 +28,7 @@ def read_public_activities_streams_for_activity_all(
     ],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_streams_schema.ActivityStreamsPage:
-    """
-    Return one page of a publicly shared activity's streams, with the matching total.
-    """
+    """Return one page of a publicly shared activity's streams, with the matching total."""
     return activity_streams_service.list_public_activity_streams(
         activity_id,
         db,
@@ -55,8 +53,7 @@ def read_public_activities_streams_for_activity_stream_type(
         Depends(core_database.get_db),
     ],
 ):
-    """
-    Get a public stream by type for an activity.
+    """Get a public stream by type for an activity.
 
     Not found when the activity has no such stream, is not public, or public links
     are disabled. The cases are indistinguishable on purpose, since this endpoint

@@ -27,8 +27,7 @@ logger = core_logger.get_logger(__name__)
 def get_all_activity_media(
     db: Session,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """
-    Retrieve every activity media record in the database.
+    """Retrieve every activity media record in the database.
 
     Args:
         db: Database session.
@@ -48,18 +47,17 @@ def get_activity_media_by_id(
     activity_media_id: int,
     db: Session,
 ) -> activity_media_contracts.ActivityMediaRecord | None:
-    """
-       Retrieve a single media record by id, without any permission check.
+    """Retrieve a single media record by id, without any permission check.
 
-       Args:
-           activity_media_id: The media record to fetch.
-           db: Database session.
+    Args:
+        activity_media_id: The media record to fetch.
+        db: Database session.
 
-       Returns:
-    The media record, or None when no such record exists.
+    Returns:
+        The media record, or None when no such record exists.
 
-       Raises:
-           ProcessingError: If a database error occurs.
+    Raises:
+        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.id == activity_media_id
@@ -73,8 +71,7 @@ def get_media_for_activity(
     activity_id: int,
     db: Session,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """
-    Retrieve all media records for a single activity.
+    """Retrieve all media records for a single activity.
 
     Permission is the caller's concern; see
     :func:`modules.activities.activity_media.service.list_activity_media`.
@@ -100,8 +97,7 @@ def get_activities_media(
     activity_ids: list[int],
     db: Session,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """
-    Retrieve the media records of several activities at once.
+    """Retrieve the media records of several activities at once.
 
     Performs no access check and joins no parent row: which activities the
     caller may read is decided before this is reached, by the activities
@@ -163,9 +159,9 @@ def get_media_with_legacy_path(
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """Return media rows whose stored value is a legacy filesystem path.
+    r"""Return media rows whose stored value is a legacy filesystem path.
 
-    Legacy values are absolute paths (they contain a ``/`` or ``\\`` separator);
+    Legacy values are absolute paths (they contain a ``/`` or ``\`` separator);
     the storage keys that replaced them (e.g. ``42_ab12.jpg``) never do. Ordered
     by id and paged via ``after_id`` so the data migration can process them in
     bounded batches (migration use only).
@@ -202,8 +198,7 @@ def create_activity_media(
     *,
     content_hash: str | None = None,
 ) -> activity_media_contracts.ActivityMediaRecord:
-    """
-    Stage a new activity media record (flushed, not committed).
+    """Stage a new activity media record (flushed, not committed).
 
     Args:
         activity_id: Activity ID the media belongs to.
@@ -244,8 +239,7 @@ def create_activity_medias(
     activity_id: int,
     db: Session,
 ) -> None:
-    """
-    Stage a batch of activity media records for a single activity.
+    """Stage a batch of activity media records for a single activity.
 
     Args:
         activity_media: The media records to persist.
@@ -279,8 +273,7 @@ def create_activity_medias(
 def edit_activity_media_media_path(
     activity_media_id: int, media_path: str, db: Session
 ) -> activity_media_contracts.ActivityMediaRecord:
-    """
-    Update the ``media_path`` of an activity media record.
+    """Update the ``media_path`` of an activity media record.
 
     Args:
         activity_media_id: ID of the activity media record to update.
@@ -310,8 +303,7 @@ def edit_activity_media_media_path(
 
 @core_decorators.handle_db_errors
 def delete_activity_media(activity_media_id: int, db: Session) -> None:
-    """
-    Stage the deletion of an activity media record.
+    """Stage the deletion of an activity media record.
 
     Permission and file cleanup are the caller's concern; see
     :func:`modules.activities.activity_media.service.delete_activity_media`.

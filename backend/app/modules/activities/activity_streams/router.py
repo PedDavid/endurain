@@ -40,9 +40,7 @@ def read_activities_streams_for_activity_all(
     ],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_streams_schema.ActivityStreamsPage:
-    """
-    Return one page of the given activity's streams, with the matching total.
-    """
+    """Return one page of the given activity's streams, with the matching total."""
     return activity_streams_service.list_activity_streams(
         activity_id,
         token_user_id,
@@ -79,8 +77,7 @@ def read_activities_streams_for_activity_stream_type(
         Depends(core_database.get_db),
     ],
 ):
-    """
-    Get a specific stream type for an activity.
+    """Get a specific stream type for an activity.
 
     Not found when the activity has no such stream or is not visible to the
     caller. A single resource that does not exist is a ``404`` rather than

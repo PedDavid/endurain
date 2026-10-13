@@ -86,6 +86,8 @@ class TestGenerateAndStoreThumbnail:
         assert result == "1.webp"
         storage.save.assert_called_once_with("activity_thumbnails", "1.webp", b"data", "image/webp")
         mock_activities.set_thumbnail_key.assert_called_once_with(1, "1.webp", db)
+        # The surface only stages; the thumbnail service owns the commit.
+        db.commit.assert_called_once()
 
 
 class TestDeleteActivityThumbnail:
@@ -123,6 +125,7 @@ class TestDeleteAndRegenerateThumbnails:
         storage.delete.assert_any_call("activity_thumbnails", "1.webp")
         storage.delete.assert_any_call("activity_thumbnails", "2.webp")
         mock_activities.clear_all_thumbnail_keys.assert_called_once_with(mock_db)
+        mock_db.commit.assert_called()
         mock_gen.assert_called_once()
 
     @patch("modules.activities.activity_thumbnail.service.generate_missing_activity_thumbnails")
@@ -208,6 +211,7 @@ class TestGenerateMissingThumbnails:
 
         storage.exists.assert_called_once_with("activity_thumbnails", "1.webp")
         mock_activities.set_thumbnail_key.assert_called_once_with(1, None, mock_db)
+        mock_db.commit.assert_called()
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")

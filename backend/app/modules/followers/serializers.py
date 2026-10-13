@@ -8,8 +8,7 @@ import modules.followers.schema as followers_schema
 
 
 def to_read_schema(follower: followers_models.Follower) -> followers_schema.FollowRelationship:
-    """
-    Convert a Follower ORM row into its serialized DTO.
+    """Convert a Follower ORM row into its serialized DTO.
 
     Args:
         follower: The ORM row to convert.

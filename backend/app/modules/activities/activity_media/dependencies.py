@@ -1,5 +1,4 @@
-"""
-Media ID validation dependency.
+"""Media ID validation dependency.
 
 This module provides validation dependencies for activity media
 endpoints to ensure media IDs are valid before processing.
@@ -9,8 +8,7 @@ import core.dependencies as core_dependencies
 
 
 def validate_media_id(media_id: int) -> None:
-    """
-    Validate that media_id is a positive integer.
+    """Validate that media_id is a positive integer.
 
     Args:
         media_id: The activity media ID to validate.

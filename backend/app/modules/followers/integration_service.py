@@ -13,9 +13,9 @@ publishes — and most of it is meaningless to a caller outside this module.
 accepted-followee lookup the activities feed and the non-owner visibility filter
 are built on.
 
-Enforced by the ``activities-followers-boundary`` import-linter contract: the
-activities module must reach followers through here, never through
-``followers.crud`` / ``followers.models`` / ``followers.service``.
+The activities module must reach followers through here, never through
+``followers.crud`` / ``followers.models`` / ``followers.service`` (see the
+"Visibility" section of ``docs/developer-guide/module-structure.md``).
 """
 
 from sqlalchemy.orm import Session

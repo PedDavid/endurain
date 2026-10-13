@@ -74,7 +74,7 @@ npm run gen:api      # after backend API changes
 - Non-auth code reaches identity only through `modules.auth.dependencies` and `modules.auth.identity_service`.
 - Storage, events, jobs and geocoding come from `jasil` ports; resolve a provider at the entry point (router `Depends`, subscriber, job, `integration_service`) and pass it down.
 - Enforced by `backend/.importlinter` and `backend/tests/architecture/`.
-- Python 3.13 syntax, 120-character lines, PEP 257 docstrings with `Args`/`Returns`/`Raises`.
+- Python 3.13 syntax, 120-character lines, Google-style PEP 257 docstrings (`Args`, `Returns`, `Raises` where applicable; ruff `D` enforces them on converted modules).
 
 ## Frontend invariants
 

@@ -9,8 +9,7 @@ from core.database import Base
 
 
 class ActivityWorkoutSteps(Base):
-    """
-    Activity workout step records.
+    """Activity workout step records.
 
     Attributes:
         id: Primary key.

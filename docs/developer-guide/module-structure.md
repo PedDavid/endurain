@@ -230,7 +230,7 @@ the layer that arranges it, not to the single statement a `crud` function runs.
 | --- | --- | --- |
 | `crud` | `add` / `execute`, then `flush()` so constraint violations and row counts surface at the call; `refresh` after the flush when it needs server defaults | `commit()`, `rollback()`, a `commit` parameter |
 | `service` | Stages through `crud`, publishes through `event_publishers` (passing `db.commit` so row and outbox event commit together), or calls `db.commit()` itself when no event is involved | — |
-| `integration_service` | Calls its own `service` for any write that decides, publishes or commits; stages through its own `crud` only for a [decision-free write](#decision-free-surface-writes) | Commit, roll back, publish |
+| `integration_service` | Stages through its own `crud` for a [decision-free write](#decision-free-surface-writes), or calls its own `service` for a write that decides or publishes | End the caller's transaction, unless it is a [listed unit of work](#surface-writes-stage-the-caller-commits); publish directly |
 | entry point (`get_db`, a job, a subscriber) | Rolls back what its caller left open | — |
 
 Two choices in that table are deliberate:
@@ -247,6 +247,33 @@ Two choices in that table are deliberate:
   back by `@handle_db_errors` for database errors, and otherwise by the
   transaction owner (`core.database.get_db` on a request, the job or subscriber
   that opened the session elsewhere).
+
+### Surface writes stage, the caller commits
+
+A cross-module call must not end the caller's transaction. A caller that composes
+two surface calls needs them atomic, and a module that can commit another
+module's session can persist half of an operation it does not own. So a surface
+write **stages** (`flush`) and its caller, which holds the session and knows the
+unit of work, commits. `set_thumbnail_key`, `clear_all_thumbnail_keys`,
+`set_activity_location` and `recompute_hr_zones_for_user` work this way; their
+callers (the thumbnail and geocoding services, the user edit) commit.
+
+The exception is a surface operation that is a self-contained unit of work, and
+the reason is always one of two:
+
+- It **publishes an event** that has to be atomic with the change. The platform
+  publisher takes the commit callable because in the durable path the outbox row
+  is staged in the transaction and committed with it, and in the best-effort path
+  the commit must come before the dispatch. A surface that publishes therefore
+  owns the commit ordering, through its own `service`.
+- It **owns a rollback**: a race on a unique key leaves the session unusable
+  until it is rolled back, so the write must roll back before it looks up the
+  winner.
+
+Each such operation is listed in `_SURFACE_UNITS_OF_WORK` with its reason.
+`TestSurfaceTransactions` follows every surface function through its own
+`service` and helpers and fails on one that ends a transaction without being
+listed, and on a listed one that no longer does.
 
 ### Decision-free surface writes
 
@@ -402,20 +429,22 @@ becomes a stored row.
 
 Two mechanisms, deliberately:
 
-**`backend/.importlinter`** — cross-module rules, run in CI by
-`.github/workflows/test-backend.yml`:
+**`backend/.importlinter`** — what import-linter is good at: external packages
+(`redis`, `requests`, `fastapi` in the parsers), the platform direction
+(`core` never imports `modules`), the auth boundary, the migration surface and a
+few named design seams. Run in CI by `.github/workflows/test-backend.yml`:
 
 ```bash
 cd backend && PYTHONPATH=app uv run lint-imports
 ```
 
-Contracts are stated as **wildcards** (`modules.activities.*.crud`) so a new
-activity module inherits every cross-module rule the day it is created, instead
-of when someone remembers to add it to a list. A separate contract prevents
-domain/core code from consuming `*.migration_service`.
+It matches exact module names, so it is **not** where layer rules live: a
+qualified stem (`pipeline_service`) escaped a name-based contract, and a flat
+module needed its own copy. Those rules are stated once, by role, as allowlists,
+in `TestLayerRules` below.
 
 **`backend/tests/architecture/test_module_boundaries.py`** — everything
-import-linter cannot express. A `forbidden` contract rejects an import if *any*
+import-linter cannot express, including the layer rules. A `forbidden` contract rejects an import if *any*
 source matches *any* forbidden module, so "a package may import its own `crud`
 but not a peer's" is not statable: the wildcard pair
 `modules.activities.* → modules.activities.*.crud` also rejects
@@ -423,6 +452,15 @@ but not a peer's" is not statable: the wildcard pair
 compares each import against the importer's own package, and consults an explicit
 allowlist containing only composition edges and exact read-model projections.
 
+- `TestLayerRules` states each layer rule once, by file role, for every converted
+  module: only persistence (`models`, `crud`, `serializers`, `query`) imports an
+  ORM `models` module; a router never reaches `crud`, `models`, `query` or
+  `event_publishers`; persistence imports no FastAPI and asks no other package
+  (only its data shapes); a converted module reaches another top-level module
+  only through its `integration_service`, `schema`, `contracts`, `constants`,
+  `events` or `dependencies`; and a lower module (followers) never imports the one
+  above it. They are allowlists, so a new file is covered the day it is written.
+  `_LAYER_EXCEPTIONS` is the register of deliberate seams, each with its reason.
 - It checks module-level files too, not just sub-package ones, which is the whole
   surface of a flat module such as `followers`.
 - It resolves each `from x.y import z` against the filesystem rather than counting
@@ -544,12 +582,11 @@ half-done:
   providers) then states the module-level direction once. Every edge that closes
   a cycle lives in `users` or `gears`; the activities side already publishes the
   contributor surface, so the cycles stay until those modules are changed.
-- **Hand-listed contract sources.** `consumer-*` and `consumer-users-boundary`
-  name the modules they constrain by hand, because each states a specific
-  consumer relationship rather than a rule over every module.
-  `auth-boundary` is the generic one: `TestAuthBoundaryCoverage` fails when its
-  source list differs from the set of top-level modules, so a new module cannot
-  start unconstrained.
+- **Layer rules for unconverted modules.** `TestLayerRules` covers converted
+  modules only. An unconverted module is outside it until converted, and the
+  `auth-boundary` contract is the one generic rule over every module:
+  `TestAuthBoundaryCoverage` fails when its source list differs from the set of
+  top-level modules, so a new module cannot start unconstrained.
 - **Registration seams.** `RuntimeModule` in `app/module_registry.py` is the
   per-module manifest for subscribers, durable handlers, nets, recurring jobs and
   startup tasks. Routers (`api.py`) and models (`model_registry.py`) stay
@@ -564,8 +601,7 @@ half-done:
   The generic boundary rule needs a special case until it is aligned.
 
 - **Persistence layers calling other modules.** Converted modules ask nothing of
-  another bounded context below `service` (the
-  `activities-persistence-asks-nothing` contract). The unconverted ones still do,
+  another bounded context below `service` (`TestLayerRules`). The unconverted ones still do,
   for example `health.*.crud` reaching `users.users.utils` and
   `notifications.utils` reaching `users` and `websocket`.
 - **Persistence ending transactions.** Converted modules stage with `flush()` and
@@ -575,7 +611,7 @@ half-done:
   where a module being converted lists its files.
 - **Subscribers reaching past a surface.** Followers holds no subscribers; its
   notification handlers live in `modules/notifications` and subscribe to
-  `followers.events` (`followers-consumes-surfaces`). `garmin`, `strava`,
+  `followers.events` (`TestLayerRules`). `garmin`, `strava`,
   `auth.sign_up_tokens` and `users.users_profile` still import another module's
   `utils`/`manager` directly.
 - **Legacy model scan.** Converted modules declare their ORM module in

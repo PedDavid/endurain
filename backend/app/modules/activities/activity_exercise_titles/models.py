@@ -7,8 +7,7 @@ from core.database import Base
 
 
 class ActivityExerciseTitles(Base):
-    """
-    Mapping of FIT exercise categories/names to workout step names.
+    """Mapping of FIT exercise categories/names to workout step names.
 
     Attributes:
         id: Primary key.

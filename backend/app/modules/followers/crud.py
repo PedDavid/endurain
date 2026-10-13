@@ -46,8 +46,7 @@ def get_all_followers_by_user_id(
     num_records: int = 25,
     accepted_only: bool = False,
 ) -> list[followers_schema.FollowRelationship]:
-    """
-    Retrieve one page of follower records where the user is being followed.
+    """Retrieve one page of follower records where the user is being followed.
 
     Paginated rather than unbounded: a popular account's follower list would
     otherwise be a single unbounded query and response, growing without limit.
@@ -82,8 +81,7 @@ def get_all_following_by_user_id(
     num_records: int = 25,
     accepted_only: bool = False,
 ) -> list[followers_schema.FollowRelationship]:
-    """
-    Retrieve one page of follow records where the user is the follower.
+    """Retrieve one page of follow records where the user is the follower.
 
     Paginated for the same reason as :func:`get_all_followers_by_user_id`, and
     ordered by ``id`` so paging is stable.
@@ -166,8 +164,7 @@ def count_pending_requests_for_user_id(user_id: int, db: Session) -> int:
 
 @core_decorators.handle_db_errors
 def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool = False) -> int:
-    """
-    Count followers for a user without loading the full rowset.
+    """Count followers for a user without loading the full rowset.
 
     Args:
         user_id: ID of the user whose followers to count.
@@ -192,8 +189,7 @@ def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool
 
 @core_decorators.handle_db_errors
 def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool = False) -> int:
-    """
-    Count users a given user is following without loading the rowset.
+    """Count users a given user is following without loading the rowset.
 
     Args:
         user_id: ID of the user whose following list to count.
@@ -220,8 +216,7 @@ def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool
 def get_follower_for_user_id_and_target_user_id(
     user_id: int, target_user_id: int, db: Session
 ) -> followers_schema.FollowRelationship | None:
-    """
-    Retrieve a single follow relationship between two users.
+    """Retrieve a single follow relationship between two users.
 
     Args:
         user_id: ID of the follower user.
@@ -286,8 +281,7 @@ def create_follower(
     target_user_id: int,
     db: Session,
 ) -> followers_schema.FollowRelationship:
-    """
-    Stage a new follow request between two users.
+    """Stage a new follow request between two users.
 
     Flushes without committing: the service owns the transaction, and the
     resulting follower notification (and its websocket push) is produced by the
@@ -344,8 +338,7 @@ def accept_follower(
     target_user_id: int,
     db: Session,
 ) -> followers_schema.FollowRelationship:
-    """
-    Stage the acceptance of a pending follow request from another user.
+    """Stage the acceptance of a pending follow request from another user.
 
     Flushes without committing: the service owns the transaction, and the
     acceptance notification (and its websocket push) is produced by the
@@ -389,8 +382,7 @@ def delete_follower(
     *,
     status: FollowStatus | None = None,
 ) -> None:
-    """
-    Stage the deletion of a follow relationship between two users.
+    """Stage the deletion of a follow relationship between two users.
 
     Flushes without committing, like :func:`create_follower` and
     :func:`accept_follower`; the service owns the transaction boundary.

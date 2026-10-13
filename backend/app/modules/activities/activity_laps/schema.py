@@ -39,8 +39,7 @@ _FLOAT_FIELDS: tuple[str, ...] = (
 
 
 class ActivityLapsBase(BaseModel):
-    """
-    Base schema for activity laps.
+    """Base schema for activity laps.
 
     Attributes:
         start_time: Lap start time ISO string.
@@ -126,8 +125,7 @@ class ActivityLapsBase(BaseModel):
     @field_validator(*_FLOAT_FIELDS, mode="before")
     @classmethod
     def _coerce_decimal_to_float(cls, value: Any) -> Any:
-        """
-        Coerce ``Decimal`` values from the ORM to ``float``.
+        """Coerce ``Decimal`` values from the ORM to ``float``.
 
         SQLAlchemy returns ``Decimal`` for ``DECIMAL`` columns, but the
         public contract for these fields is ``float``. ``StrictFloat``
@@ -146,8 +144,7 @@ class ActivityLapsBase(BaseModel):
 
 
 class ActivityLapsRead(ActivityLapsBase):
-    """
-    Schema for reading activity laps.
+    """Schema for reading activity laps.
 
     ``start_time`` crosses the API as a timezone-aware UTC instant, matching the
     parent activity. Clients localize it for display using that activity's

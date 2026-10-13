@@ -10,8 +10,7 @@ from core.database import Base
 
 
 class ActivitySets(Base):
-    """
-    Represents a workout set within an activity.
+    """Represents a workout set within an activity.
 
     Attributes:
         id: Primary key.

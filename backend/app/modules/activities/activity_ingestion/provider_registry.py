@@ -26,8 +26,7 @@ logger = core_logger.get_logger(__name__)
 
 @dataclass(frozen=True)
 class ActivityProvider:
-    """
-    A third-party service ingestion can pull recent activities from.
+    """A third-party service ingestion can pull recent activities from.
 
     Attributes:
         name: Stable provider identifier, used for logging and de-duplication.
@@ -42,8 +41,7 @@ _providers: dict[str, ActivityProvider] = {}
 
 
 def register(provider: ActivityProvider) -> None:
-    """
-    Register a provider ingestion may pull from.
+    """Register a provider ingestion may pull from.
 
     Args:
         provider: The provider to register. Re-registering the same name
@@ -60,8 +58,7 @@ def register(provider: ActivityProvider) -> None:
 
 
 def registered() -> tuple[ActivityProvider, ...]:
-    """
-    Return every registered provider, in registration order.
+    """Return every registered provider, in registration order.
 
     Args:
         None.
@@ -76,8 +73,7 @@ def registered() -> tuple[ActivityProvider, ...]:
 
 
 def clear() -> None:
-    """
-    Drop every registration.
+    """Drop every registration.
 
     Args:
         None.
