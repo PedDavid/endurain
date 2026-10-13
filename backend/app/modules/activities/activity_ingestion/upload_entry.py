@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 import core.config as core_config
@@ -108,7 +108,7 @@ def receive_upload(file: UploadFile, *, fingerprint: bool = False) -> ReceivedUp
     Raises:
         InvalidInputError: When the filename is missing.
         UnsupportedFormatError: When the extension is not a supported format.
-        HTTPException: When the shared upload validators reject the payload.
+        DomainError: When the shared upload validators reject the payload.
     """
     if file.filename is None:
         raise core_exceptions.InvalidInputError("Filename is required")
@@ -255,10 +255,9 @@ def process_staged_upload(
         )
         discard_staged_upload(staged_key, storage)
         return created_activities
-    except (core_exceptions.DomainError, HTTPException):
-        # ``HTTPException`` is still raised by the shared ``core.file_uploads``
-        # validators; caught only so the partial artifacts are cleaned up before
-        # the error propagates unchanged. The staged blob is deliberately kept:
+    except core_exceptions.DomainError:
+        # Caught only so the partial artifacts are cleaned up before the error
+        # propagates unchanged. The staged blob is deliberately kept:
         # the caller decides whether this failure is terminal or retryable.
         raise
     except (

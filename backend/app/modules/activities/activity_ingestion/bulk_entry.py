@@ -17,7 +17,6 @@ import shutil
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -133,9 +132,6 @@ def store_activity_file(
         )
     except (
         core_exceptions.DomainError,
-        # Still raised by the shared ``core.file_uploads`` validators, which have
-        # not moved to DomainError yet.
-        HTTPException,
         OSError,
         EOFError,
         gzip.BadGzipFile,

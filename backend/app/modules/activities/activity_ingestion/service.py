@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -108,7 +108,7 @@ def accept_upload(
         InvalidInputError: When the filename is missing.
         UnsupportedFormatError: When the extension is not a supported format.
         ConflictError: When the key was already used for different content.
-        HTTPException: When the shared upload validators reject the payload.
+        DomainError: When the shared upload validators reject the payload.
     """
     received = upload_entry.receive_upload(file, fingerprint=idempotency_key is not None)
 
@@ -386,7 +386,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         except (
             core_exceptions.UnsupportedFormatError,
             core_exceptions.InvalidInputError,
-            HTTPException,
+            core_exceptions.PayloadTooLargeError,
         ) as err:
             # The file itself is the problem, so every retry reaches the same
             # verdict: record it now and drop the blob nothing will read again.
@@ -610,9 +610,9 @@ def _collect_importable_files(user_id: int, bulk_import_dir: str) -> list[str]:
                 core_file_uploads.UploadKind.GZIP if file_extension == ".gz" else core_file_uploads.UploadKind.ACTIVITY
             )
             core_file_uploads.validate_local_file_sync(file_path, kind=validate_kind)
-        except HTTPException as err:
-            # The shared upload validator still signals rejection with an
-            # HTTPException; a rejected file is skipped, never propagated.
+        except core_exceptions.DomainError as err:
+            # The shared upload validator signals rejection with a domain
+            # error; a rejected file is skipped, never propagated.
             logger.warning(
                 "Skipping a bulk-import file that failed validation",
                 extra=core_logger.context(console=True, file=os.path.basename(file_path), reason=err.detail),

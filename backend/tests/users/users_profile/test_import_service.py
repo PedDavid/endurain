@@ -6,9 +6,9 @@ from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+import core.exceptions as core_exceptions
 import modules.users.users_profile.import_service as profile_import_service
 import modules.users.users_profile.utils as profile_utils
 from modules.users.users_profile.exceptions import (
@@ -1380,7 +1380,7 @@ class TestImportServiceAddActivityFiles:
         mock_store.assert_not_called()
         assert service.counts.get("activity_files", 0) == 0
 
-    async def test_add_activity_files_from_zip_http_exception(self) -> None:
+    async def test_add_activity_files_from_zip_domain_error(self) -> None:
         mock_db = MagicMock(spec=Session)
         mock_ws = MagicMock()
         service = profile_import_service.ImportService(
@@ -1402,7 +1402,7 @@ class TestImportServiceAddActivityFiles:
             patch(
                 "modules.users.users_profile.import_service.file_uploads.validate_bytes",
                 new_callable=AsyncMock,
-                side_effect=HTTPException(status_code=400, detail="invalid file"),
+                side_effect=core_exceptions.InvalidInputError("invalid file"),
             ),
             zipfile.ZipFile(BytesIO(zip_data)) as z,
         ):
@@ -1481,7 +1481,7 @@ class TestImportServiceAddActivityMediaFromZip:
         mock_save.assert_not_called()
         assert service.counts.get("media", 0) == 0
 
-    async def test_add_activity_media_from_zip_http_exception(self) -> None:
+    async def test_add_activity_media_from_zip_domain_error(self) -> None:
         mock_db = MagicMock(spec=Session)
         mock_ws = MagicMock()
         service = profile_import_service.ImportService(
@@ -1503,7 +1503,7 @@ class TestImportServiceAddActivityMediaFromZip:
             patch(
                 "modules.users.users_profile.import_service.file_uploads.validate_bytes",
                 new_callable=AsyncMock,
-                side_effect=HTTPException(status_code=400, detail="invalid image"),
+                side_effect=core_exceptions.InvalidInputError("invalid image"),
             ),
             patch("modules.users.users_profile.import_service.platform_runtime") as runtime,
             zipfile.ZipFile(BytesIO(zip_data)) as z,
@@ -1576,7 +1576,7 @@ class TestImportServiceAddUserImages:
             "user_images", "1.jpg", b"image-data"
         )
 
-    async def test_add_user_images_from_zip_http_exception(self) -> None:
+    async def test_add_user_images_from_zip_domain_error(self) -> None:
         mock_db = MagicMock(spec=Session)
         mock_ws = MagicMock()
         service = profile_import_service.ImportService(
@@ -1598,7 +1598,7 @@ class TestImportServiceAddUserImages:
             patch(
                 "modules.users.users_profile.import_service.file_uploads.validate_bytes",
                 new_callable=AsyncMock,
-                side_effect=HTTPException(status_code=400, detail="invalid image"),
+                side_effect=core_exceptions.InvalidInputError("invalid image"),
             ),
             patch("modules.users.users_profile.import_service.platform_runtime") as runtime,
             zipfile.ZipFile(BytesIO(zip_data)) as z,

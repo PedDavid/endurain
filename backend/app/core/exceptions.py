@@ -143,6 +143,15 @@ class UnsupportedMediaTypeError(DomainError):
     default_detail = "Unsupported Media Type"
 
 
+class PayloadTooLargeError(DomainError):
+    """The supplied payload exceeds the size this endpoint accepts."""
+
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    code = "payload-too-large"
+    title = "Content Too Large"
+    default_detail = "Content Too Large"
+
+
 class ProcessingError(DomainError):
     """An internal step failed; the caller can do nothing about it.
 

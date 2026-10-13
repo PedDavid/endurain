@@ -13,6 +13,7 @@ from stravalib.exc import AccessUnauthorized
 import core.config as core_config
 import core.cryptography as core_cryptography
 import core.database as core_database
+import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activities_integration
@@ -195,8 +196,8 @@ async def import_bikes_from_strava_export(
 
         # Log completion of bike import
         logger.info("Bike import complete.", extra=core_logger.context(console=True))
-    except HTTPException as http_err:
-        raise http_err
+    except (HTTPException, core_exceptions.DomainError):
+        raise
     except Exception as err:
         # Log the exception
         logger.error(f"Error in import_bikes_from_strava_export: {err}", extra=core_logger.context(console=True))
@@ -251,8 +252,8 @@ async def import_shoes_from_strava_export(
 
         # Log completion of shoe import
         logger.info("Shoe import complete.", extra=core_logger.context(console=True))
-    except HTTPException as http_err:
-        raise http_err
+    except (HTTPException, core_exceptions.DomainError):
+        raise
     except Exception as err:
         # Log the exception
         logger.error(f"Error in import_shoes_from_strava_export: {err}", extra=core_logger.context(console=True))

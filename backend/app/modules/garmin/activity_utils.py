@@ -118,12 +118,9 @@ async def fetch_and_process_activities_by_dates(
                 per_entry_kind=file_uploads.UploadKind.ACTIVITY,
             )
         except Exception as err:
-            # Include the HTTPException detail (error code + message)
-            # when available; `type(err).__name__` alone collapses
-            # every one of the nine failure modes in
-            # `_extract_validated_zip_sync` to the single string
-            # "HTTPException", making root-cause diagnosis impossible
-            # without reproduction (#749).
+            # Include the error detail when available; the type name alone
+            # collapses every extraction failure mode to one string, making
+            # root-cause diagnosis impossible without reproduction (#749).
             err_detail = getattr(err, "detail", None)
             logger.warning(
                 f"User {user_id}: Garmin ZIP extraction failed for activity {activity_id}: "

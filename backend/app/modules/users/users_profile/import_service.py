@@ -20,9 +20,9 @@ from io import BytesIO
 from typing import Any
 
 import jasil.runtime as platform_runtime
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+import core.exceptions as core_exceptions
 import core.file_uploads as file_uploads
 import core.logger as core_logger
 import modules.activities.activity.contracts as activity_contracts
@@ -989,7 +989,7 @@ class ImportService:
                             kind=file_uploads.UploadKind.ACTIVITY,
                             filename=new_file_name,
                         )
-                    except HTTPException as err:
+                    except core_exceptions.DomainError as err:
                         logger.warning(f"Profile import dropped invalid activity file {new_file_name}: {err.detail}")
                         continue
                     await asyncio.to_thread(
@@ -1055,7 +1055,7 @@ class ImportService:
                                 kind=file_uploads.UploadKind.IMAGE,
                                 filename=new_file_name,
                             )
-                        except HTTPException as err:
+                        except core_exceptions.DomainError as err:
                             logger.warning(
                                 f"Profile import dropped invalid activity media {new_file_name}: {err.detail}"
                             )
@@ -1110,7 +1110,7 @@ class ImportService:
                         kind=file_uploads.UploadKind.IMAGE,
                         filename=new_file_name,
                     )
-                except HTTPException as err:
+                except core_exceptions.DomainError as err:
                     logger.warning(f"Profile import dropped invalid user image {new_file_name}: {err.detail}")
                     continue
                 platform_runtime.get_active_platform().storage.save(

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 import core.config as core_config
 import core.database as core_database
+import core.exceptions as core_exceptions
 import core.file_uploads as file_uploads
 import core.logger as core_logger
 import core.text_imports as core_text_imports
@@ -230,7 +231,7 @@ def queue_bulk_export_activities_for_import(
             entry_kind = file_uploads.UploadKind.GZIP if fext.lower() == ".gz" else file_uploads.UploadKind.ACTIVITY
             try:
                 await file_uploads.validate_local_file(fpath, kind=entry_kind, filename=fname)
-            except HTTPException as err:
+            except core_exceptions.DomainError as err:
                 logger.warning(
                     f"Strava bulk import: Skipping file {fpath} - failed validation: {err.detail}",
                     extra=core_logger.context(console=True),
@@ -517,7 +518,7 @@ def create_activity_media_from_strava_bulk_import(
                 kind=file_uploads.UploadKind.IMAGE,
                 filename=media_strava_filename,
             )
-        except HTTPException as err:
+        except core_exceptions.DomainError as err:
             logger.warning(
                 f"Bulk file import media import: Rejecting "
                 f"{media_path_from_strava} - failed image "
