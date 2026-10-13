@@ -18,7 +18,7 @@ import modules.activities.activity_media.router as activity_media_router
 import modules.activities.activity_sets.public_router as activity_sets_public_router
 import modules.activities.activity_sets.router as activity_sets_router
 import modules.activities.activity_streams.router as activity_streams_router
-import modules.activities.activity_thumbnail.router as activity_thumbnail_router
+import modules.activities.activity_thumbnail.public_router as activity_thumbnail_public_router
 import modules.auth.api_keys.router as auth_api_keys_router
 import modules.auth.dependencies as auth_dependencies
 import modules.auth.identity_providers.router as identity_providers_router
@@ -96,7 +96,7 @@ router.include_router(
 # be used in an ``<img src>`` tag. Mounted before the core activities router so
 # its ``/{activity_id}/thumbnail`` path is matched ahead of the dynamic routes.
 router.include_router(
-    activity_thumbnail_router.router,
+    activity_thumbnail_public_router.router,
     prefix=core_config.ROOT_PATH + "/activities",
     tags=["activities"],
 )

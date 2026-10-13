@@ -25,13 +25,10 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.dependencies as core_dependencies
-import core.logger as core_logger
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_service
 import modules.auth.dependencies as auth_dependencies
-
-logger = core_logger.get_logger(__name__)
 
 # Bulk import endpoint (JWT auth)
 router = APIRouter()

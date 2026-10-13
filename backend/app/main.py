@@ -486,7 +486,7 @@ def create_app() -> FastAPI:
     )
     # NOTE: activity thumbnails, activity media and user photos are intentionally
     # NOT mounted as public static files. Each is served by a token-gated route
-    # (modules.activities.activity_thumbnail.router,
+    # (modules.activities.activity_thumbnail.public_router,
     # modules.activities.activity_media.public_router,
     # modules.users.users.photo_router), so a blob is only reachable with a valid
     # signed URL handed to a permitted viewer rather than at a guessable path.

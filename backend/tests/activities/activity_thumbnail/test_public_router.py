@@ -8,7 +8,7 @@ import pytest
 class TestReadActivityThumbnailUnit:
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_serves_webp_bytes_for_valid_token(self, mock_signing):
-        from modules.activities.activity_thumbnail.router import read_activity_thumbnail
+        from modules.activities.activity_thumbnail.public_router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = True
         mock_signing.THUMBNAIL_STORAGE_AREA = "activity_thumbnails"
@@ -28,7 +28,7 @@ class TestReadActivityThumbnailUnit:
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_404_for_invalid_token_without_touching_storage(self, mock_signing):
         import core.exceptions as core_exceptions
-        from modules.activities.activity_thumbnail.router import read_activity_thumbnail
+        from modules.activities.activity_thumbnail.public_router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = False
         storage = MagicMock()
@@ -41,7 +41,7 @@ class TestReadActivityThumbnailUnit:
     @patch("modules.activities.activity_thumbnail.service.activity_thumbnail_signing")
     def test_404_when_blob_missing(self, mock_signing):
         import core.exceptions as core_exceptions
-        from modules.activities.activity_thumbnail.router import read_activity_thumbnail
+        from modules.activities.activity_thumbnail.public_router import read_activity_thumbnail
 
         mock_signing.verify_thumbnail_token.return_value = True
         storage = MagicMock()
@@ -58,7 +58,7 @@ class TestReadActivityThumbnailEndToEnd:
 
         import core.dependencies as core_dependencies
         import core.exceptions as core_exceptions
-        import modules.activities.activity_thumbnail.router as thumb_router
+        import modules.activities.activity_thumbnail.public_router as thumb_router
 
         app = FastAPI()
         core_exceptions.register_exception_handlers(app)

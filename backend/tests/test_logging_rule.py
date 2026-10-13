@@ -36,7 +36,6 @@ _ALLOWED: dict[str, set[str]] = {
 # unauthenticated blob route is an authentication failure with no service
 # beneath it to report it.
 _ROUTER_TOKEN_EXCEPTIONS = {
-    "app/modules/activities/activity_thumbnail/router.py",
     "app/modules/activities/activity_media/public_router.py",
 }
 
