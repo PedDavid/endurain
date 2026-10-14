@@ -970,6 +970,26 @@ def get_public_activity_for_child_read(
 
 
 @core_decorators.handle_db_errors
+def get_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[int]:
+    """Return which of the given activity IDs still have a row.
+
+    Args:
+        activity_ids: The IDs to look up.
+        db: Database session.
+
+    Returns:
+        The subset of ``activity_ids`` that exist.
+
+    Raises:
+        ProcessingError: On database error.
+    """
+    if not activity_ids:
+        return set()
+    stmt = select(activity_models.Activity.id).where(activity_models.Activity.id.in_(activity_ids))
+    return set(db.scalars(stmt).all())
+
+
+@core_decorators.handle_db_errors
 def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activity | None:
     """Get an activity by ID without permission checks.
 

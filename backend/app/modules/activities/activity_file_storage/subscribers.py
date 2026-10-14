@@ -6,10 +6,9 @@ that **swallows** so a cleanup failure never breaks activity deletion. The
 storage key is derived from the activity id, so the already-deleted row is not
 needed and the delete is idempotent (safe when no file was ever retained).
 
-There is deliberately no reconciliation net: once the activity row is gone
-nothing names the retained file, so no backfill can rediscover it. A dropped
-cleanup event leaves the file in storage until a storage-side sweep exists (see
-the exemption in :mod:`subscriber_registry`).
+The reconciliation net is a storage-side sweep (:mod:`scheduled_jobs`): once the
+activity row is gone nothing names the retained file, so it is found by scanning
+the area for keys whose activity no longer exists.
 """
 
 import jasil.event_versioning as platform_event_versioning

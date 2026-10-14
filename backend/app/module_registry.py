@@ -9,6 +9,7 @@ from jasil.providers import EventBusProvider
 
 import core.scheduler as core_scheduler
 import modules.activities.activity_exercise_titles.integration_service as activity_exercise_titles_integration
+import modules.activities.activity_file_storage.scheduled_jobs as file_storage_jobs
 import modules.activities.activity_file_storage.subscriber_registry as file_storage_subscribers
 import modules.activities.activity_geocoding.scheduled_jobs as geocoding_jobs
 import modules.activities.activity_geocoding.subscriber_registry as geocoding_subscribers
@@ -16,6 +17,7 @@ import modules.activities.activity_ingestion.scheduled_jobs as ingestion_jobs
 import modules.activities.activity_ingestion.subscriber_registry as ingestion_subscribers
 import modules.activities.activity_laps.integration_service as activity_laps_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
+import modules.activities.activity_media.scheduled_jobs as media_jobs
 import modules.activities.activity_media.subscriber_registry as media_subscribers
 import modules.activities.activity_sets.integration_service as activity_sets_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
@@ -102,12 +104,14 @@ MODULES: tuple[RuntimeModule, ...] = (
         register_bus=file_storage_subscribers.register_bus_subscribers,
         register_durable=file_storage_subscribers.register_durable_handlers,
         nets=file_storage_subscribers.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=file_storage_jobs.recurring_jobs,
     ),
     RuntimeModule(
         name="activity_media",
         register_bus=media_subscribers.register_bus_subscribers,
         register_durable=media_subscribers.register_durable_handlers,
         nets=media_subscribers.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=media_jobs.recurring_jobs,
     ),
     RuntimeModule(
         name="activity_ingestion",

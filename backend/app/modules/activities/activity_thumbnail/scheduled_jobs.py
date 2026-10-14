@@ -32,6 +32,23 @@ def regenerate_all_thumbnails() -> None:
         activity_thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)
 
 
+def sweep_orphaned_thumbnails() -> None:
+    """Delete thumbnail blobs whose activity no longer exists.
+
+    The storage-side net for the cleanup subscriber. Scheduler-invoked, so this
+    entry point resolves the providers and opens the session.
+
+    Returns:
+        None.
+    """
+    platform = platform_runtime.get_active_platform()
+    with platform.lock.try_acquire("thumbnail_sweep") as acquired:
+        if not acquired:
+            return
+        with core_database.SessionLocal() as db:
+            activity_thumbnail_service.sweep_orphaned_thumbnails(platform.storage, db)
+
+
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
     """Return thumbnail reconciliation jobs.
 
@@ -43,6 +60,11 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
             generate_missing_thumbnails,
             60,
             "generate thumbnails for activities missing one",
+        ),
+        core_scheduler.ScheduledJob(
+            sweep_orphaned_thumbnails,
+            1440,
+            "remove thumbnails whose activity is gone",
         ),
     )
 

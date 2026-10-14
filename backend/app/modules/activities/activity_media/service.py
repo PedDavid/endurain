@@ -28,6 +28,7 @@ import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.crud as activity_media_crud
 import modules.activities.activity_media.schema as activity_media_schema
 import modules.activities.activity_media.signing as activity_media_signing
+import modules.activities.orphan_sweep as activities_orphan_sweep
 
 logger = core_logger.get_logger(__name__)
 
@@ -596,3 +597,38 @@ def rekey_media_path(old_key: str, new_activity_id: int) -> str | None:
     if match is None:
         return None
     return _media_key(new_activity_id, match.group("suffix"))
+
+
+def _activity_id_of_media_key(key: str) -> int | None:
+    """Return the activity id a flat ``{activity_id}_{suffix}`` media key names.
+
+    Args:
+        key: A storage key in the media area.
+
+    Returns:
+        The activity id, or ``None`` when the key does not match the layout.
+    """
+    match = _MEDIA_KEY_PATTERN.fullmatch(key)
+    return int(match.group("activity_id")) if match else None
+
+
+def sweep_orphaned_media(storage: platform_providers.StorageProvider, db: Session) -> int:
+    """Delete media blobs whose activity no longer exists.
+
+    The storage-side net for the cleanup subscriber: the media rows cascade with
+    the activity, so a dropped ``activity.deleted`` event leaves a blob no row
+    names, and only a scan of the area can find it.
+
+    Args:
+        storage: The blob-storage provider.
+        db: Database session.
+
+    Returns:
+        The number of blobs deleted.
+    """
+    return activities_orphan_sweep.sweep_orphaned_blobs(
+        storage,
+        activity_media_signing.MEDIA_STORAGE_AREA,
+        lambda ids: activity_integration.filter_existing_activity_ids(ids, db),
+        _activity_id_of_media_key,
+    )

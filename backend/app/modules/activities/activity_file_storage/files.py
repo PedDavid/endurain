@@ -68,3 +68,18 @@ def delete_activity_file(
     for extension in STORED_EXTENSIONS:
         key = activity_file_key(activity_id, extension)
         storage.delete(ACTIVITY_FILE_STORAGE_AREA, processed_storage_key(key))
+
+
+def activity_id_of_processed_key(key: str) -> int | None:
+    """Return the activity id a ``processed/{id}.{ext}`` key names.
+
+    Args:
+        key: A storage key in the activity-files area.
+
+    Returns:
+        The activity id, or ``None`` for any other key (staged uploads share the
+        area and must not be treated as retained files).
+    """
+    stem, dot, extension = key.removeprefix(f"{_PROCESSED_KEY_PREFIX}/").rpartition(".")
+    owned = key.startswith(f"{_PROCESSED_KEY_PREFIX}/") and f".{extension}" in STORED_EXTENSIONS
+    return int(stem) if owned and dot and stem.isdecimal() else None

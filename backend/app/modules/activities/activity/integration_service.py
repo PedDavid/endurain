@@ -527,3 +527,18 @@ def delete_all_activities_for_user(user_id: int, db: Session) -> int:
         The number of activities deleted.
     """
     return activity_service.delete_all_activities_for_user(user_id, db, source="api:delete_user")
+
+
+def filter_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[int]:
+    """Return which of the given activity IDs still have a row.
+
+    Used by storage sweeps to tell a live blob from one whose activity is gone.
+
+    Args:
+        activity_ids: The IDs to look up.
+        db: Database session.
+
+    Returns:
+        The subset of ``activity_ids`` that exist.
+    """
+    return activity_crud.get_existing_activity_ids(activity_ids, db)

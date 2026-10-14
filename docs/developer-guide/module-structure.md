@@ -242,11 +242,19 @@ Two choices in that table are deliberate:
   depend on each caller remembering to opt out. A writer that cannot, cannot be
   misused.
 - **`crud` does not roll back.** A rollback decides the fate of everything the
-  session staged, which `crud` does not know. A `crud` that translates an
-  `IntegrityError` into a `ConflictError` simply raises: the session is rolled
-  back by `@handle_db_errors` for database errors, and otherwise by the
-  transaction owner (`core.database.get_db` on a request, the job or subscriber
-  that opened the session elsewhere).
+  session staged, which `crud` does not know. A `crud` function never calls
+  `rollback()` itself; it raises, and the transaction owner
+  (`core.database.get_db` on a request, the job or subscriber that opened the
+  session elsewhere) rolls back.
+
+  One accepted exception: `@handle_db_errors`, which wraps `crud` functions,
+  rolls the whole session back on a database error and on an escaping
+  `IntegrityError`. That is the same decision made implicitly, and it is kept
+  only because unconverted modules still rely on it. A `crud` that translates
+  `IntegrityError` into a `ConflictError` itself is not rolled back by it. Do not
+  add new reliance on the decorator's rollback; the transaction owner is
+  responsible, and the decorator's rollback is removed when the last unconverted
+  module is converted.
 
 ### Surface writes stage, the caller commits
 

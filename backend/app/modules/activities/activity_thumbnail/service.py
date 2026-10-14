@@ -22,6 +22,7 @@ import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.render as activity_thumbnail_render
 import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
+import modules.activities.orphan_sweep as activities_orphan_sweep
 import modules.server_settings.integration_service as server_settings_integration
 
 logger = core_logger.get_logger(__name__)
@@ -357,4 +358,39 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
     logger.info(
         "Thumbnail scheduler pass complete",
         extra=core_logger.context(generated=generated, candidates=candidates),
+    )
+
+
+def _activity_id_of_thumbnail_key(key: str) -> int | None:
+    """Return the activity id a ``{id}.webp`` thumbnail key names.
+
+    Args:
+        key: A storage key in the thumbnail area.
+
+    Returns:
+        The activity id, or ``None`` when the key is not a thumbnail key.
+    """
+    stem, suffix = key.rsplit(".", 1) if "." in key else (key, "")
+    return int(stem) if suffix == "webp" and stem.isdecimal() else None
+
+
+def sweep_orphaned_thumbnails(storage: platform_providers.StorageProvider, db: Session) -> int:
+    """Delete thumbnail blobs whose activity no longer exists.
+
+    The storage-side net for the cleanup subscriber: a dropped
+    ``activity.deleted`` event leaves a blob no row names, so only a scan of the
+    area can find it.
+
+    Args:
+        storage: The blob-storage provider.
+        db: Database session.
+
+    Returns:
+        The number of blobs deleted.
+    """
+    return activities_orphan_sweep.sweep_orphaned_blobs(
+        storage,
+        activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA,
+        lambda ids: activity_integration.filter_existing_activity_ids(ids, db),
+        _activity_id_of_thumbnail_key,
     )
