@@ -26,17 +26,11 @@ import core.database as core_database
 import core.logger as core_logger
 import core.scheduler as core_scheduler
 import modules.activities.activity.events as activity_events
-import modules.activities.activity_streams.constants as activity_streams_constants
-import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
 import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 import modules.server_settings.events as server_settings_events
 
 logger = core_logger.get_logger(__name__)
-
-# The minimum GPS waypoints needed to draw a route; below this there is no map
-# to render (non-GPS activities such as strength training cost nothing).
-_MIN_WAYPOINTS = 2
 
 # Stable durable-subscriber ids (independent of module path) so job history and
 # dedup survive refactors.
@@ -59,32 +53,13 @@ def generate_activity_thumbnail_for_event(event: Event) -> None:
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     storage = platform_runtime.get_active_platform().storage
     with core_database.SessionLocal() as db:
-        waypoints = activity_streams_integration.get_stream_for_derivation(
-            payload.activity_id, activity_streams_constants.STREAM_TYPE_MAP, db
+        key = activity_thumbnail_service.generate_thumbnail_for_activity(
+            payload.activity_id, payload.user_id, storage, db
         )
-        if waypoints is None or len(waypoints.stream_waypoints) < _MIN_WAYPOINTS:
-            # Logged because "my activity has no thumbnail" is otherwise
-            # indistinguishable from a failure.
-            logger.debug(
-                "Skipping thumbnail generation: too few GPS waypoints",
-                extra=core_logger.context(
-                    activity_id=payload.activity_id,
-                    user_id=payload.user_id,
-                    waypoint_count=0 if waypoints is None else len(waypoints.stream_waypoints),
-                    minimum_waypoints=_MIN_WAYPOINTS,
-                ),
-            )
-            return
-        tile_url, background_color, api_key = activity_thumbnail_service.resolve_tile_settings(db)
-        activity_thumbnail_service.generate_and_store_thumbnail(
-            payload.activity_id,
-            waypoints.stream_waypoints,
-            storage,
-            db,
-            tile_url=tile_url,
-            background_color=background_color,
-            api_key=api_key,
-        )
+    logger.debug(
+        "Handled activity.created for thumbnails",
+        extra=core_logger.context(activity_id=payload.activity_id, stored=key is not None),
+    )
 
 
 # Bus subscriber: generates a map thumbnail, swallowing any error so a thumbnail

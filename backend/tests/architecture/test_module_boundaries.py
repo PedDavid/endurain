@@ -671,6 +671,23 @@ class TestSubPackagePrivacy:
             "the one it actually plays:\n  " + "\n  ".join(sorted(offenders))
         )
 
+    def test_a_surface_does_not_publish_events(self):
+        """An ``integration_service`` is a face, not a layer: it calls its own ``service`` to publish.
+
+        A surface that published would own the commit that has to be atomic with the event, leaving
+        two write-orchestration layers. Stated for every converted module, so a flat module such as
+        ``followers`` is held to it as much as an activities package.
+        """
+        offenders = sorted(
+            {
+                f"{importer} -> {imported}"
+                for _, importer, imported, _ in _layer_imports(only_roles=frozenset({"integration_service"}))
+                if _role(imported.rsplit(".", 1)[-1]) == "event_publishers"
+            }
+        )
+
+        assert offenders == [], "A surface calls its own service, which publishes:\n  " + "\n  ".join(offenders)
+
     def test_only_transaction_owners_end_transactions(self):
         """Stating the rule as an allowlist: a file's name cannot exempt it.
 

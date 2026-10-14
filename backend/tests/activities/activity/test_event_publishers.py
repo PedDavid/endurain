@@ -51,7 +51,7 @@ class TestPublishActivityUpdated:
 
         db = object()
         commit = MagicMock()
-        publish_activity_updated(7, 3, ["name"], db, commit=commit)
+        publish_activity_updated(7, 3, db, commit=commit, changed_fields=["name"])
 
         mock_publisher.publish_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_committing.call_args
@@ -67,7 +67,7 @@ class TestPublishActivityUpdated:
         """Stable ordering regardless of the producer's iteration order."""
         from modules.activities.activity.event_publishers import publish_activity_updated
 
-        publish_activity_updated(7, 3, {"visibility", "name", "gear_id"}, object(), commit=MagicMock())
+        publish_activity_updated(7, 3, object(), commit=MagicMock(), changed_fields={"visibility", "name", "gear_id"})
 
         assert mock_publisher.publish_committing.call_args.args[1]["changed_fields"] == [
             "gear_id",
@@ -85,7 +85,9 @@ class TestPublishActivitiesUpdated:
 
         db = object()
         commit = MagicMock()
-        publish_activities_updated([4, 5], 2, ["visibility"], db, commit=commit, source="api:bulk_edit_activities")
+        publish_activities_updated(
+            [4, 5], 2, db, commit=commit, changed_fields=["visibility"], source="api:bulk_edit_activities"
+        )
 
         mock_publisher.publish_many_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_many_committing.call_args
@@ -102,7 +104,9 @@ class TestPublishActivitiesUpdated:
     def test_metadata_is_per_activity(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activities_updated
 
-        publish_activities_updated([4, 5], 2, ["visibility"], object(), commit=MagicMock(), source="api:bulk")
+        publish_activities_updated(
+            [4, 5], 2, object(), commit=MagicMock(), changed_fields=["visibility"], source="api:bulk"
+        )
 
         metadata_for = mock_publisher.publish_many_committing.call_args.kwargs["metadata_for"]
         assert metadata_for({"activity_id": 4}) == {"activity_id": 4, "user_id": 2}
@@ -112,7 +116,7 @@ class TestPublishActivitiesUpdated:
         from modules.activities.activity.event_publishers import publish_activities_updated
 
         commit = MagicMock()
-        publish_activities_updated([], 2, ["visibility"], object(), commit=commit, source="api:bulk")
+        publish_activities_updated([], 2, object(), commit=commit, changed_fields=["visibility"], source="api:bulk")
 
         args, kwargs = mock_publisher.publish_many_committing.call_args
         assert args[1] == []

@@ -90,6 +90,46 @@ class TestGenerateAndStoreThumbnail:
         db.commit.assert_called_once()
 
 
+class TestGenerateThumbnailForActivity:
+    @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
+    @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
+    def test_renders_when_the_track_has_enough_waypoints(self, mock_streams, mock_settings, mock_generate):
+        from modules.activities.activity_thumbnail import service
+
+        track = [{"lat": 1.0, "lon": 2.0}, {"lat": 1.1, "lon": 2.1}]
+        mock_streams.get_stream_for_derivation.return_value = MagicMock(stream_waypoints=track)
+        mock_settings.return_value = ("https://tiles/{z}", "#fff", None)
+        mock_generate.return_value = "key"
+        storage, db = MagicMock(), MagicMock()
+
+        assert service.generate_thumbnail_for_activity(5, 2, storage, db) == "key"
+
+        mock_generate.assert_called_once_with(
+            5, track, storage, db, tile_url="https://tiles/{z}", background_color="#fff", api_key=None
+        )
+
+    @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
+    def test_skips_an_activity_with_too_few_waypoints(self, mock_streams, mock_generate):
+        from modules.activities.activity_thumbnail import service
+
+        mock_streams.get_stream_for_derivation.return_value = MagicMock(stream_waypoints=[{"lat": 1.0, "lon": 2.0}])
+
+        assert service.generate_thumbnail_for_activity(5, 2, MagicMock(), MagicMock()) is None
+        mock_generate.assert_not_called()
+
+    @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
+    def test_skips_an_activity_with_no_stream(self, mock_streams, mock_generate):
+        from modules.activities.activity_thumbnail import service
+
+        mock_streams.get_stream_for_derivation.return_value = None
+
+        assert service.generate_thumbnail_for_activity(5, 2, MagicMock(), MagicMock()) is None
+        mock_generate.assert_not_called()
+
+
 class TestDeleteActivityThumbnail:
     def test_deletes_derived_key(self):
         from modules.activities.activity_thumbnail.service import delete_activity_thumbnail

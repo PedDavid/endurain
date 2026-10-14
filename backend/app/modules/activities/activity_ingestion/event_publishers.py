@@ -63,10 +63,10 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
 def publish_bulk_import_files(
     staged_files: list[tuple[str, str, str]],
     user_id: int,
-    import_initiated_time: str,
     db: Session,
     *,
     commit: Callable[[], None],
+    import_initiated_time: str,
 ) -> None:
     """Publish one ``activity.bulk_import_file`` per staged file in a single transaction.
 

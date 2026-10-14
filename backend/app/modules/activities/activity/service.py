@@ -665,9 +665,9 @@ def edit_activity(
     activity_event_publishers.publish_activity_updated(
         activity_id,
         user_id,
-        changed_fields,
-        db=db,
+        db,
         commit=db.commit,
+        changed_fields=changed_fields,
     )
     logger.info(
         "Edited an activity",
@@ -706,9 +706,9 @@ def bulk_edit_activities(
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
-        ["visibility"],
         db,
         commit=db.commit,
+        changed_fields=["visibility"],
         source="api:bulk_edit_activities",
     )
     logger.info(
@@ -771,9 +771,9 @@ def bulk_set_activities_gear(
     activity_event_publishers.publish_activities_updated(
         updated_ids,
         user_id,
-        ["gear_id"],
         db,
         commit=db.commit,
+        changed_fields=["gear_id"],
         source=source,
     )
     logger.info(

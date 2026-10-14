@@ -83,10 +83,10 @@ def publish_activity_created(
 def publish_activity_updated(
     activity_id: int,
     user_id: int | None,
-    changed_fields: Iterable[str],
     db: Session,
     *,
     commit: Callable[[], None],
+    changed_fields: Iterable[str],
 ) -> None:
     """Publish ``activity.updated`` after an activity's own columns changed.
 
@@ -126,10 +126,10 @@ def publish_activity_updated(
 def publish_activities_updated(
     activity_ids: Sequence[int],
     user_id: int | None,
-    changed_fields: Iterable[str],
     db: Session,
     *,
     commit: Callable[[], None],
+    changed_fields: Iterable[str],
     source: str,
 ) -> None:
     """Publish one ``activity.updated`` per activity touched by a bulk update.

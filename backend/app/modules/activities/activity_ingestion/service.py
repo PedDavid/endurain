@@ -753,9 +753,9 @@ def _enqueue_bulk_import_files(
         activity_ingestion_event_publishers.publish_bulk_import_files(
             [(job_id, key, os.path.basename(file_path)) for job_id, key, file_path in staged],
             user_id,
-            import_initiated_time,
             db,
             commit=db.commit,
+            import_initiated_time=import_initiated_time,
         )
     except Exception:
         # Nothing will import these blobs, and the caller gets a 500. Drop them

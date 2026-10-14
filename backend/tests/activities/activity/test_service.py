@@ -252,7 +252,9 @@ class TestEditPublishesUpdated:
         service.edit_activity(5, 1, activity_schema.ActivityEdit(name="Run"), db)
 
         mock_crud.edit_activity.assert_called_once_with(1, 5, ANY, db)
-        mock_publishers.publish_activity_updated.assert_called_once_with(5, 1, ["name"], db=db, commit=db.commit)
+        mock_publishers.publish_activity_updated.assert_called_once_with(
+            5, 1, db, commit=db.commit, changed_fields=["name"]
+        )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
     @patch("modules.activities.activity.service.activity_crud")
@@ -279,7 +281,7 @@ class TestEditPublishesUpdated:
 
         assert updated == 3
         mock_publishers.publish_activities_updated.assert_called_once_with(
-            [4, 5, 6], 1, ["visibility"], db, commit=db.commit, source="api:bulk_edit_activities"
+            [4, 5, 6], 1, db, commit=db.commit, changed_fields=["visibility"], source="api:bulk_edit_activities"
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")
@@ -321,7 +323,7 @@ class TestCrossModuleWrites:
         # Only staged, so the updates and their events are atomic.
         mock_crud.bulk_set_activities_gear_id.assert_called_once_with(3, {7: 10, 8: 10}, db)
         mock_publishers.publish_activities_updated.assert_called_once_with(
-            [7, 8], 3, ["gear_id"], db, commit=db.commit, source="api:test"
+            [7, 8], 3, db, commit=db.commit, changed_fields=["gear_id"], source="api:test"
         )
 
     @patch("modules.activities.activity.service.activity_event_publishers")

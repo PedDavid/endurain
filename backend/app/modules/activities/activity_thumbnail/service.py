@@ -19,6 +19,7 @@ import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.integration_service as activity_integration
+import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.activities.activity_thumbnail.render as activity_thumbnail_render
 import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
@@ -26,6 +27,9 @@ import modules.activities.orphan_sweep as activities_orphan_sweep
 import modules.server_settings.integration_service as server_settings_integration
 
 logger = core_logger.get_logger(__name__)
+
+#: An activity needs a start and an end point to draw a track.
+_MIN_WAYPOINTS = 2
 
 type _ActivityPageFetcher = Callable[..., list[activity_contracts.ActivityThumbnailRef]]
 
@@ -159,6 +163,55 @@ def generate_and_store_thumbnail(
     db.commit()
     logger.info("Thumbnail stored", extra=core_logger.context(activity_id=activity_id))
     return key
+
+
+def generate_thumbnail_for_activity(
+    activity_id: int,
+    user_id: int,
+    storage: platform_providers.StorageProvider,
+    db: Session,
+) -> str | None:
+    """Read an activity's GPS track and render and store its thumbnail.
+
+    A no-op for an activity without at least two GPS waypoints, so non-GPS
+    activities cost nothing.
+
+    Args:
+        activity_id: The activity to generate a thumbnail for.
+        user_id: The owning user, recorded when the generation is skipped.
+        storage: The blob-storage provider.
+        db: Database session.
+
+    Returns:
+        The stored storage key, or ``None`` when the activity has too few
+        waypoints or rendering was skipped/failed.
+    """
+    waypoints = activity_streams_integration.get_stream_for_derivation(
+        activity_id, activity_streams_constants.STREAM_TYPE_MAP, db
+    )
+    if waypoints is None or len(waypoints.stream_waypoints) < _MIN_WAYPOINTS:
+        # Logged because "my activity has no thumbnail" is otherwise
+        # indistinguishable from a failure.
+        logger.debug(
+            "Skipping thumbnail generation: too few GPS waypoints",
+            extra=core_logger.context(
+                activity_id=activity_id,
+                user_id=user_id,
+                waypoint_count=0 if waypoints is None else len(waypoints.stream_waypoints),
+                minimum_waypoints=_MIN_WAYPOINTS,
+            ),
+        )
+        return None
+    tile_url, background_color, api_key = resolve_tile_settings(db)
+    return generate_and_store_thumbnail(
+        activity_id,
+        waypoints.stream_waypoints,
+        storage,
+        db,
+        tile_url=tile_url,
+        background_color=background_color,
+        api_key=api_key,
+    )
 
 
 def read_activity_thumbnail(activity_id: int, token: str, storage: platform_providers.StorageProvider) -> bytes:

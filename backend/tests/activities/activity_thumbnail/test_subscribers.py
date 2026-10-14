@@ -30,7 +30,7 @@ class TestOnActivityCreatedGenerateThumbnail:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.subscribers.activity_streams_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.subscribers.core_database.SessionLocal")
     @patch("modules.activities.activity_thumbnail.subscribers.platform_runtime")
     def test_noop_when_stream_missing(self, mock_runtime, mock_session, mock_streams, mock_resolve, mock_generate):
@@ -46,7 +46,7 @@ class TestOnActivityCreatedGenerateThumbnail:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.subscribers.activity_streams_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.subscribers.core_database.SessionLocal")
     @patch("modules.activities.activity_thumbnail.subscribers.platform_runtime")
     def test_noop_when_too_few_waypoints(self, mock_runtime, mock_session, mock_streams, mock_resolve, mock_generate):
@@ -62,7 +62,7 @@ class TestOnActivityCreatedGenerateThumbnail:
 
     @patch("modules.activities.activity_thumbnail.service.generate_and_store_thumbnail")
     @patch("modules.activities.activity_thumbnail.service.resolve_tile_settings")
-    @patch("modules.activities.activity_thumbnail.subscribers.activity_streams_integration")
+    @patch("modules.activities.activity_thumbnail.service.activity_streams_integration")
     @patch("modules.activities.activity_thumbnail.subscribers.core_database.SessionLocal")
     @patch("modules.activities.activity_thumbnail.subscribers.platform_runtime")
     def test_generates_for_gps_activity(self, mock_runtime, mock_session, mock_streams, mock_resolve, mock_generate):

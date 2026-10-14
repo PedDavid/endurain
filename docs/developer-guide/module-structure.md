@@ -204,9 +204,9 @@ A face is not a layer, which is the one thing that entry does **not** license. A
 write has an arrangement — stage the rows, publish the fact, own the commit that
 makes those atomic — and that arrangement belongs to `service`. An
 `integration_service` therefore never publishes events or ends a transaction: it
-calls its own `service` for any write that decides, and the
-`activities-surfaces-delegate-writes` contract forbids it from importing
-`event_publishers`. A surface that cannot publish cannot own the commit that has
+calls its own `service` for any write that decides, and
+`test_a_surface_does_not_publish_events` forbids it from importing
+`event_publishers` in every converted module. A surface that cannot publish cannot own the commit that has
 to be atomic with the publish, so there is one write-orchestration layer, not two.
 
 ## Layering inside a module
@@ -597,6 +597,14 @@ one pattern. Recorded here so a review does not reopen them.
   from the Strava import). The functions whose callers already hold the provider
   (`list_media_blobs`, `store_media_blob`, the file-storage functions) take it as
   an argument.
+- **Contributor helper names and `contracts.py`.** The plain child collections (laps,
+  sets, workout steps) share `child_*_contributor`, so each has `_store_*`,
+  `_list_*_for_activities` and `_parse_profile_record`. Streams, media and exercise
+  titles persist or restore something that is not a row-per-activity list, so their
+  private helpers are named for that (`_persist_ingestion_component`,
+  `_restore_profile_records`). A package has a `contracts.py` only when it defines an
+  input shape its `schema.py` does not (`activity_sets`, `activity_streams`,
+  `activity_media`); laps and workout steps reuse their schema.
 - **`activity_file_storage` has no `service.py`.** It is a leaf over
   `StorageProvider` with no decision to arrange, so a service would only forward.
 
