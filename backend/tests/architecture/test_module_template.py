@@ -42,11 +42,8 @@ def _absolute_imports(path: Path) -> set[str]:
 def test_package_init_is_a_docstring_only(init_file: Path) -> None:
     """A package facade must not re-export its ORM, CRUD or services.
 
-    ``from modules.activities.activity_streams import ActivityStreamsModel`` was a
-    legal way to obtain the ORM model, because import-linter matches
-    ``modules.activities.activity_streams.models`` and a re-export hides that
-    path. Every boundary contract written against ``*.models`` / ``*.crud`` had a
-    hole next to it.
+    A re-export would hand out the ORM model under a package path, and the layer
+    rules match on the file an import names, so it would bypass them.
     """
     tree = ast.parse(init_file.read_text())
     offenders = [
@@ -54,8 +51,8 @@ def test_package_init_is_a_docstring_only(init_file: Path) -> None:
     ]
     assert not offenders, (
         f"{init_file.relative_to(_MODULES_DIR.parent)} should contain only a docstring. "
-        "Re-exporting from a package facade bypasses the import-linter contracts that "
-        "guard *.models and *.crud — import the submodule instead."
+        "Re-exporting from a package facade bypasses the layer rules in "
+        "test_module_boundaries.py — import the submodule instead."
     )
 
 

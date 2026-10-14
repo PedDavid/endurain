@@ -38,6 +38,7 @@ def publish_activity_created(
     db: Session,
     *,
     commit: Callable[[], None],
+    source: str,
     duplicate_start_time: bool = False,
 ) -> None:
     """Publish ``activity.created`` for a freshly stored activity.
@@ -55,6 +56,8 @@ def publish_activity_created(
             owns a single commit for the activity + its children, and the durable
             outbox row joins that same transaction (or the event dispatches on
             the bus post-commit).
+        source: Where the activity came from (e.g. ``ingest:upload``), for event-log
+            correlation.
         duplicate_start_time: Whether the activity duplicates an existing
             activity's start time (marked hidden on store). Carried in the
             payload so the notification subscriber can raise the duplicate
@@ -72,7 +75,7 @@ def publish_activity_created(
     platform_publisher.publish_committing(
         activity_events.ACTIVITY_CREATED,
         payload.model_dump(),
-        source="api:store_activity",
+        source=source,
         metadata=metadata,
         db=db,
         commit=commit,

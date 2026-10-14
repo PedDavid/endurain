@@ -1,10 +1,9 @@
 """Typed contribution contracts for activity ingestion and profile transfer.
 
 Also holds the two factories for the children that are plain rows hanging off one
-activity (laps, sets, workout steps). Those three were one contributor written
-three times, differing only in the CRUD write, the archive names and how one
-archived record becomes a stored row, so a divergence in the shared part (the
-parent-id guard, the re-keying filter) would have been a bug in only one of them.
+activity (laps, sets, workout steps). They differ only in the CRUD write, the
+archive names and how one archived record becomes a stored row; the parent-id
+guard and the re-keying filter live here once.
 """
 
 from dataclasses import dataclass

@@ -149,8 +149,8 @@ class ActivityCore(activity_schema.ActivityBase):
     fields that describe an activity — **not** the read
     :class:`~modules.activities.activity.schema.ActivityRead`. That distinction is
     the point: the read model adds the server-owned ``id`` and
-    ``map_thumbnail_path``, and while this class inherited from it those became
-    accepted ingestion inputs by accident, as would every future read-only field.
+    ``map_thumbnail_path``, which a producer must never supply, as would any future
+    read-only field.
 
     Every ingestion producer builds this shape — the file parsers (incl. Garmin's
     ``.fit`` path), the Strava adapter, and the profile bulk-restore. It differs

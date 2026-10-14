@@ -33,8 +33,7 @@ def _requester_may_view_network(target_user_id: int, requester_user_id: int, db:
     A user's social graph is visible only to the user themselves and to their
     **accepted** followers. There is no public-profile tier: profiles are never
     public in Endurain (only individual activities can be shared, via server-level
-    public links). This closes the prior IDOR where any authenticated user could
-    enumerate any user's followers.
+    public links), so no other authenticated user can enumerate the graph.
 
     Args:
         target_user_id: The user whose network is being listed.
@@ -315,7 +314,7 @@ def accept_follow_request(
         db: Database session.
 
     Returns:
-        The accepted relationship, read back from the committed row.
+        The accepted relationship, read back after the flush.
 
     Raises:
         NotFoundError: When no pending request from that user exists.

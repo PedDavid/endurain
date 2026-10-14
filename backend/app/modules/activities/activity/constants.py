@@ -163,11 +163,8 @@ ACTIVITY_TYPES_BY_SPORT: dict[str, tuple[int, ...]] = {
 
 #: Sort keys the activity list endpoints accept, in the order they appear in the
 #: UI, mapped to the activity columns each one orders by (highest precedence
-#: first). One declaration, because the transport validator and the query used to
-#: hold their own: ``dependencies.SORTABLE_FIELDS`` listed the accepted keys and
-#: ``crud.SORT_MAP`` mapped them to columns, so a key present in one and absent
-#: from the other was accepted and then silently ignored — which is what a
-#: hand-written ``location`` branch in the query existed to paper over.
+#: first). One declaration feeds both the transport validator and the query's
+#: ``SORT_MAP``, so a key the endpoint accepts always has an ordering.
 #:
 #: Column *names* rather than ORM attributes: a contract-layer constant must not
 #: import the persistence layer. ``crud`` resolves them against the model.

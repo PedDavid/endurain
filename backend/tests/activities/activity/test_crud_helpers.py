@@ -136,3 +136,22 @@ class TestTransformSchemaToModel:
         _, kwargs = mock_model.call_args
         assert kwargs["description"] == "sanitized:<script>alert('xss')</script>"
         assert kwargs["private_notes"] == "sanitized:<b>secret</b>"
+
+
+class TestSortOrderPutsNullsLast:
+    def _compiled(self, sort_order):
+        from sqlalchemy.dialects import postgresql
+
+        from modules.activities.activity import crud
+
+        clauses = crud._sort_order_by("distance", sort_order)
+        return " ".join(
+            str(c.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})) for c in clauses
+        )
+
+    def test_descending_uses_a_negative_sentinel(self):
+        assert "-999999" in self._compiled("desc")
+
+    def test_ascending_uses_a_positive_sentinel(self):
+        sql = self._compiled("asc")
+        assert "999999" in sql and "-999999" not in sql

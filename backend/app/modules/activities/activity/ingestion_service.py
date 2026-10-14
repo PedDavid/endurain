@@ -163,6 +163,7 @@ def store_parsed_activity(
             duplicate_start_time=created_activity.is_hidden,
             db=db,
             commit=db.commit,
+            source=f"ingest:{parsed.source.kind}",
         )
 
         return created_activity

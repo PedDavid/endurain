@@ -34,8 +34,7 @@ only ever needs the URL, never the renderer.
 
 import core.signing as core_signing
 
-# Versioned to invalidate capabilities minted before live Strava API activities
-# became owner-only across every non-owner/public read path.
+# The salt carries a version: bumping it invalidates every previously minted token.
 _SIGNER = core_signing.CapabilitySigner(salt="activity-thumbnail-v2")
 
 # The storage area (domain-owned namespace) activity thumbnails live under.

@@ -1,13 +1,8 @@
 """Followers module for user follow relationships.
 
-Follow requests, acceptance and removal between users. Other modules consume
-this module through ``integration_service``; the follow graph is private, so
-reads are privacy-checked in ``service``.
+Follow requests, acceptance and removal between users. The follow graph is
+private, so reads are privacy-checked in ``service``.
 
-Importing this package does not pull in its ORM, CRUD or services. Callers
-outside the module import only the published surfaces (``integration_service``,
-``schema``, ``constants``, ``events``). A re-export facade here would hand out
-the ORM model and the CRUD functions under a package path, which is a silent
-bypass of the boundaries the import-linter contracts enforce against
-``*.models`` and ``*.crud``.
+Other modules consume it only through ``integration_service`` (plus ``schema``,
+``constants`` and ``events``); ``__init__`` exports nothing.
 """

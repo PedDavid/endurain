@@ -10,13 +10,13 @@ class TestPublishActivityCreated:
 
         db = object()
         commit = MagicMock()
-        publish_activity_created(7, 3, db, commit=commit)
+        publish_activity_created(7, 3, db, commit=commit, source="ingest:upload")
 
         mock_publisher.publish_committing.assert_called_once()
         args, kwargs = mock_publisher.publish_committing.call_args
         assert args[0] == "activity.created"
         assert args[1] == {"activity_id": 7, "user_id": 3, "duplicate_start_time": False}
-        assert kwargs["source"] == "api:store_activity"
+        assert kwargs["source"] == "ingest:upload"
         assert kwargs["metadata"] == {"activity_id": 7, "user_id": 3}
         assert kwargs["db"] is db
         assert kwargs["commit"] is commit

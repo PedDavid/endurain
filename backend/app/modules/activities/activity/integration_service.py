@@ -19,9 +19,9 @@ orchestration and its transaction boundaries; every function below is a
 delegation, so a write cannot be arranged two different ways depending on whether
 it was reached from a route or from another module.
 
-Enforced by the ``provider-activities-boundary`` import-linter contract:
-``modules.strava`` / ``modules.garmin`` / ``modules.gears`` must not import
-``activity.crud`` or the activities ORM directly; they go through this interface.
+Other modules (``strava``, ``garmin``, ``gears``) must not import ``activity.crud`` or
+the activities ORM directly; ``test_outsiders_use_the_published_surface`` enforces
+that they come through this interface.
 """
 
 from collections.abc import Sequence

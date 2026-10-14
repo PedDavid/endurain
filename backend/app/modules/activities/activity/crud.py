@@ -49,8 +49,9 @@ SORT_MAP: dict[str, tuple[Any, ...]] = {
 
 _DEFAULT_SORT_COLUMNS = SORT_MAP[activity_constants.DEFAULT_ACTIVITY_SORT_FIELD]
 
-# Sorts below every real value, so NULLs land last.
-_NULL_SORT_SENTINEL = -999999
+# Stands in for NULL in numeric sorts. Its sign follows the direction, so a NULL
+# sorts after every real value both ascending and descending.
+_NULL_SORT_SENTINEL = 999999
 
 # Columns that need COALESCE-with-sentinel so NULLs sort last
 _NUMERIC_SORT_COLUMNS = {
@@ -86,7 +87,7 @@ def _sort_order_by(sort_by: str | None, sort_order: str | None) -> list[Any]:
     clauses = []
     for column in columns:
         if column in _NUMERIC_SORT_COLUMNS:
-            ordered = func.coalesce(column, _NULL_SORT_SENTINEL)
+            ordered = func.coalesce(column, _NULL_SORT_SENTINEL if ascending else -_NULL_SORT_SENTINEL)
         elif column in _TEXT_SORT_COLUMNS:
             ordered = func.coalesce(column, "")
         else:
