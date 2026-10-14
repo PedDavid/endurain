@@ -19,7 +19,7 @@ router = APIRouter()
     "/streams",
     response_model=activity_streams_schema.ActivityStreamsPage,
 )
-def read_public_activities_streams_for_activity_all(
+def list_public_activity_streams(
     activity_id: activity_dependencies.ActivityId,
     db: Annotated[
         Session,
@@ -40,7 +40,7 @@ def read_public_activities_streams_for_activity_all(
     "/streams/{stream_type}",
     response_model=activity_streams_schema.ActivityStreamsRead,
 )
-def read_public_activities_streams_for_activity_stream_type(
+def read_public_activity_stream(
     activity_id: activity_dependencies.ActivityId,
     stream_type: activity_streams_dependencies.StreamType,
     db: Annotated[

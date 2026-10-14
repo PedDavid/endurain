@@ -18,7 +18,7 @@ router = APIRouter()
     "/workout-steps",
     response_model=activity_workout_steps_schema.ActivityWorkoutStepsPage,
 )
-def read_public_activity_workout_steps_all(
+def list_public_activity_workout_steps(
     activity_id: activity_dependencies.ActivityId,
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],

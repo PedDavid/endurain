@@ -21,7 +21,7 @@ router = APIRouter()
     "/{activity_id}",
     response_model=activity_schema.ActivityRead,
 )
-def read_public_activities_activity_from_id(
+def read_public_activity(
     activity_id: activity_dependencies.ActivityId,
     db: Annotated[
         Session,

@@ -18,7 +18,7 @@ router = APIRouter()
     "/laps",
     response_model=activity_laps_schema.ActivityLapsPage,
 )
-def read_public_activities_laps_for_activity_all(
+def list_public_activity_laps(
     activity_id: activity_dependencies.ActivityId,
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],

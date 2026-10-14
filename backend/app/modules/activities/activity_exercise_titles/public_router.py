@@ -16,7 +16,7 @@ router = APIRouter()
     "/all",
     response_model=list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
 )
-def read_public_activities_exercise_titles_all(
+def list_public_activity_exercise_titles(
     db: Annotated[Session, Depends(core_database.get_db)],
 ) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
     """Return all activity exercise titles via the public endpoint."""

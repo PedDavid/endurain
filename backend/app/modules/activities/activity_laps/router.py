@@ -20,7 +20,7 @@ router = APIRouter()
     "/laps",
     response_model=activity_laps_schema.ActivityLapsPage,
 )
-def read_activities_laps_for_activity_all(
+def list_activity_laps(
     activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[
         Callable,

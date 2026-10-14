@@ -113,7 +113,7 @@ def create_activity_with_uploaded_file(
     "/ingestion-jobs/{job_id}",
     response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
-def get_activity_ingestion_job(
+def read_activity_ingestion_job(
     job_id: str,
     token_user_id: Annotated[
         int,

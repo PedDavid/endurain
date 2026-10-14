@@ -112,7 +112,7 @@ _TIERED_ENDPOINTS = [
         id="activity-bulk-import",
     ),
     pytest.param(ingestion_router.refresh_activities, core_rate_limit.PROVIDER_SYNC, id="provider-refresh"),
-    pytest.param(activity_media_router.upload_media, core_rate_limit.UPLOAD, id="media-upload"),
+    pytest.param(activity_media_router.create_activity_media, core_rate_limit.UPLOAD, id="media-upload"),
     pytest.param(activity_media_router.delete_activity_media, core_rate_limit.WRITE, id="media-delete"),
     pytest.param(activity_router.edit_activity, core_rate_limit.WRITE, id="activity-edit"),
     pytest.param(activity_router.edit_activities, core_rate_limit.WRITE, id="activity-bulk-edit"),

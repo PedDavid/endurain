@@ -20,7 +20,7 @@ router = APIRouter()
     "/workout-steps",
     response_model=activity_workout_steps_schema.ActivityWorkoutStepsPage,
 )
-def read_activity_workout_steps_all(
+def list_activity_workout_steps(
     activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],

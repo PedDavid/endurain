@@ -20,7 +20,7 @@ router = APIRouter()
     "/sets",
     response_model=activity_sets_schema.ActivitySetsPage,
 )
-def read_activities_sets_for_activity_all(
+def list_activity_sets(
     activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],

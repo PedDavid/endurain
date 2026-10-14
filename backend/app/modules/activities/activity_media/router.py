@@ -29,7 +29,7 @@ router = APIRouter()
     "/media",
     response_model=activity_media_schema.ActivityMediaPage,
 )
-def read_activities_media_user(
+def list_activity_media(
     activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[
@@ -58,7 +58,7 @@ def read_activities_media_user(
     status_code=status.HTTP_201_CREATED,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
-def upload_media(
+def create_activity_media(
     request: Request,
     file: UploadFile,
     activity_id: activity_dependencies.ActivityId,

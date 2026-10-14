@@ -21,7 +21,7 @@ router = APIRouter()
     "/streams",
     response_model=activity_streams_schema.ActivityStreamsPage,
 )
-def read_activities_streams_for_activity_all(
+def list_activity_streams(
     activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[
         Callable,
@@ -54,7 +54,7 @@ def read_activities_streams_for_activity_all(
     "/streams/{stream_type}",
     response_model=activity_streams_schema.ActivityStreamsRead,
 )
-def read_activities_streams_for_activity_stream_type(
+def read_activity_stream(
     activity_id: activity_dependencies.ActivityId,
     stream_type: activity_streams_dependencies.StreamType,
     _check_scopes: Annotated[

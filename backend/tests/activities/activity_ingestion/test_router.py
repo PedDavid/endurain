@@ -108,7 +108,7 @@ class TestUploadRoute:
             ) as get_job,
             pytest.raises(core_exceptions.NotFoundError),
         ):
-            router.get_activity_ingestion_job(
+            router.read_activity_ingestion_job(
                 job_id="someone-elses-job",
                 token_user_id=7,
                 _check_scopes=None,
@@ -123,7 +123,7 @@ class TestUploadRoute:
         db = MagicMock()
         job = _upload_job()
         with patch.object(router.activity_ingestion_service, "get_job", return_value=job):
-            result = router.get_activity_ingestion_job(
+            result = router.read_activity_ingestion_job(
                 job_id="job-1",
                 token_user_id=7,
                 _check_scopes=None,

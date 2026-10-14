@@ -100,10 +100,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Exercise Titles All
+         * List Activity Exercise Titles
          * @description Return all activity exercise titles.
          */
-        get: operations["read_activities_exercise_titles_all_api_v1_activities_exercise_titles_all_get"];
+        get: operations["list_activity_exercise_titles_api_v1_activities_exercise_titles_all_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -160,7 +160,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Activity Ingestion Job
+         * Read Activity Ingestion Job
          * @description Read the state of one of your ingestion requests.
          *
          *     Serves both uploads and provider refreshes: the caller's question is the
@@ -170,7 +170,7 @@ export interface paths {
          *     found rather than forbidden, so the endpoint does not confirm that an id
          *     exists.
          */
-        get: operations["get_activity_ingestion_job_api_v1_activities_ingestion_jobs__job_id__get"];
+        get: operations["read_activity_ingestion_job_api_v1_activities_ingestion_jobs__job_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -364,10 +364,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Laps For Activity All
+         * List Activity Laps
          * @description Return one page of the given activity's laps, with the matching total.
          */
-        get: operations["read_activities_laps_for_activity_all_api_v1_activities__activity_id__laps_get"];
+        get: operations["list_activity_laps_api_v1_activities__activity_id__laps_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -384,16 +384,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Media User
+         * List Activity Media
          * @description Return one page of the media attached to an activity owned by the user.
          *
          *     The page is empty when the activity has no media or is not accessible to the
          *     caller.
          */
-        get: operations["read_activities_media_user_api_v1_activities__activity_id__media_get"];
+        get: operations["list_activity_media_api_v1_activities__activity_id__media_get"];
         put?: never;
         /**
-         * Upload Media
+         * Create Activity Media
          * @description Upload an image file to associate with an activity.
          *
          *     The file is validated by magic number (not extension) and size limits via
@@ -409,7 +409,7 @@ export interface paths {
          *     Not found when the activity is not the caller's, rejected when the extension
          *     is unsupported, and a conflict when a media with the same path already exists.
          */
-        post: operations["upload_media_api_v1_activities__activity_id__media_post"];
+        post: operations["create_activity_media_api_v1_activities__activity_id__media_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -471,10 +471,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Sets For Activity All
+         * List Activity Sets
          * @description Return one page of the activity's sets, with the matching total.
          */
-        get: operations["read_activities_sets_for_activity_all_api_v1_activities__activity_id__sets_get"];
+        get: operations["list_activity_sets_api_v1_activities__activity_id__sets_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -491,10 +491,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Streams For Activity All
+         * List Activity Streams
          * @description Return one page of the given activity's streams, with the matching total.
          */
-        get: operations["read_activities_streams_for_activity_all_api_v1_activities__activity_id__streams_get"];
+        get: operations["list_activity_streams_api_v1_activities__activity_id__streams_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -511,7 +511,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activities Streams For Activity Stream Type
+         * Read Activity Stream
          * @description Get a specific stream type for an activity.
          *
          *     Not found when the activity has no such stream or is not visible to the
@@ -519,7 +519,7 @@ export interface paths {
          *     ``200 null``, and the two cases are indistinguishable so the endpoint cannot
          *     be used to probe which activities exist.
          */
-        get: operations["read_activities_streams_for_activity_stream_type_api_v1_activities__activity_id__streams__stream_type__get"];
+        get: operations["read_activity_stream_api_v1_activities__activity_id__streams__stream_type__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -558,10 +558,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Activity Workout Steps All
+         * List Activity Workout Steps
          * @description Return one page of the activity's workout steps, with the matching total.
          */
-        get: operations["read_activity_workout_steps_all_api_v1_activities__activity_id__workout_steps_get"];
+        get: operations["list_activity_workout_steps_api_v1_activities__activity_id__workout_steps_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3792,10 +3792,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Exercise Titles All
+         * List Public Activity Exercise Titles
          * @description Return all activity exercise titles via the public endpoint.
          */
-        get: operations["read_public_activities_exercise_titles_all_api_v1_public_activities_exercise_titles_all_get"];
+        get: operations["list_public_activity_exercise_titles_api_v1_public_activities_exercise_titles_all_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3812,14 +3812,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Activity From Id
+         * Read Public Activity
          * @description Return a public activity by ID.
          *
          *     Answers 404 when the activity does not exist *or* is not public — the two are
          *     deliberately indistinguishable so this unauthenticated endpoint cannot be
          *     used to enumerate which activity ids exist.
          */
-        get: operations["read_public_activities_activity_from_id_api_v1_public_activities__activity_id__get"];
+        get: operations["read_public_activity_api_v1_public_activities__activity_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3836,10 +3836,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Laps For Activity All
+         * List Public Activity Laps
          * @description Return one page of public laps for an activity exposed via shareable link.
          */
-        get: operations["read_public_activities_laps_for_activity_all_api_v1_public_activities__activity_id__laps_get"];
+        get: operations["list_public_activity_laps_api_v1_public_activities__activity_id__laps_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3856,10 +3856,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Sets For Activity All
+         * List Public Activity Sets
          * @description Return one page of a publicly shared activity's sets.
          */
-        get: operations["read_public_activities_sets_for_activity_all_api_v1_public_activities__activity_id__sets_get"];
+        get: operations["list_public_activity_sets_api_v1_public_activities__activity_id__sets_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3876,10 +3876,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Streams For Activity All
+         * List Public Activity Streams
          * @description Return one page of a publicly shared activity's streams, with the matching total.
          */
-        get: operations["read_public_activities_streams_for_activity_all_api_v1_public_activities__activity_id__streams_get"];
+        get: operations["list_public_activity_streams_api_v1_public_activities__activity_id__streams_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3896,14 +3896,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activities Streams For Activity Stream Type
+         * Read Public Activity Stream
          * @description Get a public stream by type for an activity.
          *
          *     Not found when the activity has no such stream, is not public, or public links
          *     are disabled. The cases are indistinguishable on purpose, since this endpoint
          *     is unauthenticated.
          */
-        get: operations["read_public_activities_streams_for_activity_stream_type_api_v1_public_activities__activity_id__streams__stream_type__get"];
+        get: operations["read_public_activity_stream_api_v1_public_activities__activity_id__streams__stream_type__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3920,10 +3920,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read Public Activity Workout Steps All
+         * List Public Activity Workout Steps
          * @description Return one page of a publicly shared activity's workout steps.
          */
-        get: operations["read_public_activity_workout_steps_all_api_v1_public_activities__activity_id__workout_steps_get"];
+        get: operations["list_public_activity_workout_steps_api_v1_public_activities__activity_id__workout_steps_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5701,11 +5701,6 @@ export interface components {
         };
         /** Body_upload_login_photo_api_v1_server_settings_upload_login_post */
         Body_upload_login_photo_api_v1_server_settings_upload_login_post: {
-            /** File */
-            file: string;
-        };
-        /** Body_upload_media_api_v1_activities__activity_id__media_post */
-        Body_upload_media_api_v1_activities__activity_id__media_post: {
             /** File */
             file: string;
         };
@@ -11806,6 +11801,11 @@ export interface components {
          * @enum {string}
          */
         ActivityVisibility: "public" | "followers" | "private";
+        /** Body_create_activity_media_api_v1_activities__activity_id__media_post */
+        Body_create_activity_media_api_v1_activities__activity_id__media_post: {
+            /** File */
+            file: string;
+        };
         /**
          * BristolType
          * @description Bristol Stool Scale classification types.
@@ -12318,7 +12318,7 @@ export interface operations {
             };
         };
     };
-    read_activities_exercise_titles_all_api_v1_activities_exercise_titles_all_get: {
+    list_activity_exercise_titles_api_v1_activities_exercise_titles_all_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -12431,7 +12431,7 @@ export interface operations {
             };
         };
     };
-    get_activity_ingestion_job_api_v1_activities_ingestion_jobs__job_id__get: {
+    read_activity_ingestion_job_api_v1_activities_ingestion_jobs__job_id__get: {
         parameters: {
             query?: {
                 api_key?: string | null;
@@ -12843,7 +12843,7 @@ export interface operations {
             };
         };
     };
-    read_activities_laps_for_activity_all_api_v1_activities__activity_id__laps_get: {
+    list_activity_laps_api_v1_activities__activity_id__laps_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -12886,7 +12886,7 @@ export interface operations {
             };
         };
     };
-    read_activities_media_user_api_v1_activities__activity_id__media_get: {
+    list_activity_media_api_v1_activities__activity_id__media_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -12929,7 +12929,7 @@ export interface operations {
             };
         };
     };
-    upload_media_api_v1_activities__activity_id__media_post: {
+    create_activity_media_api_v1_activities__activity_id__media_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -12940,7 +12940,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_upload_media_api_v1_activities__activity_id__media_post"];
+                "multipart/form-data": components["schemas"]["Body_create_activity_media_api_v1_activities__activity_id__media_post"];
             };
         };
         responses: {
@@ -13057,7 +13057,7 @@ export interface operations {
             };
         };
     };
-    read_activities_sets_for_activity_all_api_v1_activities__activity_id__sets_get: {
+    list_activity_sets_api_v1_activities__activity_id__sets_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -13100,7 +13100,7 @@ export interface operations {
             };
         };
     };
-    read_activities_streams_for_activity_all_api_v1_activities__activity_id__streams_get: {
+    list_activity_streams_api_v1_activities__activity_id__streams_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -13143,7 +13143,7 @@ export interface operations {
             };
         };
     };
-    read_activities_streams_for_activity_stream_type_api_v1_activities__activity_id__streams__stream_type__get: {
+    read_activity_stream_api_v1_activities__activity_id__streams__stream_type__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -13228,7 +13228,7 @@ export interface operations {
             };
         };
     };
-    read_activity_workout_steps_all_api_v1_activities__activity_id__workout_steps_get: {
+    list_activity_workout_steps_api_v1_activities__activity_id__workout_steps_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -17512,7 +17512,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_exercise_titles_all_api_v1_public_activities_exercise_titles_all_get: {
+    list_public_activity_exercise_titles_api_v1_public_activities_exercise_titles_all_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -17541,7 +17541,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_activity_from_id_api_v1_public_activities__activity_id__get: {
+    read_public_activity_api_v1_public_activities__activity_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -17581,7 +17581,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_laps_for_activity_all_api_v1_public_activities__activity_id__laps_get: {
+    list_public_activity_laps_api_v1_public_activities__activity_id__laps_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -17624,7 +17624,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_sets_for_activity_all_api_v1_public_activities__activity_id__sets_get: {
+    list_public_activity_sets_api_v1_public_activities__activity_id__sets_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -17667,7 +17667,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_streams_for_activity_all_api_v1_public_activities__activity_id__streams_get: {
+    list_public_activity_streams_api_v1_public_activities__activity_id__streams_get: {
         parameters: {
             query?: {
                 page_number?: number | null;
@@ -17710,7 +17710,7 @@ export interface operations {
             };
         };
     };
-    read_public_activities_streams_for_activity_stream_type_api_v1_public_activities__activity_id__streams__stream_type__get: {
+    read_public_activity_stream_api_v1_public_activities__activity_id__streams__stream_type__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -17751,7 +17751,7 @@ export interface operations {
             };
         };
     };
-    read_public_activity_workout_steps_all_api_v1_public_activities__activity_id__workout_steps_get: {
+    list_public_activity_workout_steps_api_v1_public_activities__activity_id__workout_steps_get: {
         parameters: {
             query?: {
                 page_number?: number | null;

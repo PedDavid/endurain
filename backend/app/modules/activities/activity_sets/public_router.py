@@ -18,7 +18,7 @@ router = APIRouter()
     "/sets",
     response_model=activity_sets_schema.ActivitySetsPage,
 )
-def read_public_activities_sets_for_activity_all(
+def list_public_activity_sets(
     activity_id: activity_dependencies.ActivityId,
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
