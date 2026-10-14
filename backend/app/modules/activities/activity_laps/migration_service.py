@@ -1,4 +1,4 @@
-"""Version-pinned lap operations exposed only to data migrations."""
+"""The lap operations exposed only to data migrations."""
 
 from sqlalchemy.orm import Session
 

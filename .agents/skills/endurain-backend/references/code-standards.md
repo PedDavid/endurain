@@ -12,7 +12,7 @@
 Enforced by ruff `D` with `convention = "google"` on the converted modules (`activities`, `followers`); other modules are exempt until converted.
 - Summary on the opening line, then a blank line, then sections.
 - Every public module, class, function and method has a docstring.
-- `Args`: every parameter (D417 enforces it).
+- `Args`: every parameter of a public function (D417 enforces it once a section exists). A `_private` helper gets a summary and `Args` only for a non-obvious parameter.
 - `Returns`: when a value comes back. `Returns: None.` is not required.
 - `Raises`: the exceptions the function raises or deliberately lets propagate, and especially the ones that carry a security meaning (`PermissionDeniedError`, `NotFoundError` as an anti-enumeration answer). Omit it when there are none; do not write `Raises: None.`.
 - Classes: summary plus `Attributes`.

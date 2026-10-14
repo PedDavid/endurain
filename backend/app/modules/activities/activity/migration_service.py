@@ -1,4 +1,4 @@
-"""Version-pinned activity operations exposed only to data migrations."""
+"""The activity operations exposed only to data migrations."""
 
 from sqlalchemy.orm import Session
 

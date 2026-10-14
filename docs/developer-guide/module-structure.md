@@ -71,7 +71,7 @@ rather than that its name is on a list. Ending a transaction (`commit`,
 | `contributor_registry.py` | **composition surface** | Process-local store of the contributors and resolvers that `app/module_registry.py` installs. Names no package. |
 | `computation.py` | **namespace helper** | Pure computation shared by a namespace's packages. Owns no table and calls no module. |
 | `model_registry.py` | **composition surface** | Declares the package's ORM model module without requiring core to scan domains. |
-| `migration_service.py` | **migration-only surface** | Version-pinned operations used by `app/migrations`; never an ordinary domain dependency. |
+| `migration_service.py` | **migration-only surface** | The only domain surface `app/migrations` may import; never an ordinary domain dependency. |
 
 Anything else (`utils.py`, `signing.py`, `render.py`, …) is package-private by
 default. A helper that orchestrates other modules or ends a transaction is not a
@@ -160,10 +160,16 @@ or imports domain models.
 
 ### 3. Migration-only surface — imported only by `app/migrations`
 
-`migration_service.py` exposes the exact historical operations a versioned data
-migration still needs. It prevents an old migration from reaching arbitrary CRUD,
-parser, render, or signing internals while keeping that migration pinned to its
-era. Import-linter forbids domain and core code from consuming it.
+`migration_service.py` exposes the operations a versioned data migration still
+needs, and nothing else. It stops a migration reaching arbitrary CRUD, parser, render
+or signing internals, and gives the migration one place to find the commit that CRUD no
+longer performs. Import-linter forbids domain and core code from consuming it.
+
+It is a boundary, **not a snapshot**: most entries alias live code, so changing a
+parser or a CRUD function changes what a historical migration does. A data migration
+that must stay byte-for-byte reproducible is rewritten in plain SQLAlchemy Core against
+the tables as they were at that revision, and stops importing `modules.*`; the
+wrapper is not a substitute for that.
 
 ### 4. Package-private — importable only from inside its own module
 
@@ -518,7 +524,7 @@ when it goes stale, not an exemption in the rule.
 3. Add `model_registry.py` when the module owns a table, and add its contribution
    to the namespace/application model registry.
 4. Add `migration_service.py` only when an existing data migration needs a
-   version-pinned private operation.
+   domain operation; expose that operation and no more.
 5. Add `subscriber_registry.py` if the module has subscribers, and `scheduled_jobs.py`
    if it has recurring work. Register both with one `RuntimeModule(name=..., ...)`
    entry in `app/module_registry.py`. `main.py` and `worker.py` both consume that
@@ -565,6 +571,9 @@ one pattern. Recorded here so a review does not reopen them.
   keyword-only options follow it. Routers and `dependencies` are exempt: FastAPI
   resolves their parameters by name, so they order them by dependency
   (`test_db_is_the_last_required_positional_parameter`).
+- **Private helper docstrings.** A `_private` function gets a summary line, and an
+  `Args` section only for a parameter whose meaning is not obvious from its name and type
+  (never `db: Database session.`). Public functions document every parameter.
 - **Helper file names.** `<thing>_utils.py`, never `utils_<thing>.py`, so the role
   reads at the end of the stem like every other role.
 - **Route defaults.** The default `200` is not repeated in `status_code`. Handler
@@ -637,8 +646,8 @@ one pattern. Recorded here so a review does not reopen them.
 **Intentional variation:**
 
 - **`migration_service`.** Pure reads and constants are re-exported by alias; every
-  write is a wrapper that owns the commit the CRUD no longer performs, so the
-  version-pinned behaviour of the historical migration is stated in one function.
+  write is a wrapper that owns the commit the CRUD no longer performs, so a
+  migration's unit of work is stated in one function.
 - **Component payload shape.** The ingestion contract carries what each parser
   emits: laps as dicts, sets as raw FIT rows or `ActivitySetsCreate`, workout steps
   as schemas. Normalising them is a change to `ParsedActivity.components` and

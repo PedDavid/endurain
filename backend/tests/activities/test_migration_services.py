@@ -1,4 +1,4 @@
-"""The version-pinned migration operations keep their historical commit.
+"""The migration operations keep their historical commit.
 
 CRUD writers only stage now, but a data migration calls each operation once and
 moves on, so the ``migration_service`` wrapper owns the commit the CRUD used to.

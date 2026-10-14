@@ -184,7 +184,7 @@ forbidden_modules =
     socket
     staticmap
 
-# Data migrations are version-pinned orchestration, but that does not grant them
+# Data migrations are historical orchestration, but that does not grant them
 # unrestricted access to every package implementation. Each package exposes the
 # exact legacy operations it supports through ``migration_service.py``; those
 # adapters are for app/migrations only and must never become a general-purpose

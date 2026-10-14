@@ -706,8 +706,8 @@ class TestSubPackagePrivacy:
         ``test_crud_does_not_end_transactions`` forbids the offence in one role,
         so a file whose name declares no role (``dispatch.py`` once committed
         unnoticed) escaped it. The owners of a unit of work are services,
-        durable-job and subscriber entry points, and the version-pinned
-        ``migration_service`` adapters; any other file asks one of them.
+        durable-job and subscriber entry points, and the ``migration_service``
+        adapters; any other file asks one of them.
         """
         owners = {"service", "migration_service", "subscribers", "scheduled_jobs"}
         offenders = [
@@ -1296,8 +1296,7 @@ class TestReadModelsAreStoredRows:
                             and isinstance(statement.target, ast.Name)
                             and statement.target.id == "id"
                             and (
-                                (statement.value is not None
-                                and _is_none_default(statement.value))
+                                (statement.value is not None and _is_none_default(statement.value))
                                 or "None" in ast.unparse(statement.annotation)
                             )
                         ):

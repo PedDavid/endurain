@@ -1,4 +1,4 @@
-"""Version-pinned workout-step operations exposed only to data migrations."""
+"""The workout-step operations exposed only to data migrations."""
 
 from sqlalchemy.orm import Session
 

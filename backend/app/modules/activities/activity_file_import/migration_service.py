@@ -1,4 +1,4 @@
-"""Version-pinned parser operations exposed only to data migrations."""
+"""The parser operations exposed only to data migrations."""
 
 import modules.activities.activity_file_import.fit_frames as activity_file_import_fit_frames
 import modules.activities.activity_file_import.utils as activity_file_import_utils

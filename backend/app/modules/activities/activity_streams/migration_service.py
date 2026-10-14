@@ -1,4 +1,4 @@
-"""Version-pinned stream operations exposed only to data migrations."""
+"""The stream operations exposed only to data migrations."""
 
 from sqlalchemy.orm import Session
 

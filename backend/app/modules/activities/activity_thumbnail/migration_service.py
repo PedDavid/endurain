@@ -1,4 +1,4 @@
-"""Version-pinned thumbnail operations exposed only to data migrations."""
+"""The thumbnail operations exposed only to data migrations."""
 
 import modules.activities.activity_thumbnail.render as activity_thumbnail_render
 import modules.activities.activity_thumbnail.signing as activity_thumbnail_signing
