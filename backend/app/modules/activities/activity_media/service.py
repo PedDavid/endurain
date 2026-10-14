@@ -3,14 +3,12 @@
 Owns everything that is not persistence: the ownership checks, the
 server-generated storage key, writing the validated upload through the platform
 ``StorageProvider``, and removing the blob when the record goes away. ``crud.py``
-is left as pure persistence, and the router is left as a thin HTTP adapter —
-previously both of those carried pieces of this logic, so an ownership rule lived
-in three places at once.
+is pure persistence and the router is a thin HTTP adapter, so the ownership rule
+lives here once.
 
-Blobs go through the ``StorageProvider`` rather than to a local directory, the
-same as thumbnails and retained source files: photos then survive on object
-storage and are reachable only through the token-gated route, instead of being
-pinned to one node's disk and served from a public static path.
+Blobs go through the ``StorageProvider``, the same as thumbnails and retained
+source files: photos survive on object storage and are reachable only through
+the token-gated route, not pinned to one node's disk.
 """
 
 import re
@@ -465,7 +463,7 @@ def delete_activity_media(
 
     if media.media_path:
         # Best-effort: the row is the source of truth, and a stray blob is
-        # harmless now that nothing serves it without a signed token.
+        # harmless because nothing serves it without a signed token.
         try:
             storage.delete(activity_media_signing.MEDIA_STORAGE_AREA, media.media_path)
         except Exception as storage_err:

@@ -2,8 +2,8 @@
 
 Thin HTTP adapter: it validates query parameters and delegates every decision to
 :mod:`activity_summary_service`. Mounted under ``/activities/summaries`` as a sub-resource
-of activities rather than the former top-level endpoint, and the
-period is a query parameter, not a path segment, because ``week``/``month``/
+of activities, and the period is a query parameter, not a path segment, because
+``week``/``month``/
 ``year``/``lifetime`` are four views of one resource, not four resources.
 """
 

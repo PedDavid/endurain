@@ -1,7 +1,7 @@
 """Per-sport aggregation of activity stats (distance, time, calories).
 
-Split out of ``utils.py``: pure computation over already-serialized
-``Activity`` schemas, used by the timeframe stats routes. No DB, no ORM.
+Pure computation over already-serialized ``Activity`` schemas, used by the
+timeframe stats routes. No DB, no ORM.
 """
 
 import core.logger as core_logger

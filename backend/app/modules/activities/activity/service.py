@@ -10,8 +10,8 @@ job worker and unit-testable without FastAPI.
 
 Also the surface the module's **sibling sub-packages** read the activity row
 through (see *Derived-artifact maintenance* at the end of the file). The derived
-subsystems — thumbnails, geocoding, media — used to import ``activity.crud``
-directly, which made every one of them a second owner of the activities table.
+subsystems — thumbnails, geocoding, media — ask it, so the activities table has
+one owner.
 """
 
 import calendar
@@ -135,9 +135,8 @@ def _week_bounds(
     """Return the (start, end) of the week ``week_number`` weeks ago (0 = current).
 
     Both bounds are midnight-aligned so the window is a real calendar week
-    based on the requester's configured first day. They previously carried the
-    current time of day, which made "this week" a rolling span anchored on *now*
-    rather than on the week's boundaries.
+    based on the requester's configured first day, not a rolling span anchored
+    on *now*.
 
     Args:
         requester_user_id: The authenticated caller.
@@ -164,9 +163,9 @@ def _month_bounds(
 ) -> tuple[datetime, datetime]:
     """Return the (start, end) of the calendar month containing the anchor day.
 
-    Midnight-aligned for the same reason as :func:`_week_bounds`: keeping the
-    current time of day meant activities recorded on the 1st before "now" fell
-    outside the month window.
+    Midnight-aligned for the same reason as :func:`_week_bounds`: a bound that
+    kept the current time of day would exclude activities recorded on the 1st
+    before "now".
 
     Args:
         requester_user_id: The authenticated caller.
@@ -417,8 +416,7 @@ def _require_feed_owner(user_id: int, requester_user_id: int) -> None:
 # Paged reads
 #
 # Each of these resolves a page and its total together so the API can answer in
-# one round trip. The two queries still run, but the client no longer has to
-# repeat its filters on a second request and hope the count still matches.
+# one round trip, and the count cannot drift from the filters of the page.
 # ---------------------------------------------------------------------------
 
 
@@ -725,8 +723,8 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
 
     The delete is staged and the publisher owns the single
     commit, so when durable jobs are enabled the outbox row is written in the
-    *same* transaction as the delete. A crash can no longer leave the row deleted
-    but the cleanup event unpublished, which would orphan the thumbnail and
+    *same* transaction as the delete. A crash cannot leave the row deleted but
+    the cleanup event unpublished, which would orphan the thumbnail and
     source-file blobs. On the best-effort path the commit runs first and a
     bus-dispatch failure is swallowed.
 
@@ -758,8 +756,7 @@ def bulk_set_activities_gear(
 
     Publishes one ``activity.updated`` per changed row, atomically with the
     updates. A provider re-syncing gear mutates activities from outside the
-    activities module, so without the event a consumer would see the same silent
-    change bulk deletes used to make.
+    activities module, so the event is what lets a consumer see the change.
 
     Args:
         user_id: The owning user id (ownership is enforced by the update).

@@ -1,25 +1,14 @@
 """What an activity file came from — the ingestion pipeline's source context.
 
-Ingestion is one pipeline fed by three different callers, and the differences
-between them used to travel as six loosely-related keyword arguments
-(``from_garmin``, ``is_bulk_import``, ``garminconnect_gear``,
-``strava_activities``, ``import_initiated_time``,
-``users_existing_gear_nickname_to_id``) threaded through every layer. Most
-combinations of those were meaningless — ``from_garmin=True`` together with
-``strava_activities`` describes nothing — and each layer re-derived the same
-conclusions from them.
+Ingestion is one pipeline fed by three different callers. Each passes exactly
+one of the source objects below, so an illegal combination of flags cannot be
+expressed, and the questions the pipeline asks ("where do failed files go?",
+"what metadata applies to this file?") are answered by the source itself.
 
-Each caller now passes exactly one of the source objects below, so the illegal
-combinations cannot be expressed, and the questions the pipeline actually asks
-("where do failed files go?", "what metadata applies to this file?") are answered
-by the source itself instead of by re-reading the flags.
-
-:class:`BulkImportSource` is the **extension point**, not a Strava switch. It used
-to answer its own questions by calling ``modules.strava.bulk_import_utils``,
-which made activities depend on a provider that already depends on activities.
-A provider now *subclasses* it (``modules.strava.bulk_import_source``), so the
-dependency runs one way and adding a second export format means adding a subclass
-rather than another branch in here.
+:class:`BulkImportSource` is the **extension point**, not a Strava switch. A
+provider *subclasses* it (``modules.strava.bulk_import_source``), so the
+dependency runs one way, from provider to activities, and adding a second export
+format means adding a subclass rather than another branch in here.
 """
 
 from collections.abc import Awaitable, Callable

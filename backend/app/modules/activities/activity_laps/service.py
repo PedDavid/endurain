@@ -6,9 +6,8 @@ shared :mod:`modules.activities.activity.child_collection` seam, which owns the
 access gate and the rule that a refusal and an empty collection answer alike.
 
 Reads are paginated. A lap count is not bounded by anything in the domain (a lap
-per kilometre over an ultra, or a lap button pressed all day), so the previous
-"return every row" read had no ceiling on the work or the payload one request
-could ask for.
+per kilometre over an ultra, or a lap button pressed all day), so an unpaged
+read would put no bound on the work or the payload one request could ask for.
 """
 
 from sqlalchemy.orm import Session

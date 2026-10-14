@@ -2,19 +2,17 @@
 
 The file parsers (:mod:`modules.activities.activity_file_import`) are **pure** —
 they derive only what the file bytes contain and never touch the DB, privacy
-settings or gear. This adapter seam re-attaches the domain context the parsers
-used to resolve inline:
+settings or gear. This adapter seam re-attaches the domain context the file
+cannot carry:
 
 * the owner's **privacy defaults** (visibility + ``hide_*`` flags),
 * the **gear id** — whatever the source already resolved, else the user's
   default gear for the activity type,
 * the **provider ids** on a provider sync.
 
-It resolves no *provider* gear itself. Doing so meant importing
-``modules.garmin`` to check the sync flag and ``modules.gears`` to look the gear
-up, which put a provider on the inbound side of the activities module. The
-provider knows it is a provider: it resolves its own gear and hands ingestion the
-id, so this seam only has to answer "and if not, what is the default?".
+It resolves no *provider* gear itself: the provider knows it is a provider, so
+it resolves its own gear and hands ingestion the id. This seam only answers
+"and if not, what is the default?".
 """
 
 from sqlalchemy.orm import Session

@@ -7,8 +7,7 @@ over the activities table.
 
 Named ``summary_crud`` rather than ``summary_query``: it opens a ``Session`` and
 executes, which is the ``crud`` role, and the enforcement rules match on the
-role. Under the old name it was the one persistence module in the tree that no
-``modules.activities.*.crud`` contract and no logging-layer rule could see.
+role.
 """
 
 from datetime import date, timedelta

@@ -5,12 +5,9 @@ the question "may this caller read them?" has the same answer for all four: the
 caller must be able to see the parent activity, and the parent's ``hide_*`` flag
 guarding that particular child must not be set against a non-owner.
 
-Each child CRUD used to answer that question itself, inline, immediately before
-its ``SELECT`` — four copies of an access-control rule living in the persistence
-layer, where a reviewer looking for "who may read this" would not think to look.
-Hoisting it here does two things: the rule exists once (a fix cannot land in three
-of the four places), and it moves out of ``crud`` so the child modules can follow
-the same router -> service -> crud layering the activities core does.
+The rule lives here once, not in each child CRUD, so a fix cannot land in three
+of the four places and the child modules follow the same router -> service ->
+crud layering the activities core does.
 
 Both gates answer a plain boolean rather than returning the activity: a caller
 that receives the parent row is a caller that can accidentally serve fields from

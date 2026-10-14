@@ -1,12 +1,10 @@
 """The seam that lets ingestion pull from a provider without importing one.
 
 Ingestion needs "fetch this user's recent activities from everything they have
-linked". Answering that by importing ``modules.strava`` and ``modules.garmin``
-made the dependency mutual — both providers import back into
-``activity.ingestion_service`` and ``activity_ingestion.bulk_entry`` — so neither
-side could be built, tested or extracted without the other.
+linked". Importing ``modules.strava`` and ``modules.garmin`` to answer that would
+make the dependency mutual, since both providers import back into ingestion.
 
-The direction is now one-way: a provider depends on activities and *registers*
+The direction is one-way: a provider depends on activities and *registers*
 itself here at startup; activities depends on nothing but this registry. Adding a
 third provider means adding a module, not editing ingestion.
 

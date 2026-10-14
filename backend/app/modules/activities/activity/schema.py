@@ -34,11 +34,11 @@ class ActivityBase(BaseModel):
 
     Split out from :class:`Activity` so the ingestion contract
     (:class:`~modules.activities.activity.contracts.ActivityCore`) can extend
-    *this* rather than the read model. While ``ActivityCore`` inherited from the
-    read model, every field added for the API silently became a valid ingestion
-    input — including server-owned ones like ``id`` and ``map_thumbnail_path``,
-    which a producer must never be able to set. The two shapes now share their
-    common ground explicitly and each adds only what it owns.
+    *this* rather than the read model. Inheriting from the read model would make
+    every field added for the API a valid ingestion input — including server-owned
+    ones like ``id`` and ``map_thumbnail_path``, which a producer must never be
+    able to set. The two shapes share their common ground explicitly and each
+    adds only what it owns.
 
     Attributes:
         user_id: ID of the owning user.
@@ -163,14 +163,11 @@ class ActivityBase(BaseModel):
     def _normalize_to_utc_aware(cls, value: Any) -> Any:
         """Accept the ingestion producers' ISO strings, expose an aware UTC datetime.
 
-        The field type used to be ``datetime | str | None``, which leaked the
-        parsers' internal wall-clock string format into the API: OpenAPI emitted
-        ``anyOf[date-time, string, null]``, so the generated clients typed a
-        timestamp as ``string | Date``. The union is gone from the *type* — the
-        API now promises a ``date-time`` — while this pre-validator keeps every
-        existing producer working by normalizing whatever it passes (naive UTC
-        wall clock from the file parsers, offset-carrying ISO strings from the
-        providers) to an aware UTC instant.
+        The field type is ``datetime | None`` so the API promises a ``date-time``
+        and generated clients type a timestamp as one, not as ``string | Date``.
+        This pre-validator keeps every producer working by normalizing whatever
+        it passes (naive UTC wall clock from the file parsers, offset-carrying
+        ISO strings from the providers) to an aware UTC instant.
 
         Args:
             value: An ISO string or datetime.

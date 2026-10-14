@@ -1,9 +1,7 @@
 """Domain constants for follow relationships.
 
-The status vocabulary lived in three places at once: the ``FollowStatus`` enum in
-``schema``, ten raw ``"pending"`` / ``"accepted"`` literals in ``crud``, and the
-column default in ``models``. The enum was the declared vocabulary and two of the
-three layers ignored it.
+The status vocabulary is stated once, here, rather than as raw ``"pending"`` /
+``"accepted"`` literals in each layer.
 
 It lives here rather than in ``schema`` because every layer needs it: ``models``
 stamps the default, ``crud`` filters on it, ``service`` compares against it, and

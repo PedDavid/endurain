@@ -1,15 +1,11 @@
 """Heart-rate zone maths for activity streams.
 
 Pure computation over samples and scalars: no session, no ORM, no other module.
-Split out of the package's ``utils`` grab-bag, which held this alongside stream
-serialization and visibility masking — three jobs whose only shared property was
-having nowhere else to live.
-
 The athlete's max heart rate arrives as the three values it is derived from
-rather than as a user object. Taking ``users.schema.UsersRead`` made the streams
-package depend on another module's *wire type* to read three fields, so a change
-to what a user looks like on the API was a change to how heart-rate zones are
-computed.
+rather than as a user object. Taking ``users.schema.UsersRead`` would make the
+streams package depend on another module's *wire type* to read three fields, so
+a change to what a user looks like on the API would change how heart-rate zones
+are computed.
 """
 
 import datetime

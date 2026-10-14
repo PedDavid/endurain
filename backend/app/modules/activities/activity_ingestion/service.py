@@ -259,12 +259,8 @@ def accept_refresh(
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Queue a provider refresh for background execution.
 
-    The route used to be the one ``async def`` in activities, awaiting the
-    Strava and Garmin clients directly. That made every synchronous call on
-    those paths — the provider integration lookups, the per-activity dedup
-    reads — run on the event loop, where they stall every other request in the
-    process rather than occupying one worker thread. Moving the work to a job
-    removes the question entirely: nothing on this path touches the loop.
+    The provider clients are awaited in the job, not on the request path, so the
+    synchronous lookups and per-activity dedup reads never run on the event loop.
 
     Args:
         token_user_id: Authenticated user ID.
@@ -518,10 +514,9 @@ def prune_expired_ingestion_jobs(
 def _warn_about_unowned_files(user_id: int) -> None:
     """Warn when importable files sit in the shared root instead of a user directory.
 
-    Bulk import used to scan the shared root, so an existing install can have
-    files there that will now be skipped. They are not imported on a guess about
-    who owns them — that is the bug this isolation removes — but the operator is
-    told exactly where to move them.
+    Bulk import reads only the requesting user's directory. A file left in the
+    shared root has no known owner, so it is not imported on a guess; the
+    operator is told exactly where to move it.
 
     Args:
         user_id: The user whose import was triggered, used to name the target.
@@ -640,10 +635,10 @@ def start_bulk_import(
     transactional outbox on this session and committed once, then the relay fans
     them into retryable, dead-letterable ``processing_jobs`` rows drained by the
     in-process worker (local) or the worker fleet (distributed) — a crash
-    mid-import no longer drops in-flight files, and a failing file retries then
-    dead-letters (moved to the import-error dir) instead of vanishing on the
-    first error. A activity_ingestion_staging failure propagates, so the caller is told the files
-    were never queued rather than being handed a 202. With durable jobs off
+    mid-import keeps in-flight files, and a failing file retries then
+    dead-letters (moved to the import-error dir). A staging failure propagates,
+    so the caller is told the files were never queued rather than being handed a
+    202. With durable jobs off
     there is no worker to drain the queue, so the background thread pool owned by
     :mod:`~modules.activities.activity_ingestion.background` runs them instead.
 
@@ -853,6 +848,7 @@ def mark_bulk_import_job_processing(job_id: str | None) -> None:
     with core_database.SessionLocal() as db:
         activity_ingestion_crud.mark_processing(job_id, db)
         db.commit()
+    logger.debug("Marked a bulk-import job as processing", extra=core_logger.context(job_id=job_id))
 
 
 def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) -> None:
@@ -867,6 +863,10 @@ def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) 
     with core_database.SessionLocal() as db:
         activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
+    logger.info(
+        "Completed a bulk-import job",
+        extra=core_logger.context(job_id=job_id, activities=len(activity_ids)),
+    )
 
 
 def mark_bulk_import_job_failed(job_id: str | None) -> None:
@@ -882,3 +882,4 @@ def mark_bulk_import_job_failed(job_id: str | None) -> None:
             job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
         )
         db.commit()
+    logger.warning("Bulk-import job exhausted its attempts", extra=core_logger.context(job_id=job_id))

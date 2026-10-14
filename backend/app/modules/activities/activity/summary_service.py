@@ -6,8 +6,6 @@ resolves the anchor day, picks the bucket strategy, and returns a schema. It
 raises the transport-agnostic domain errors in :mod:`core.exceptions` rather
 than deciding HTTP statuses.
 
-The route previously called CRUD directly and did its own date parsing, which
-made the summaries package the one sub-module that did not follow the template.
 """
 
 from datetime import UTC, date, datetime

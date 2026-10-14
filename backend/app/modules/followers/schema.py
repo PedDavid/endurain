@@ -76,6 +76,5 @@ class RelationshipView(BaseModel):
 
 #: One page of follow relationships. Aliases the shared
 #: :class:`core.pagination.Page` so the follower lists return the same envelope
-#: the activities lists do — they previously returned bare, unbounded arrays,
-#: which made the two template modules disagree on what a list response is.
+#: the activities lists do.
 FollowRelationshipPage = core_pagination.Page[FollowRelationship]

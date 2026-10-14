@@ -2,10 +2,8 @@
 
 Maps a file extension to the parser that turns one on-disk activity file into a
 :class:`~modules.activities.activity.contracts.ParsedFile` — the canonical,
-format-agnostic result the ingestion core consumes. This replaces the hard-coded
-``if/elif`` extension chain that used to live in the ingestion orchestrator, so
-supporting a new file format is a **registration** here rather than an edit to
-the dispatch logic — the extension point the "future sources" architecture needs.
+format-agnostic result the ingestion core consumes. Supporting a new file
+format is a **registration** here rather than an edit to the dispatch logic.
 
 Each registered parser is exposed through the uniform :class:`FileParser`
 signature ``(path, user_id, activity_name, default_timezone) -> ParsedFile``, and
@@ -129,7 +127,7 @@ def _parse_fit(
     sessions and building each ``ActivityCore`` is the second stage, which is
     where the owner and the fallback timezone apply. Both stages run here so that
     a multi-session ``.fit`` looks exactly like a single-activity ``.gpx`` to the
-    caller — that dispatch used to sit in the ingestion orchestrator.
+    caller.
 
     Args:
         path: Path of the FIT file.

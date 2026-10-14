@@ -1,8 +1,8 @@
 """Activity type mappings shared across the activities module.
 
-Split out of ``utils.py`` so the id↔name maps have a single, dependency-free
-home that any submodule (crud, dependencies, summaries, the file-import parsers)
-can import without pulling in the ingestion/parsing machinery.
+The id↔name maps have a single, dependency-free home that any submodule (crud,
+dependencies, summaries, the file-import parsers) can import without pulling in
+the ingestion/parsing machinery.
 """
 
 # Global Activity Type Mappings (ID to Name)
@@ -113,9 +113,7 @@ ACTIVITY_NAME_TO_ID = {name.lower(): activity_type_id for activity_type_id, name
 #: Activity types recorded on a virtual platform (Zwift and the like). Any GPS
 #: position such a file carries describes the platform's synthetic route rather
 #: than where the athlete actually was, so it must not be used to resolve their
-#: timezone. Named for the question the parsers ask; both of them previously kept
-#: a private pair of magic numbers, and the FIT parser's were bare literals while
-#: the GPX parser's were named after the wrong activities entirely.
+#: timezone. Named for the question the parsers ask, so both share one answer.
 VIRTUAL_ACTIVITY_TYPES = frozenset({3, 7})
 
 #: The sport each activity type belongs to. The activities module owns the

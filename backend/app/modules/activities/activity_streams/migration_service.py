@@ -43,8 +43,8 @@ def resolve_max_heart_rate(user) -> int | None:
     """Resolve an athlete's max heart rate from the user row a migration holds.
 
     Pinned to the era's signature: migration 7 walks user rows, so it passes the
-    row itself. The computation now takes the three fields it actually reads, so
-    the unpacking lives here rather than making the streams package depend on the
+    row itself. The computation takes the three fields it actually reads, so the
+    unpacking lives here rather than making the streams package depend on the
     users wire type.
 
     Args:

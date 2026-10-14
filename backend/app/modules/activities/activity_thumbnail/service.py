@@ -157,6 +157,7 @@ def generate_and_store_thumbnail(
     )
     activity_integration.set_thumbnail_key(activity_id, key, db)
     db.commit()
+    logger.info("Thumbnail stored", extra=core_logger.context(activity_id=activity_id))
     return key
 
 

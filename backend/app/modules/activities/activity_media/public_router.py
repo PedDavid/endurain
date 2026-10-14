@@ -1,10 +1,5 @@
 """Public, token-gated route that serves one activity media blob.
 
-Replaces the two unauthenticated paths this file used to be reachable through: a
-``StaticFiles`` mount over the media directory, and a ``GET /activity_media/{media}``
-route. Both were addressed by the stored filename, so anyone who learned one
-could fetch another athlete's photos.
-
 Intentionally **unauthenticated** (mounted without the activities auth
 dependency) so it works in an ``<img src>`` tag; the capability is the signed
 ``t`` token minted by :mod:`signing`, which only the activity owner ever

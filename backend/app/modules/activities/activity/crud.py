@@ -874,12 +874,10 @@ def get_public_activity_for_child_read(
     2. The per-activity privacy flag guarding this particular child resource
        (e.g. ``hide_laps``, ``hide_workout_sets_steps``) is not set.
 
-    Each child CRUD previously hand-rolled step 1, and every copy omitted the
-    ``is_hidden`` check — so a hidden (duplicate-start-time) activity returned
-    ``null`` from the public activity endpoint while still serving its laps, sets
-    and workout steps to anonymous callers (OWASP A01: broken access control).
-    Routing every child through this one function makes that divergence
-    impossible to reintroduce by copy-paste.
+    The ``is_hidden`` check is part of step 1 so a hidden (duplicate-start-time)
+    activity does not serve its laps, sets and workout steps to anonymous callers
+    (OWASP A01: broken access control). Routing every child through this one
+    function keeps that rule from diverging by copy-paste.
 
     Args:
         activity_id: Activity ID being read.
@@ -1239,7 +1237,7 @@ def update_activity_location(
     """Stage a reverse-geocoded location on an activity.
 
     Written by the geocoding subscriber / backfill once the location for a GPS
-    activity has been resolved (geocoding no longer runs inline in the parsers).
+    activity has been resolved.
 
     Args:
         activity_id: Target activity ID.
@@ -1452,8 +1450,7 @@ def edit_activity(
 
     # Both `Activity` and `ActivityEdit` are Pydantic models;
     # `exclude_unset=True` lets callers explicitly clear nullable
-    # fields (e.g. private_notes=None) without being silently
-    # discarded as the previous `vars()` filter did.
+    # fields (e.g. private_notes=None) without them being silently discarded.
     if not isinstance(activity_attributes, BaseModel):
         raise TypeError("activity_attributes must be a Pydantic model")
     activity_data = activity_attributes.model_dump(exclude_unset=True)
@@ -1600,11 +1597,10 @@ def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int
 def delete_all_activities_for_user(user_id: int, db: Session) -> list[int]:
     """Stage the deletion of every activity owned by a user.
 
-    Used by account deletion, which previously relied on the database FK cascade
-    from ``users``. The cascade removes the rows but tells nobody, so each
-    activity's thumbnail and stored source file were left behind — deleting them
-    explicitly here yields the IDs needed to publish the cleanup events, making
-    account deletion erase the user's stored artifacts too.
+    Used by account deletion. The database FK cascade from ``users`` would remove
+    the rows but tell nobody, leaving each activity's thumbnail and stored source
+    file behind — deleting them explicitly here yields the IDs needed to publish
+    the cleanup events, so account deletion erases the user's stored artifacts too.
 
     Args:
         user_id: Owner user ID.

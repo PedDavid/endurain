@@ -77,9 +77,9 @@ helper: it plays the `service` role and is named `<thing>_service.py`, such as
 
 ## Visibility
 
-Four classes. This is the whole rule.
+Four classes. This is the whole rule. Each file name appears in exactly one.
 
-### 1. Module surface — importable from anywhere
+### 1. Module surface — importable by peers and outside modules
 
 | Surface | Purpose |
 | --- | --- |
@@ -88,10 +88,7 @@ Four classes. This is the whole rule.
 | `schema.py` | Client-facing shapes, when a consumer genuinely needs the wire type. |
 | `constants.py` | Stable domain constants. |
 | `events.py` | Event names and payloads, so a consumer can subscribe. |
-| `dependencies.py` | FastAPI DI, mounted at the HTTP boundary. |
-| `router.py` / `public_router.py` | Mounted by `app/api.py` and nothing else. |
-| `subscriber_registry.py` | Event wiring, called by `main.py` and `worker.py`. |
-| `scheduled_jobs.py` | The module's recurring and one-shot background work, collected by `main.py`. |
+| `dependencies.py` | FastAPI DI, mounted at the HTTP boundary (transport code only). |
 
 Every name on `integration_service.py` is a promise, so it holds only operations
 with a real caller **outside its package**. Contributor plumbing
@@ -109,8 +106,8 @@ no transaction, the surface goes straight to CRUD, which the matrix below
 permits. What belongs in `service` is the *arrangement* of a write (stage,
 publish, commit), not the act of forwarding.
 
-`subscribers.py` is deliberately absent from that list. A module with subscribers
-publishes `subscriber_registry.py` and the entrypoints import *that*, so
+`subscribers.py` is private (class 4). A module with subscribers publishes
+`subscriber_registry.py` (class 2) and the entrypoints import *that*, so
 "registered in the API but not the worker" is a diff in one file, and the file
 that holds the handlers can be split without touching the entrypoints.
 
@@ -147,10 +144,10 @@ imports never register themselves as a side effect.
 
 ### 2. Composition surface — imported only while assembling the application
 
-`router.py`, `public_router.py`, `dependencies.py`, `subscriber_registry.py`,
-`scheduled_jobs.py`, and `model_registry.py` are collected by `api.py`, `main.py`,
-`worker.py`, Alembic, or the namespace-level activities registries. Business
-modules do not call them.
+`router.py`, `public_router.py`, `subscriber_registry.py`, `scheduled_jobs.py`,
+and `model_registry.py` are collected by `api.py`, `main.py`, `worker.py`,
+Alembic, or the namespace-level activities registries. Business modules do not
+call them. `scheduled_jobs.py` also holds the job runners.
 
 Every persistence-owning package declares its model module in
 `model_registry.py`. `app/model_registry.py` collects converted modules
@@ -484,6 +481,16 @@ allowlist containing only composition edges and exact read-model projections.
   installs the answer.
 - `TestModuleInventory` fails on a top-level module that is neither converted nor
   explicitly outstanding.
+- `test_only_transaction_owners_end_transactions` is the commit rule as an
+  allowlist: only `service`, `migration_service`, `subscribers` and
+  `scheduled_jobs` files may end a transaction, so a file named for no role is
+  not exempt.
+
+**`backend/tests/architecture/test_logging_rule.py`** and
+**`test_route_conventions.py`** state the logging, route-declaration,
+rate-limit and `db`-position rules by what the code does, over every converted
+module. Where a rule needs an exception it is a register with a reason that fails
+when it goes stale, not an exemption in the rule.
 
 ## Adding a module
 
@@ -538,12 +545,28 @@ one pattern. Recorded here so a review does not reopen them.
 - **ORM mapping.** `serializers.py` exposes `to_read_schema` (and `to_orm` where
   `crud` builds rows). A private `_to_*` helper inside `crud.py` is the same job in
   a second home.
-- **`db` parameter.** `db` is the last required positional parameter; keyword-only
-  options follow it.
+- **`db` parameter.** In `service`, `crud`, `integration_service` and every other
+  non-framework file, `db` is the last required positional parameter and
+  keyword-only options follow it. Routers and `dependencies` are exempt: FastAPI
+  resolves their parameters by name, so they order them by dependency
+  (`test_db_is_the_last_required_positional_parameter`).
 - **Helper file names.** `<thing>_utils.py`, never `utils_<thing>.py`, so the role
   reads at the end of the stem like every other role.
 - **Route defaults.** The default `200` is not repeated in `status_code`. Handler
   names are OpenAPI `operationId`s, so renaming one is an API change.
+- **Route declarations.** A JSON route declares `response_model`; a route that
+  returns bytes declares `responses=` (or `response_class`) with its media type.
+  A write (`POST`/`PUT`/`PATCH`/`DELETE`) names its rate-limit tier; reads take
+  the global default (`TestRouteConventions`).
+- **Comments and docstrings.** They state what the code does now and why. History
+  (what a file "used to" do, a ratio of removed duplication, a refactor's
+  motivation) belongs in the commit message or PR, where it can be dated and
+  corrected, not in the source, where it goes stale.
+- **Logging.** A service function that refuses a caller (`PermissionDeniedError`)
+  or ends a transaction logs in the same function; a service that only delegates
+  has no such function and logs nothing. A file with no role logs only when it is
+  listed with its reason in `_HELPERS_THAT_LOG`, and `console=True` is for
+  bulk-import progress and migrations (`test_logging_rule.py`).
 - **Read models.** The schema a client receives is `<Thing>Read` (or
   `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
   share a name, and the OpenAPI component name is the schema's.

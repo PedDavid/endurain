@@ -162,9 +162,8 @@ class ActivityCore(activity_schema.ActivityBase):
       ``create_activity``.
     * **Times are normalized to UTC-aware at construction.** Parsers emit naive UTC
       wall-clock strings and providers emit ISO strings; the validator coerces both
-      to aware UTC, relocating the normalization that used to run late in
-      ``ParsedActivity.__post_init__``. Producers keep passing their string output
-      unchanged (no call-site churn), while the stored value is always an aware
+      to aware UTC at the boundary. Producers pass their string output
+      unchanged, while the stored value is always an aware
       ``datetime`` — and unlike the read schema, ``None`` is rejected rather than
       allowed through.
     """

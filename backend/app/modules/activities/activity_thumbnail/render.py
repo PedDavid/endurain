@@ -17,9 +17,8 @@ from core.route_map import RouteMapRenderRequest
 
 logger = core_logger.get_logger(__name__)
 
-# Thumbnail geometry and encoding. Kept at 1200x400 so the map stays crisp in
-# the large desktop feed/detail cards; WebP at quality 75 keeps the file far
-# smaller than the previous 1200x400 PNG.
+# Thumbnail geometry and encoding. 1200x400 keeps the map crisp in the large
+# desktop feed/detail cards; WebP at quality 75 keeps the file small.
 THUMBNAIL_WIDTH = 1200
 THUMBNAIL_HEIGHT = 400
 THUMBNAIL_CONTENT_TYPE = "image/webp"
@@ -118,7 +117,7 @@ def render_activity_thumbnail(
     if not waypoints or len(waypoints) < 2:
         logger.debug(
             "Skipping thumbnail render: fewer than 2 waypoints",
-            extra=core_logger.context(console=True, activity_id=activity_id, waypoint_count=len(waypoints or [])),
+            extra=core_logger.context(activity_id=activity_id, waypoint_count=len(waypoints or [])),
         )
         return None
 
@@ -136,7 +135,7 @@ def render_activity_thumbnail(
         if not api_key and "stadiamaps.com" in normalised_url:
             logger.warning(
                 "Skipping thumbnail render: Stadia Maps tile URL requires an API key",
-                extra=core_logger.context(console=True, activity_id=activity_id),
+                extra=core_logger.context(activity_id=activity_id),
             )
             return None
         if api_key and "stadiamaps.com" in normalised_url:
@@ -145,7 +144,7 @@ def render_activity_thumbnail(
             if urlparse(normalised_url).scheme.lower() != "https":
                 logger.warning(
                     "Skipping thumbnail render: a tile API key requires HTTPS",
-                    extra=core_logger.context(console=True, activity_id=activity_id),
+                    extra=core_logger.context(activity_id=activity_id),
                 )
                 return None
             separator = "&" if "?" in normalised_url else "?"
@@ -171,18 +170,12 @@ def render_activity_thumbnail(
             )
         )
 
-        logger.info(
-            "Thumbnail rendered",
-            extra=core_logger.context(console=True, activity_id=activity_id, width=width, height=height),
-        )
-
         return data
 
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         logger.warning(
             "Thumbnail generation failed",
             extra=core_logger.context(
-                console=True,
                 activity_id=activity_id,
                 error_type=type(exc).__name__,
             ),

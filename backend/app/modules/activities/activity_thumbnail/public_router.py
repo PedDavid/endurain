@@ -1,8 +1,7 @@
 """Public, token-gated route that serves an activity's map thumbnail.
 
-This route replaces the public static mount that used to serve thumbnails at a
-guessable path. It is intentionally **unauthenticated** (mounted without the
-activities auth dependency) so it can be used in an ``<img src>`` tag; the
+It is intentionally **unauthenticated** (mounted without the activities auth
+dependency) so it can be used in an ``<img src>`` tag; the
 capability is the signed ``t`` token minted by :mod:`signing` and handed only to
 viewers permitted to see the map (visibility masking). A non-owner of a
 ``hide_map`` activity never receives a token and cannot forge one, so they cannot

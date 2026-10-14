@@ -6,9 +6,9 @@ to the shared :mod:`modules.activities.activity.child_collection` seam, which
 owns the access gate and the rule that a refusal and an empty collection answer
 alike.
 
-Reads are paginated: a structured workout's step count has no domain ceiling, so
-the previous "return every row" read put no ceiling on the work or the payload
-one request could ask for.
+Reads are paginated: a structured workout's step count has no domain ceiling,
+so an unpaged read would put no bound on the work or the payload one request
+could ask for.
 """
 
 from sqlalchemy.orm import Session

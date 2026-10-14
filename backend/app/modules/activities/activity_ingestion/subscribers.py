@@ -2,14 +2,12 @@
 
 The upload and refresh routes answer 202 and hand the work here, because parsing
 a file is seconds of pure CPU and a provider refresh is a chain of third-party
-HTTP round-trips. Doing either inline tied up a request thread — and refresh,
-being the one ``async`` route, tied up the event loop itself.
+HTTP round-trips, neither of which belongs on a request thread.
 
-Bulk import enqueues **one durable job per file** (via the transactional outbox)
-instead of a fire-and-forget threadpool task, so a crash mid-import no longer
-drops in-flight work and a failing file is retried with backoff and finally
-dead-lettered — moved to the import-error directory as the human trail — instead
-of vanishing to the error dir on the first error.
+Bulk import enqueues **one durable job per file** (via the transactional outbox),
+so a crash mid-import keeps in-flight work and a failing file is retried with
+backoff and finally dead-lettered — moved to the import-error directory as the
+human trail.
 
 Every channel is durable-delivery only: the routes publish them exclusively when
 ``JOBS_ENABLED``, so they always route to the outbox → relay → job. When durable

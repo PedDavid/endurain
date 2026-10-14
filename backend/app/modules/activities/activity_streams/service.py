@@ -246,10 +246,10 @@ def get_public_activity_stream(
 # Heart-rate zone scoring
 #
 # "What is this athlete's max heart rate?" is a users question, and the answer
-# scales every zone. Asking it used to happen inside ``crud``, mid-batch —
-# persistence pausing to consult another bounded context. The loop lives here
-# now: the service resolves the max HR, computes each breakdown, and hands crud
-# a plain ``{stream_id: zones}`` map to store.
+# scales every zone. Persistence must not pause mid-batch to consult another
+# bounded context, so the loop lives here: the service resolves the max HR,
+# computes each breakdown, and hands crud a plain ``{stream_id: zones}`` map to
+# store.
 
 
 def _zones_for(
@@ -379,6 +379,7 @@ def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None
     stream = _with_context(record, context)
     activity_streams_crud.set_zone_percentages({stream.stream_id: _zones_for(stream, max_heart_rate)}, db)
     db.commit()
+    logger.debug("Scored heart-rate zones", extra=core_logger.context(activity_id=activity_id))
 
 
 def backfill_missing_hr_zones(
@@ -423,6 +424,7 @@ def backfill_missing_hr_zones(
                 zones_by_stream_id[stream.stream_id] = zones
         activity_streams_crud.set_zone_percentages(zones_by_stream_id, db)
         db.commit()
+        logger.debug("Scored a heart-rate zone batch", extra=core_logger.context(scored=len(zones_by_stream_id)))
         updated += len(zones_by_stream_id)
         last_id = records[-1].stream_id
     return updated

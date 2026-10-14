@@ -272,7 +272,7 @@ def _build_activity(
 
     # An activity without a start/end is not importable. Rejecting it here gives
     # a clear reason instead of a pydantic ValidationError raised deep inside
-    # ``ActivityCore`` construction, which is what used to happen.
+    # ``ActivityCore`` construction.
     start_time = core_timezone.to_utc_second(tcx_file.start_time)
     end_time = core_timezone.to_utc_second(tcx_file.end_time)
     if start_time is None or end_time is None:

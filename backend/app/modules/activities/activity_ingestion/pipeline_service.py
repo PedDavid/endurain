@@ -234,8 +234,12 @@ def store_activities_from_file(
         contributor.persist(data, db)
     if file_component_work:
         # File-scoped reference data is committed on its own, ahead of the
-        # per-activity unit of work, as it always was.
+        # per-activity unit of work.
         db.commit()
+        logger.debug(
+            "Committed file-scoped reference data",
+            extra=core_logger.context(components=len(file_component_work)),
+        )
 
     # Supplemental metadata from a bulk import's manifest, when there is one.
     activity_metadata = bulk_source.metadata_for(file_base_name) if bulk_source else {}

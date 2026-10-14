@@ -4,7 +4,7 @@ Owns the durable copy of each activity's original source file (the parsed
 ``.gpx`` / ``.tcx`` / ``.fit``) end to end, addressing it through the platform
 ``StorageProvider`` exactly like the thumbnail subsystem addresses its rendered
 image — so the same code serves a local disk or remote object storage without
-change, and file-based ingestion is no longer pinned to the API node's disk.
+change, and file-based ingestion is not tied to the API node's disk.
 
 - :mod:`integration_service` — storage addressing (area/key) plus save/read/delete
   of the retained file through the platform ``StorageProvider``; the surface

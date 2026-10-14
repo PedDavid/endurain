@@ -1,14 +1,10 @@
 """Address activity media: signed, ``<img>``-compatible URLs and their tokens.
 
 The counterpart of :mod:`modules.activities.activity_thumbnail.signing`, for the
-same reason. Activity photos used to be served two ways at once — a public
-``StaticFiles`` mount over the media directory *and* a public
-``GET /activity_media/{media}`` route — both unauthenticated and both addressed
-by a filename the client already held. Anyone who learned (or guessed) a stored
-filename could fetch another athlete's photos, and the frontend had to reverse a
-filesystem path into a URL to display its own.
+same reason: a blob addressed by a stored filename would let anyone who learned
+or guessed it fetch another athlete's photos.
 
-Now the blob is reachable only through the token-gated route in
+The blob is reachable only through the token-gated route in
 :mod:`modules.activities.activity_media.public_router`, and the capability is the
 signed ``t`` token minted here. Media is owner-only (the list endpoint returns
 nothing for an activity the caller does not own), so only the owner is ever

@@ -4,8 +4,8 @@ The behavioural core of the subsystem. Ingestion hands over the parsed file's
 bytes; this module stores/reads/removes them through the platform
 ``StorageProvider`` under a domain-owned *area*, keyed by activity id. It mirrors
 the thumbnail subsystem's use of the provider, so the retained file lives on
-local disk or object storage identically and file-based ingestion is no longer
-tied to the API node's filesystem.
+local disk or object storage identically and file-based ingestion is not tied to
+the API node's filesystem.
 
 The database stores no key for these files: the key is derived from the activity
 id plus one of the known source extensions, so reads/deletes probe those

@@ -6,12 +6,9 @@ and wrap the two in the page envelope — with "refused" and "there are none"
 deliberately answering the same way, so the endpoint cannot be used to probe
 which activities exist.
 
-Each of the three services held its own copy, ~98% identical after renaming the
-resource. That is not merely repetitive: the copies had already drifted (the
-refusal log lines differ), and the next divergence would be in the part that
-decides what a non-owner may see. A child package now declares *what* it is —
-its hide flag, its two CRUD calls, its page type — and this owns *how* the read
-runs.
+A divergence between copies would be in the part that decides what a non-owner
+may see, so a child package declares only *what* it is — its hide flag, its two
+CRUD calls, its page type — and this owns *how* the read runs.
 """
 
 from collections.abc import Callable
@@ -57,14 +54,14 @@ class ChildCollection[PageT]:
         """
         return self.build([], 0, page_number, num_records)
 
-    def _page(self, activity_id: int, db: Session, page_number: int, num_records: int) -> PageT:
+    def _page(self, activity_id: int, page_number: int, num_records: int, db: Session) -> PageT:
         """Read one page and its total.
 
         Args:
             activity_id: ID of the activity.
-            db: Database session.
             page_number: 1-based page number.
             num_records: Page size.
+            db: Database session.
 
         Returns:
             The page and its total.
@@ -105,7 +102,7 @@ class ChildCollection[PageT]:
                 ),
             )
             return self._empty(page_number, num_records)
-        return self._page(activity_id, db, page_number, num_records)
+        return self._page(activity_id, page_number, num_records, db)
 
     def list_public(
         self,
@@ -133,4 +130,4 @@ class ChildCollection[PageT]:
                 extra=core_logger.context(activity_id=activity_id, child=self.name),
             )
             return self._empty(page_number, num_records)
-        return self._page(activity_id, db, page_number, num_records)
+        return self._page(activity_id, page_number, num_records, db)

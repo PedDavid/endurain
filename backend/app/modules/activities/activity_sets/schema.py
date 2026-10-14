@@ -45,8 +45,8 @@ class ActivitySetsRead(ActivitySetsBase):
 
     ``start_time`` crosses the API as a timezone-aware UTC instant, matching the
     parent activity. Clients localize it for display using that activity's
-    ``timezone`` — the server no longer ships a pre-formatted wall clock, which
-    carried no offset and so could not be converted or round-tripped.
+    ``timezone``; a pre-formatted wall clock would carry no offset and so could
+    not be converted or round-tripped.
 
     Attributes:
         id: Activity set primary key.

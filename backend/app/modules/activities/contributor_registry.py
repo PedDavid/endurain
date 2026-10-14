@@ -122,11 +122,10 @@ def resolve_thumbnail_url(key: str | None, activity_id: int) -> str | None:
 
     The seam that keeps the root ``activity`` package from importing
     ``activity_thumbnail``. Serializing an activity has to turn the stored key
-    into a URL, and reaching for the thumbnail package to do it made the two
-    import each other — the thumbnail subsystem derives its work *from* the
-    activity row, so neither could be built, tested or extracted without the
-    other. The root now states the question; whichever package can answer it
-    registers itself at composition time.
+    into a URL, but the thumbnail subsystem derives its work *from* the activity
+    row, so the root cannot import it without a cycle. The root states the
+    question; whichever package can answer it registers itself at composition
+    time.
 
     Args:
         key: The stored thumbnail key, or ``None``.

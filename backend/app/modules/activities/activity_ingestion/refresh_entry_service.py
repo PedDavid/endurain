@@ -21,7 +21,7 @@ import modules.activities.activity_ingestion.provider_registry as activity_inges
 
 logger = core_logger.get_logger(__name__)
 
-# How far back a refresh looks. Matches the previous route's behaviour.
+# How far back a refresh looks.
 _REFRESH_WINDOW = timedelta(days=1)
 
 

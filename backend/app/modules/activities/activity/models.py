@@ -86,7 +86,7 @@ class Activity(Base):
         # imports of the same file or provider activity could both see "not
         # found" and both insert — which the bulk-import ThreadPoolExecutor and
         # durable-job retries make a realistic race rather than a theoretical
-        # one. The service now catches the resulting IntegrityError and returns
+        # one. The service catches the resulting IntegrityError and returns
         # the winning row, so the constraint is what makes re-import a true
         # no-op. NULL dedup_keys stay unconstrained (Postgres treats NULLs as
         # distinct), so activities with no stable identity are unaffected.

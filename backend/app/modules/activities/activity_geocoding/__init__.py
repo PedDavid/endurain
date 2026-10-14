@@ -1,10 +1,10 @@
 """Activity reverse-geocoding subsystem.
 
 Resolves an activity's ``city``/``town``/``country`` from its first GPS waypoint
-and reacts to the ``activity.created`` domain event. Reverse-geocoding used to run
-inline inside the file parsers; moving it here
-keeps the parse path free of network I/O and lets the work run durably/async when
-durable jobs are enabled, exactly like the thumbnail subsystem.
+and reacts to the ``activity.created`` domain event. Running it here, not inside
+the file parsers, keeps the parse path free of network I/O and lets the work run
+durably/async when durable jobs are enabled, exactly like the thumbnail
+subsystem.
 
 Two shapes of handler live in ``subscribers``: a durable ``*_for_event`` core that
 **raises** so the job runner can retry/dead-letter, and an ``on_*`` bus subscriber

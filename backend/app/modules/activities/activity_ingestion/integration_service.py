@@ -1,13 +1,7 @@
 """The ingestion surface consumed by provider modules.
 
 A provider (Strava, Garmin) fetches files from its API or an export and hands
-them to ingestion. It used to do that by importing ``bulk_entry`` and ``sources``
-(now ``contracts``) by path — the right *direction* (a provider depends on activities, never the
-reverse) but not a published surface: two internal modules named at the call
-site, so nothing distinguished the entry point from the pipeline's plumbing
-around it.
-
-This is that surface. Providers import one module and get the entry point plus
+them to ingestion. Providers import this one module and get the entry point plus
 the source types they need to describe where a file came from, including the
 :class:`BulkImportSource` base a provider export subclasses.
 """

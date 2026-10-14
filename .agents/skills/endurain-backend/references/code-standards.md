@@ -5,6 +5,8 @@
 - Lines up to 120 characters, code and prose alike (the formatter does not wrap docstrings; keep paragraphs readable).
 - Imports grouped stdlib / third-party / local; `TYPE_CHECKING` to avoid cycles.
 - Every module has a top-level docstring.
+- Comments and docstrings state what the code does now and why. History (what it "used to" do, how much duplication a refactor removed) goes in the commit message.
+- `db` is the last required positional parameter in `service`, `crud` and `integration_service`; routers and dependencies are exempt because FastAPI resolves them by name.
 - `__init__.py` follows the module guide (docstring only), not `__all__`.
 
 ## Docstrings (PEP 257, Google sections)
@@ -28,7 +30,7 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 - Keep ORM and schema names distinct.
 
 ## FastAPI
-- `response_model` on every endpoint; status 200 (GET), 201 (POST create), 202 (POST accepted for background processing), 204 (DELETE).
+- `response_model` on every JSON endpoint; a route that returns bytes declares `responses=` with its media type instead (`TestRouteConventions`). Status 200 (GET), 201 (POST create), 202 (POST accepted for background processing), 204 (DELETE).
 - Auth through `Depends()`.
 - Endpoint docstring says what, not how. It is exempt from `Args`/`Returns`/`Raises`: FastAPI publishes it as the OpenAPI description and it is copied into `api.generated.ts`, so parameter names such as `_check_scopes` would become public API text.
 - Route handlers are plain `def`, never `async def` (a blocking call in an async handler stalls the event loop; `test_no_route_handler_is_async`). Handle uploads with `core.file_uploads.save_validated_upload_sync`.
@@ -39,9 +41,10 @@ Use `core.logger.get_logger(__name__)` and `core.logger.context(...)`; never f-s
 | Layer | Logs |
 | --- | --- |
 | `router`, `public_router` | nothing (a rejected capability token is logged by the `service` that verifies it) |
-| `service` | INFO state change completed; WARNING request refused; DEBUG inputs to a non-obvious decision |
+| `service` | INFO state change completed; WARNING request refused; DEBUG inputs to a non-obvious decision. A function that raises `PermissionDeniedError` or ends a transaction logs in the same function; a service that only delegates logs nothing |
 | `crud` | only what it swallows: ERROR cannot complete, WARNING absorbed anomaly; never success narration |
 | `subscribers` | DEBUG when skipping, ERROR when failing |
 | `query`, `serializers`, `signing`, `models`, `schema`, pure utils | nothing |
+| a file named for no role | nothing, unless listed with its reason in `_HELPERS_THAT_LOG` |
 
-`console=True` only for operator-facing events (startup, migrations, bulk import progress).
+`console=True` only for operator-facing events (migrations, bulk import progress), enforced by `test_console_is_for_operator_events`.

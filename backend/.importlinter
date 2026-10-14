@@ -34,18 +34,17 @@ forbidden_modules =
     modules.auth.*.crud
     modules.auth.*.*.crud
 
-# The substrate is now the external ``jasil`` package, which enforces its own
+# The substrate is the external ``jasil`` package, which enforces its own
 # ports-and-adapters direction and its own no-domain rule upstream. Which part of
 # it application code may touch is still this repository's rule, but it cannot be
 # stated here: import-linter rejects a subpackage of an external package as a
 # forbidden module. It lives in ``tests/architecture/test_jasil_boundary.py``.
 
-# The same rule one layer up, for ``core``. ``core.scheduler`` used to import
-# four activities internals plus auth, Strava and Garmin in order to enumerate
-# their recurring jobs — the platform reaching up into the domain to ask what
-# work exists. Each module now declares its own ``scheduled_jobs``, and the
-# composition root (``main``) hands the collected list to ``start_scheduler``.
-# One exception remains, recorded here so it is reviewed rather than assumed:
+# The same rule one layer up, for ``core``: the platform never reaches into the
+# domain to ask what work exists. Each module declares its own ``scheduled_jobs``,
+# and the composition root (``main``) hands the collected list to
+# ``start_scheduler``.
+# One exception is recorded here so it is reviewed rather than assumed:
 # ``core.middleware`` reads the server-settings SCHEMA (a data shape, not
 # behaviour) to type the settings it stamps onto the request.
 [importlinter:contract:core-not-domain]
@@ -74,19 +73,16 @@ forbidden_modules =
 # above the ports (providers) and the event envelope (events). Higher layers may import
 # lower ones, never the reverse — so a port importing an adapter (the ports-and-adapters
 # inversion the forbidden contracts above do NOT catch) is rejected here.
-# Removed with the move to ``jasil``: that direction is now an import contract in
-# the substrate's own repository, verified on its releases rather than on ours.
+# The substrate's internal layering is an import contract in the ``jasil``
+# repository, verified on its releases rather than on ours.
 
 # The whole activities module is provider-agnostic, not just its core. Strava and
 # Garmin depend on activities — they parse a provider payload and hand it to the
-# ingestion seam — and activities used to depend on them right back:
-# ``activity_ingestion.refresh_entry_service`` imported both provider clients,
-# ``sources`` (now ``contracts``) imported the Strava bulk-import helpers, and ``enrichment_service``
-# imported Garmin to resolve synced gear. That cycle meant neither side could be
-# built, tested or extracted without the other.
+# ingestion seam — and activities must not depend on them back, or neither side
+# could be built, tested or extracted without the other.
 #
-# The direction is now one-way, via three seams activities owns and providers
-# plug into:
+# The direction is one-way, via three seams activities owns and providers plug
+# into:
 #   * ``activity_ingestion.provider_registry`` — a provider registers a fetch
 #     callable at startup; the refresh path names no provider.
 #   * ``activity_ingestion.contracts.BulkImportSource`` — a provider export
@@ -95,10 +91,8 @@ forbidden_modules =
 #   * ``GarminSource.gear_id`` — the provider resolves its own synced gear and
 #     passes the id, so enrichment only answers "and if not, what is the default?".
 #
-# This contract replaces the narrower ``activities-parsing-boundary`` and
-# ``ingestion-pipeline-provider-agnostic`` provider clauses: stating it over the
-# whole module means a new sub-package inherits it instead of having to be added
-# to a list.
+# Stating the rule over the whole module means a new sub-package inherits it
+# instead of having to be added to a list.
 [importlinter:contract:activities-provider-agnostic]
 name = The activities module must not import a provider — providers register with it
 type = forbidden
@@ -115,7 +109,7 @@ forbidden_modules =
 # activity_ingestion/ package, which produces the contract and calls the core.
 # Direct imports only (allow_indirect_imports): the rule is that the core must
 # not reach for a parser directly, not that it must avoid transitive shared
-# dependencies. The provider half of this boundary is now the module-wide
+# dependencies. The provider half of this boundary is the module-wide
 # ``activities-provider-agnostic`` contract above.
 [importlinter:contract:activities-parsing-boundary]
 name = Activities core must not import file parsers
@@ -148,11 +142,10 @@ forbidden_modules =
     modules.activities.activity_file_import
 
 # The file parsers (activity_file_import/) are PURE: bytes -> parsed dict/Activity, with no
-# db, privacy, gear, provider, or exercise-title-crud coupling. Every bit
-# of domain resolution they used to do inline (default/Garmin gear, privacy defaults,
-# exercise-title persistence) now lives in the sibling activity_ingestion/ enrichment seam,
-# which legitimately owns db + provider knowledge — so a parser is unit-testable with bytes
-# alone. The parsers may still import the activities SCHEMAS (activity.schema /
+# db, privacy, gear, provider, or exercise-title-crud coupling. Domain
+# resolution (default/Garmin gear, privacy defaults, exercise-title persistence)
+# lives in the sibling activity_ingestion/ enrichment seam, which legitimately
+# owns db + provider knowledge — so a parser is unit-testable with bytes alone. The parsers may still import the activities SCHEMAS (activity.schema /
 # activity_exercise_titles.schema / activity_workout_steps.schema) — data shapes, not crud.
 [importlinter:contract:activity-file-import-purity]
 name = Activity file parsers must be pure (no db / domain / provider / crud / HTTP imports)
@@ -170,14 +163,11 @@ forbidden_modules =
     sqlalchemy
     fastapi
 
-# The activities module performs no raw network egress. Reverse geocoding was the
-# one exception: it built provider URLs, resolved and denylisted the configured
-# host against SSRF (OWASP A10), and spoke HTTP — none of which is a fact about
-# activities, and all of which protected exactly one call site. That now sits
-# behind the platform GeocodingProvider, with the host checks in core.network
-# where a future outbound integration inherits them instead of reimplementing
-# them. This contract is what stops the egress code drifting back into the domain:
-# an outbound call from activities must be added as a platform provider.
+# The activities module performs no raw network egress. Reverse geocoding goes
+# through the platform GeocodingProvider, with the SSRF host checks (OWASP A10)
+# in core.network where a future outbound integration inherits them. This
+# contract is what keeps egress code out of the domain: an outbound call from
+# activities must be added as a platform provider.
 # Note: ``urllib`` is deliberately not listed. import-linter cannot forbid a
 # single subpackage of an external/stdlib package, and activities legitimately
 # uses ``urllib.parse`` for URL decoding — banning the parent would reject that
@@ -210,9 +200,8 @@ forbidden_modules =
     modules.activities.*.migration_service
 
 # Provider modules describe users data with the read schemas the users CRUD actually
-# returns, never the ORM models. The annotations used to name the ORM classes even
-# though the runtime value was already a DTO, which kept a users-ORM import alive
-# inside Strava/Garmin for no reason.
+# returns, never the ORM models: the runtime value is already a DTO, so naming the
+# ORM classes would only keep a users-ORM import alive inside Strava/Garmin.
 [importlinter:contract:providers-no-users-orm]
 name = Provider modules must not import the users ORM models
 type = forbidden
@@ -226,11 +215,9 @@ forbidden_modules =
 
 # The child sub-resources (laps, sets, streams, workout steps, exercise titles) decide
 # access in their SERVICE, through the shared activity/child_access_service gate — never in
-# their crud. Each crud used to answer "may this caller read these rows?" itself,
-# inline above its SELECT: four copies of one access-control rule, living in the layer
-# a reviewer looking for authorization would not think to open. This contract is what
-# stops a fifth copy appearing — a child crud that cannot import the activities core's
-# crud has nowhere to make the decision.
+# their crud, the layer a reviewer looking for authorization would not think to
+# open. A child crud that cannot import the activities core's crud has nowhere
+# to make the decision.
 [importlinter:contract:activities-child-access-gate]
 name = Activity child CRUDs hold no access rule — the shared gate decides
 type = forbidden
@@ -247,11 +234,10 @@ forbidden_modules =
 
 # One level up, the same rule for the SERVICES. Laps, sets and workout steps are
 # one read three times over — check the gate, page the rows, count them, wrap
-# them, and answer a refusal exactly like an empty collection. Each held its own
-# copy, ~98% identical after renaming the resource, and the copies had already
-# drifted. They now declare what they are (hide flag + CRUD pair + page type) and
-# hand the read to the root activity integration surface, which publishes the
-# shared ``ChildCollection`` operation without exposing its implementation file.
+# them, and answer a refusal exactly like an empty collection. Each declares what
+# it is (hide flag + CRUD pair + page type) and hands the read to the root
+# activity integration surface, which publishes the shared ``ChildCollection``
+# operation without exposing its implementation file.
 # Forbidding the gate is what keeps that true: a service that cannot call
 # ``child_access_service`` cannot quietly grow a fourth copy of the read around it.
 # ``activity_streams.service`` is deliberately absent — its masking is per stream
@@ -275,14 +261,11 @@ forbidden_modules =
 # publish the fact, own the commit) belongs to ``service``, which is where the
 # module's transaction boundaries live.
 #
-# The root activity surface was doing it both ways: ``bulk_set_activities_gear``,
-# ``delete_all_strava_activities`` and ``delete_all_activities_for_user`` each
-# called CRUD with ``commit=False``, published their own events and handed
-# ``db.commit`` to the publisher — so the module had two write-orchestration
-# layers, and which one a write went through depended only on whether it was
-# reached from a route or from another module. Forbidding the event publishers
-# here is what makes "call your own service" the only remaining option: a surface
-# that cannot publish cannot own the commit that has to be atomic with it.
+# A surface that published its own events would own the commit that has to be
+# atomic with them, leaving two write-orchestration layers whose choice depended
+# only on whether a write was reached from a route or from another module.
+# Forbidding the event publishers here makes "call your own service" the only
+# option: a surface that cannot publish cannot own that commit.
 [importlinter:contract:activities-surfaces-delegate-writes]
 name = Activity integration surfaces delegate writes to the service — they do not publish events
 type = forbidden

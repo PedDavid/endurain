@@ -274,10 +274,10 @@ def create_activity_streams(
 ) -> None:
     """Stage activity streams (waypoints only; flushed, not committed).
 
-    HR ``zone_percentages`` are no longer computed here: that work is decoupled to
-    the ``activity.created`` subscriber so ingestion stays synchronous
-    and fast. Streams are persisted with ``zone_percentages=None``; the subscriber
-    (and the scheduled backfill reconciliation net) fill them in.
+    HR ``zone_percentages`` are not computed here: the ``activity.created``
+    subscriber does that so ingestion stays synchronous and fast. Streams are
+    persisted with ``zone_percentages=None``; the subscriber (and the scheduled
+    backfill reconciliation net) fill them in.
 
     Args:
         activity_streams: List of stream schemas.
@@ -287,7 +287,7 @@ def create_activity_streams(
     if activity.user_id is None:
         logger.warning(
             "Failed to create activity streams: activity has no user_id",
-            extra=core_logger.context(console=True, activity_id=activity.id),
+            extra=core_logger.context(activity_id=activity.id),
         )
         return
 

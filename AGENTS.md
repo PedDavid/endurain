@@ -68,11 +68,10 @@ npm run gen:api      # after backend API changes
 
 ## Backend invariants
 
-- Peers and outside modules use a module only through its `integration_service` (plus `schema`, `contracts`, `constants`, `events`); `service`, `crud`, `models`, `query`, `utils`, `signing`, `subscribers` are private.
-- Layering is downward: `router -> service -> crud -> query/models`; `crud` never calls another module and raises `core.exceptions`, not `HTTPException`.
-- `service` owns transactions and publishes events; `integration_service` does neither.
-- Non-auth code reaches identity only through `modules.auth.dependencies` and `modules.auth.identity_service`.
-- Storage, events, jobs and geocoding come from `jasil` ports; resolve a provider at the entry point (router `Depends`, subscriber, job, `integration_service`) and pass it down.
+- Module boundaries, layering, transactions and identity follow `docs/developer-guide/module-structure.md` and `docs/developer-guide/auth-boundary.md`; they are not restated here.
+- `crud` raises `core.exceptions`, not `HTTPException`; `service` owns transactions and publishes events.
+- Storage, events, jobs and geocoding come from `jasil` ports; resolve a provider at the entry point and pass it down.
+- Comments state what the code does now, not what it used to do.
 - Enforced by `backend/.importlinter` and `backend/tests/architecture/`.
 - Python 3.13 syntax, 120-character lines, Google-style PEP 257 docstrings (`Args`, `Returns`, `Raises` where applicable; ruff `D` enforces them on converted modules).
 
