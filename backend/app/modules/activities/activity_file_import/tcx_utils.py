@@ -5,7 +5,6 @@ from typing import Any
 
 import tcxreader
 
-import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
@@ -308,8 +307,9 @@ def _build_activity(
 def parse_tcx_file(
     file: str,
     user_id: int,
+    *,
     activity_name_input: str | None = None,
-    default_timezone: str | None = None,
+    default_timezone: str,
 ) -> dict:
     """Parse a TCX file and return activity data.
 
@@ -335,7 +335,7 @@ def parse_tcx_file(
         trackpoints = tcx_file.trackpoints_to_dict()
 
         # Only used when the file carries no GPS track to resolve a zone from.
-        timezone = default_timezone or core_config.settings.TZ
+        timezone = default_timezone
         pace: float | None = None
         city: str | None = None
         town: str | None = None

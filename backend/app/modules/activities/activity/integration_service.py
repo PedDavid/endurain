@@ -1,27 +1,9 @@
 """The activities surface consumed by other modules (Strava, Garmin, gears, account deletion).
 
-A small, curated interface so consumers depend on a stable, intentional set of
-activity operations instead of reaching into the full ``activity.crud`` (a large
-ORM surface, most of it internal to the activities module). It is the
-read/gear/delete counterpart to the ingestion seam: ingestion
-(:mod:`~modules.activities.activity.ingestion_service` /
-:mod:`~modules.activities.activity_ingestion.pipeline_service`) is how a caller
-*stores* a parsed activity; this is how a caller *looks up*, *re-gears*,
-*aggregates*, and *bulk-deletes* activities. Every function returns schemas/DTOs
-— no ORM row crosses the boundary.
-
-Bulk deletes here also publish one ``activity.deleted`` per removed row, so the
-thumbnail and source-file cleanup subscribers reclaim each activity's blobs. That
-is the whole reason account deletion and Strava unlinking route through this
-module rather than issuing their own DELETE (or relying on the FK cascade). The
-publishing itself belongs to ``activity.service``, which owns this module's write
-orchestration and its transaction boundaries; every function below is a
-delegation, so a write cannot be arranged two different ways depending on whether
-it was reached from a route or from another module.
-
-Other modules (``strava``, ``garmin``, ``gears``) must not import ``activity.crud`` or
-the activities ORM directly; ``test_outsiders_use_the_published_surface`` enforces
-that they come through this interface.
+A curated set of lookups, re-gearing, aggregation, bulk-delete and derived-artifact
+maintenance operations; every function returns schemas or DTOs, never an ORM row.
+Writes that publish events (bulk deletes, bulk re-gearing, ingestion) delegate to
+``activity.service``, which owns their transaction.
 """
 
 from collections.abc import Sequence

@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterator
 import jasil.providers as platform_providers
 from sqlalchemy.orm import Session
 
+import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
@@ -149,6 +150,7 @@ def generate_and_store_thumbnail(
         tile_url=tile_url,
         background_color=background_color,
         api_key=api_key,
+        user_agent=f"Endurain {core_config.API_VERSION} - StaticMap backend thumbnail generator",
     )
     if data is None:
         return None
@@ -237,7 +239,7 @@ def read_activity_thumbnail(activity_id: int, token: str, storage: platform_prov
             "Rejected a thumbnail request with an invalid signed token",
             extra=core_logger.context(activity_id=activity_id),
         )
-        raise core_exceptions.NotFoundError("Thumbnail not found")
+        raise core_exceptions.AccessConcealedError("Thumbnail not found")
 
     data = storage.get(
         activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA,

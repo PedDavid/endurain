@@ -68,25 +68,25 @@ def _media_key(activity_id: int, suffix: str) -> str:
     return f"{_key_prefix(activity_id)}{suffix}"
 
 
-def _require_owned_activity(activity_id: int, user_id: int, db: Session) -> None:
-    """Raise :class:`NotFoundError` unless ``user_id`` owns ``activity_id``.
+def _require_owned_activity(activity_id: int, requester_user_id: int, db: Session) -> None:
+    """Raise :class:`NotFoundError` unless ``requester_user_id`` owns ``activity_id``.
 
     "Not found" rather than "forbidden" so a caller cannot use the media endpoints
     to probe which activity ids exist.
 
     Args:
         activity_id: The activity the media belongs to.
-        user_id: The authenticated user.
+        requester_user_id: The authenticated user.
         db: Database session.
 
     Raises:
         NotFoundError: When the activity does not exist or is not owned by the
             user.
     """
-    if not activity_integration.owns_activity(activity_id, user_id, db):
+    if not activity_integration.owns_activity(activity_id, requester_user_id, db):
         logger.debug(
             "Rejected activity media access for an activity the caller does not own",
-            extra=core_logger.context(activity_id=activity_id, user_id=user_id),
+            extra=core_logger.context(activity_id=activity_id, requester_user_id=requester_user_id),
         )
         raise core_exceptions.NotFoundError("Activity not found")
 
@@ -252,7 +252,7 @@ def _to_read_model(
 
 def list_activity_media(
     activity_id: int,
-    user_id: int,
+    requester_user_id: int,
     db: Session,
     *,
     page_number: int = 1,
@@ -262,7 +262,7 @@ def list_activity_media(
 
     Args:
         activity_id: The activity whose media to list.
-        user_id: The authenticated user.
+        requester_user_id: The authenticated user.
         db: Database session.
         page_number: 1-based page number.
         num_records: Page size.
@@ -273,10 +273,10 @@ def list_activity_media(
         indistinguishable, so the endpoint cannot be used to probe which
         activity ids exist.
     """
-    if not activity_integration.owns_activity(activity_id, user_id, db):
+    if not activity_integration.owns_activity(activity_id, requester_user_id, db):
         logger.debug(
             "Listing activity media for an activity the caller does not own; returning empty",
-            extra=core_logger.context(activity_id=activity_id, user_id=user_id),
+            extra=core_logger.context(activity_id=activity_id, requester_user_id=requester_user_id),
         )
         return activity_media_schema.ActivityMediaPage.build([], 0, page_number, num_records)
     records = activity_media_crud.get_media_for_activity(
@@ -285,7 +285,7 @@ def list_activity_media(
     total = activity_media_crud.count_media_for_activity(activity_id, db)
     logger.debug(
         "Listed activity media",
-        extra=core_logger.context(activity_id=activity_id, user_id=user_id, count=len(records)),
+        extra=core_logger.context(activity_id=activity_id, requester_user_id=requester_user_id, count=len(records)),
     )
     return activity_media_schema.ActivityMediaPage.build(
         [_to_read_model(record) for record in records], total, page_number, num_records
@@ -317,7 +317,8 @@ def read_activity_media_blob(
         A ``(data, content_type)`` tuple.
 
     Raises:
-        NotFoundError: When the token is invalid or forged, the record does not
+        AccessConcealedError: When the token is invalid or forged.
+        NotFoundError: When the record does not
             belong to ``activity_id``, or no blob exists. A 404 rather than 403
             avoids confirming the resource to an unauthorized caller.
     """
@@ -328,7 +329,7 @@ def read_activity_media_blob(
             "Rejected an activity media request with an invalid signed token",
             extra=core_logger.context(activity_id=activity_id, media_id=media_id),
         )
-        raise core_exceptions.NotFoundError("Activity media not found")
+        raise core_exceptions.AccessConcealedError("Activity media not found")
 
     media = activity_media_crud.get_activity_media_by_id(media_id, db)
     if media is None or media.activity_id != activity_id:
@@ -347,7 +348,7 @@ def read_activity_media_blob(
 
 def store_activity_media(
     activity_id: int,
-    user_id: int,
+    requester_user_id: int,
     original_filename: str | None,
     data: bytes,
     storage: platform_providers.StorageProvider,
@@ -362,7 +363,7 @@ def store_activity_media(
 
     Args:
         activity_id: The activity to attach the media to.
-        user_id: The authenticated user, who must own the activity.
+        requester_user_id: The authenticated user, who must own the activity.
         original_filename: The uploaded filename, used only for its extension.
         data: The validated image bytes.
         storage: The blob-storage provider.
@@ -378,13 +379,13 @@ def store_activity_media(
         UnsupportedMediaTypeError: For an unsupported extension.
         ConflictError: On a duplicate key.
     """
-    _require_owned_activity(activity_id, user_id, db)
+    _require_owned_activity(activity_id, requester_user_id, db)
 
     created = _persist_media_bytes(activity_id, original_filename, data, storage, db)
 
     logger.info(
         "Stored activity media",
-        extra=core_logger.context(activity_id=activity_id, user_id=user_id, media_id=created.id),
+        extra=core_logger.context(activity_id=activity_id, requester_user_id=requester_user_id, media_id=created.id),
     )
     return _to_read_model(created)
 
@@ -433,7 +434,7 @@ def store_activity_media_bytes(
 def delete_activity_media(
     activity_id: int,
     media_id: int,
-    user_id: int,
+    requester_user_id: int,
     storage: platform_providers.StorageProvider,
     db: Session,
 ) -> None:
@@ -444,7 +445,7 @@ def delete_activity_media(
             path. Checked so a media id cannot be deleted through an unrelated
             activity's URL.
         media_id: The media record to delete.
-        user_id: The authenticated user, who must own the owning activity.
+        requester_user_id: The authenticated user, who must own the owning activity.
         storage: The blob-storage provider.
         db: Database session.
 
@@ -456,7 +457,7 @@ def delete_activity_media(
     if media is None or media.activity_id != activity_id:
         raise core_exceptions.NotFoundError("Activity media not found")
 
-    _require_owned_activity(media.activity_id, user_id, db)
+    _require_owned_activity(media.activity_id, requester_user_id, db)
 
     activity_media_crud.delete_activity_media(media_id, db)
     db.commit()
@@ -474,7 +475,7 @@ def delete_activity_media(
 
     logger.info(
         "Deleted activity media",
-        extra=core_logger.context(activity_id=activity_id, media_id=media_id, user_id=user_id),
+        extra=core_logger.context(activity_id=activity_id, media_id=media_id, requester_user_id=requester_user_id),
     )
 
 

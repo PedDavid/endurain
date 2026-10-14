@@ -68,9 +68,10 @@ _CONSOLE_ALLOWED_PREFIXES = ("activities/activity_ingestion/",)
 _CONSOLE_ALLOWED_ROLES = frozenset({"migration_service"})
 
 #: Exceptions a service raises to refuse a request. Raising one is a decision, and the rule says a refusal
-#: is a WARNING. ``NotFoundError`` is deliberately absent: it also reports a record that is simply missing,
+#: is a WARNING. ``AccessConcealedError`` is a refusal answered as ``404``; plain ``NotFoundError`` is
+#: deliberately absent: it reports a record that is missing (or whose absence cannot be told from a refusal),
 #: which is not a decision about the caller.
-_REFUSALS = frozenset({"PermissionDeniedError"})
+_REFUSALS = frozenset({"PermissionDeniedError", "AccessConcealedError"})
 
 _ROOT = pathlib.Path("app/modules")
 
@@ -107,6 +108,18 @@ def _function_logs(function: ast.AST) -> bool:
         and isinstance(node.func, ast.Attribute)
         and isinstance(node.func.value, ast.Name)
         and node.func.value.id == "logger"
+        for node in ast.walk(function)
+    )
+
+
+def _function_warns(function: ast.AST) -> bool:
+    """Return whether a function body logs at WARNING or above."""
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "logger"
+        and node.func.attr in {"warning", "error", "exception", "critical"}
         for node in ast.walk(function)
     )
 
@@ -201,7 +214,11 @@ class TestLoggingRule:
             for node in ast.walk(ast.parse(path.read_text())):
                 if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     continue
-                if (_refuses(node) or _commits(node)) and not _function_logs(node):
-                    offenders.append(f"{_relative(path)}::{node.name}")
+                if _refuses(node) and not _function_warns(node):
+                    offenders.append(f"{_relative(path)}::{node.name} (refusal without a WARNING)")
+                elif _commits(node) and not _function_logs(node):
+                    offenders.append(f"{_relative(path)}::{node.name} (state change without a log)")
 
-        assert offenders == [], "Log the refusal or the state change in the same function:\n  " + "\n  ".join(offenders)
+        assert offenders == [], "Log the refusal (WARNING) or the state change in the same function:\n  " + "\n  ".join(
+            offenders
+        )

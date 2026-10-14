@@ -25,8 +25,10 @@ class TestBulkImportDirResolution:
 
 class TestBulkImportSourceErrorDirectory:
     def test_a_generic_import_uses_the_owners_error_directory(self):
+        from modules.activities.activity_ingestion import bulk_entry_service
+
         source = sources.BulkImportSource(import_initiated_time="2026", user_id=7)
-        assert source.error_directory == core_config.bulk_import_error_dir_for(7)
+        assert bulk_entry_service._default_error_directory(source) == core_config.bulk_import_error_dir_for(7)
 
     def test_a_strava_export_keeps_its_own_directory(self):
         source = strava_bulk_import_source.StravaBulkImportSource(import_initiated_time="2026", user_id=7)
@@ -34,8 +36,10 @@ class TestBulkImportSourceErrorDirectory:
 
     def test_falls_back_to_the_shared_directory_without_an_owner(self):
         """Nothing should construct it this way, but it must not build a '/None' path."""
+        from modules.activities.activity_ingestion import bulk_entry_service
+
         source = sources.BulkImportSource(import_initiated_time="2026")
-        assert source.error_directory == core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR
+        assert bulk_entry_service._default_error_directory(source) == core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR
 
 
 class TestStrandedRootFiles:

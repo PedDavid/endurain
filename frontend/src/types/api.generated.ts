@@ -11761,6 +11761,11 @@ export interface components {
             /** Mfa Code */
             mfa_code: string;
         };
+        /** Body_create_activity_media_api_v1_activities__activity_id__media_post */
+        Body_create_activity_media_api_v1_activities__activity_id__media_post: {
+            /** File */
+            file: string;
+        };
         /**
          * ActivitySortField
          * @enum {string}
@@ -11801,11 +11806,6 @@ export interface components {
          * @enum {string}
          */
         ActivityVisibility: "public" | "followers" | "private";
-        /** Body_create_activity_media_api_v1_activities__activity_id__media_post */
-        Body_create_activity_media_api_v1_activities__activity_id__media_post: {
-            /** File */
-            file: string;
-        };
         /**
          * BristolType
          * @description Bristol Stool Scale classification types.

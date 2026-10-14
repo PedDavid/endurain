@@ -1,21 +1,8 @@
-"""The followers surface consumed by other modules (activities).
+"""The followers surface other modules may call.
 
-The counterpart of :mod:`modules.activities.activity.integration_service`, and
-named to match: every module exposes the operations other modules may use under
-``integration_service``, so "what may I depend on?" has one answer everywhere
-rather than being ``integration_service`` in one module and ``service`` in the
-next.
-
-The distinction is not cosmetic. ``service`` is the module's own application
-layer — privacy-checked reads, follow/accept/unfollow writes, the notification
-publishes — and most of it is meaningless to a caller outside this module.
-``integration_service`` is the small, deliberate subset that is not: today, the
-accepted-followee lookup the activities feed and the non-owner visibility filter
-are built on.
-
-The activities module must reach followers through here, never through
-``followers.crud`` / ``followers.models`` / ``followers.service`` (see the
-"Visibility" section of ``docs/developer-guide/module-structure.md``).
+Today that is the accepted-followee lookup the activities feed and visibility filter
+are built on. The follow graph itself stays behind ``service``, which privacy-checks
+every read.
 """
 
 from sqlalchemy.orm import Session

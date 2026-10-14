@@ -18,7 +18,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-import core.config as core_config
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.schema as activity_schema
 
@@ -129,19 +128,17 @@ class BulkImportSource:
     kind = "bulk_import"
 
     @property
-    def error_directory(self) -> str:
-        """Directory a file is moved to when its import fails.
+    def error_directory(self) -> str | None:
+        """Directory a failed file is moved to, when the source names its own.
 
-        Per-user for a generic bulk import, matching the per-user drop
-        directory: moving one user's failed file into a shared location would
-        undo the isolation the import itself enforces.
+        A generic bulk import names none: the entry service applies the per-user
+        default, so this contract reads no configuration. A provider export that
+        lands in a shared location overrides this.
 
         Returns:
-            The directory path.
+            The directory path, or ``None`` to use the entry service's default.
         """
-        if self.user_id is None:
-            return core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR
-        return core_config.bulk_import_error_dir_for(self.user_id)
+        return None
 
     def metadata_for(self, file_base_name: str) -> dict:
         """Build the supplemental metadata to apply to activities from one file.

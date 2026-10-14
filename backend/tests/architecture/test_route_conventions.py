@@ -99,6 +99,32 @@ class TestRouteConventions:
             offenders
         )
 
+    def test_path_parameters_are_typed_by_alias(self):
+        """A path parameter's constraint is its type: ``PositiveId``/``ActivityId``, not a bare ``int``.
+
+        A bare ``int`` accepts ``0`` and negative ids, and publishes no constraint in OpenAPI.
+        """
+        offenders: list[str] = []
+        for path, function in _router_functions():
+            for _, call in _route_decorators(function):
+                if not call.args or not isinstance(call.args[0], ast.Constant):
+                    continue
+                route_params = {
+                    segment[1:-1]
+                    for segment in str(call.args[0].value).split("/")
+                    if segment.startswith("{") and segment.endswith("}")
+                }
+                for argument in function.args.args:
+                    annotation = argument.annotation
+                    if (
+                        argument.arg in route_params
+                        and isinstance(annotation, ast.Name)
+                        and annotation.id in {"int", "str"}
+                    ):
+                        offenders.append(f"{path.relative_to(_ROOT).as_posix()}::{function.name}({argument.arg})")
+
+        assert offenders == [], "Type the path parameter with an alias from dependencies:\n  " + "\n  ".join(offenders)
+
 
 class TestSignatureConventions:
     def test_db_is_the_last_required_positional_parameter(self):

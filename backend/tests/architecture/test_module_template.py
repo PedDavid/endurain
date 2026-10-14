@@ -9,6 +9,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from tests._helpers.module_roles import CONVERTED_MODULES
 
 import model_registry as app_model_registry
 import module_registry as runtime_module_registry
@@ -18,13 +19,24 @@ import modules.followers.model_registry as followers_model_registry
 
 _MODULES_DIR = Path(__file__).resolve().parents[2] / "app" / "modules"
 _APP_DIR = _MODULES_DIR.parent
-_TEMPLATE_PACKAGES = sorted(
-    [*(_MODULES_DIR / "activities").glob("activity*"), _MODULES_DIR / "followers"],
-)
 
 
-def _init_files() -> list[Path]:
-    return [pkg / "__init__.py" for pkg in _TEMPLATE_PACKAGES if (pkg / "__init__.py").is_file()]
+def _template_packages() -> list[Path]:
+    """Return the independently extractable packages of every converted module.
+
+    A composition namespace contributes its child packages; a flat module is its own
+    package. Derived from ``CONVERTED_MODULES`` so converting a module covers it here
+    without a second list to update.
+    """
+    found: list[Path] = []
+    for name in CONVERTED_MODULES:
+        root = _MODULES_DIR / name
+        children = [child for child in sorted(root.iterdir()) if child.is_dir() and (child / "__init__.py").is_file()]
+        found.extend(children or [root])
+    return found
+
+
+_TEMPLATE_PACKAGES = _template_packages()
 
 
 def _absolute_imports(path: Path) -> set[str]:
@@ -36,24 +48,6 @@ def _absolute_imports(path: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
             imports.add(node.module)
     return imports
-
-
-@pytest.mark.parametrize("init_file", _init_files(), ids=lambda p: p.parent.name)
-def test_package_init_is_a_docstring_only(init_file: Path) -> None:
-    """A package facade must not re-export its ORM, CRUD or services.
-
-    A re-export would hand out the ORM model under a package path, and the layer
-    rules match on the file an import names, so it would bypass them.
-    """
-    tree = ast.parse(init_file.read_text())
-    offenders = [
-        node for node in tree.body if isinstance(node, ast.Import | ast.ImportFrom | ast.Assign | ast.AnnAssign)
-    ]
-    assert not offenders, (
-        f"{init_file.relative_to(_MODULES_DIR.parent)} should contain only a docstring. "
-        "Re-exporting from a package facade bypasses the layer rules in "
-        "test_module_boundaries.py — import the submodule instead."
-    )
 
 
 #: Packages that publish no cross-module operation, as ``{package name: reason}``.

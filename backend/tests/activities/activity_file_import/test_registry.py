@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 import modules.activities.activity_file_import.registry as registry
 
 
@@ -35,7 +37,9 @@ class TestAdapters:
 
         assert result.activities == ["parsed-gpx"]
         assert result.components == {}
-        mock_gpx.parse_gpx_file.assert_called_once_with("/f.gpx", 7, "Name", "Asia/Tokyo")
+        mock_gpx.parse_gpx_file.assert_called_once_with(
+            "/f.gpx", 7, activity_name_input="Name", default_timezone="Asia/Tokyo"
+        )
         mock_adapter.parsed_info_to_parsed_activity.assert_called_once_with({"activity": "gpx"})
 
     @patch("modules.activities.activity_file_import.registry.activity_file_import_adapter")
@@ -48,14 +52,19 @@ class TestAdapters:
         result = parser("/f.tcx", 7, "Name", "Asia/Tokyo")
 
         assert result.activities == ["parsed-tcx"]
-        mock_tcx.parse_tcx_file.assert_called_once_with("/f.tcx", 7, "Name", "Asia/Tokyo")
+        mock_tcx.parse_tcx_file.assert_called_once_with(
+            "/f.tcx", 7, activity_name_input="Name", default_timezone="Asia/Tokyo"
+        )
 
     @patch("modules.activities.activity_file_import.registry.activity_file_import_gpx_utils")
-    def test_fallback_timezone_is_optional(self, mock_gpx):
+    def test_fallback_timezone_is_the_callers_to_supply(self, mock_gpx):
+        # Parsers read no settings, so the caller resolves the fallback zone.
         mock_gpx.parse_gpx_file.return_value = {"activity": "gpx"}
         parser = registry.get_parser(".gpx")
-        parser("/f.gpx", 7)
-        mock_gpx.parse_gpx_file.assert_called_once_with("/f.gpx", 7, None, None)
+        with pytest.raises(TypeError):
+            parser("/f.gpx", 7)
+        parser("/f.gpx", 7, None, "UTC")
+        mock_gpx.parse_gpx_file.assert_called_once_with("/f.gpx", 7, activity_name_input=None, default_timezone="UTC")
 
     @patch("modules.activities.activity_file_import.registry.activity_file_import_adapter")
     @patch("modules.activities.activity_file_import.registry.activity_file_import_fit_utils")
@@ -87,7 +96,7 @@ class TestAdapters:
         mock_fit.create_activity_objects.return_value = ["i1", "i2", "i3"]
         mock_adapter.parsed_info_to_parsed_activity.side_effect = lambda info: info
 
-        result = registry.get_parser(".fit")("/f.fit", 7)
+        result = registry.get_parser(".fit")("/f.fit", 7, None, "UTC")
 
         assert result.activities == ["i1", "i2", "i3"]
         assert result.components == {"exercise_titles": None}

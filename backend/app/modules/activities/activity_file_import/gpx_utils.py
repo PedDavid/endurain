@@ -9,7 +9,6 @@ from typing import TypedDict
 import gpxpy
 import gpxpy.gpx
 
-import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
@@ -506,8 +505,9 @@ def _build_activity_schema(
 def parse_gpx_file(
     file: str,
     user_id: int,
+    *,
     activity_name_input: str | None = None,
-    default_timezone: str | None = None,
+    default_timezone: str,
 ) -> ParsedGpxData:
     """Parse a GPX file into structured activity data.
 
@@ -533,7 +533,7 @@ def parse_gpx_file(
             activity_name_input,
             # A GPX track normally yields a timezone from its first GPS point;
             # this only applies when it has none (a track-less/indoor export).
-            default_timezone or core_config.settings.TZ,
+            default_timezone,
         )
 
         with Path(file).open("r", encoding="utf-8") as gpx_file:

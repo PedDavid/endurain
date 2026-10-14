@@ -20,6 +20,7 @@ import jasil.providers as platform_providers
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+import core.config as core_config
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
@@ -66,6 +67,23 @@ def store_bulk_import_file(
     )
 
 
+def _default_error_directory(source: activity_ingestion_contracts.BulkImportSource) -> str:
+    """Return the per-user error directory a generic bulk import fails into.
+
+    Per-user, matching the per-user drop directory: moving one user's failed file
+    into a shared location would undo the isolation the import itself enforces.
+
+    Args:
+        source: The bulk-import source.
+
+    Returns:
+        The directory path.
+    """
+    if source.user_id is None:
+        return core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR
+    return core_config.bulk_import_error_dir_for(source.user_id)
+
+
 def _move_failed_file_to_error_directory(source: activity_ingestion_contracts.BulkImportSource, file_path: str) -> None:
     """Move a file whose import failed into the source's error directory.
 
@@ -74,7 +92,7 @@ def _move_failed_file_to_error_directory(source: activity_ingestion_contracts.Bu
         file_path: The file that failed to import.
     """
     try:
-        error_file_dir = source.error_directory
+        error_file_dir = source.error_directory or _default_error_directory(source)
         os.makedirs(error_file_dir, exist_ok=True)
         core_file_uploads.move_within(file_path, error_file_dir, filename=os.path.basename(file_path))
         logger.error(

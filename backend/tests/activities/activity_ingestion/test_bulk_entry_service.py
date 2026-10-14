@@ -118,7 +118,7 @@ class TestMoveFailedFileToErrorDirectory:
             bulk_entry_service._move_failed_file_to_error_directory(source, "/tmp/bad.gpx")
 
         assert move.call_args.args[0] == "/tmp/bad.gpx"
-        assert move.call_args.args[1] == source.error_directory
+        assert move.call_args.args[1] == bulk_entry_service._default_error_directory(source)
         assert move.call_args.kwargs["filename"] == "bad.gpx"
 
     def test_a_failed_move_is_logged_not_raised(self):

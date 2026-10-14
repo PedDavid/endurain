@@ -28,6 +28,7 @@ import core.database as core_database
 import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
+import modules.activities.activity_ingestion.dependencies as activity_ingestion_dependencies
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as activity_ingestion_service
 import modules.auth.dependencies as auth_dependencies
@@ -114,7 +115,7 @@ def create_activity_with_uploaded_file(
     response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
 def read_activity_ingestion_job(
-    job_id: str,
+    job_id: activity_ingestion_dependencies.JobId,
     token_user_id: Annotated[
         int,
         Depends(auth_dependencies.get_user_id_from_auth),

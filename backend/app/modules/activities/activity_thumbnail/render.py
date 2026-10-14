@@ -10,7 +10,6 @@ bytes-in/bytes-out means the read path never has to import the rendering stack.
 import re
 from urllib.parse import urlparse
 
-import core.config as core_config
 import core.logger as core_logger
 import core.route_map as core_route_map
 from core.route_map import RouteMapRenderRequest
@@ -79,6 +78,9 @@ def _normalise_tile_url(url: str) -> str:
     return url
 
 
+DEFAULT_USER_AGENT = "Endurain - StaticMap backend thumbnail generator"
+
+
 def render_activity_thumbnail(
     activity_id: int,
     waypoints: list[dict],
@@ -86,6 +88,7 @@ def render_activity_thumbnail(
     tile_url: str = DEFAULT_TILE_URL,
     background_color: str = DEFAULT_BG_COLOR,
     api_key: str | None = None,
+    user_agent: str = DEFAULT_USER_AGENT,
     width: int = THUMBNAIL_WIDTH,
     height: int = THUMBNAIL_HEIGHT,
 ) -> bytes | None:
@@ -104,6 +107,8 @@ def render_activity_thumbnail(
         api_key: Optional tile provider API key. Stadia receives it through its
             authorization header; other providers receive it as an HTTPS query
             parameter.
+        user_agent: ``User-Agent`` sent with tile requests; the caller supplies the
+            app version.
         width: Thumbnail width in pixels.
         height: Thumbnail height in pixels.
 
@@ -126,9 +131,7 @@ def render_activity_thumbnail(
 
         # Build request headers; inject Authorization when an API
         # key is present (e.g. Stadia Maps requires backend auth).
-        headers: dict[str, str] = {
-            "User-Agent": f"Endurain {core_config.API_VERSION} - StaticMap backend thumbnail generator"
-        }
+        headers: dict[str, str] = {"User-Agent": user_agent}
         if not api_key and "stadiamaps.com" in normalised_url:
             logger.warning(
                 "Skipping thumbnail render: Stadia Maps tile URL requires an API key",

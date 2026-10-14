@@ -44,6 +44,7 @@ UNCONVERTED_MODULES: tuple[str, ...] = (
 #: ``service`` and ``public_router`` is not read as ``router``.
 ROLES: tuple[str, ...] = (
     "contributor_registry",
+    "contributors",
     "subscriber_registry",
     "integration_service",
     "migration_service",

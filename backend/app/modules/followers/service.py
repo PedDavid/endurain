@@ -59,7 +59,7 @@ def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Se
         db: Database session.
 
     Raises:
-        NotFoundError: When the requester may not view this network. A refusal answers like a
+        AccessConcealedError: When the requester may not view this network. Answered like a
             missing resource, so the endpoint cannot be used to probe a user's privacy.
     """
     if not _requester_may_view_network(target_user_id, requester_user_id, db):
@@ -67,7 +67,7 @@ def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Se
             "Denied access to a user's follower network",
             extra=core_logger.context(requester_user_id=requester_user_id, target_user_id=target_user_id),
         )
-        raise core_exceptions.NotFoundError("User not found")
+        raise core_exceptions.AccessConcealedError("User not found")
 
 
 def list_followers(
@@ -226,8 +226,8 @@ def delete_relationship(followee_id: int, follower_id: int, requester_user_id: i
         db: Database session.
 
     Raises:
-        NotFoundError: When the caller is not part of the relationship; answered as a missing
-            relationship so it does not confirm one exists.
+        AccessConcealedError: When the caller is not part of the relationship; answered as a
+            missing relationship so it does not confirm one exists.
     """
     if requester_user_id not in (followee_id, follower_id):
         logger.warning(
@@ -236,7 +236,7 @@ def delete_relationship(followee_id: int, follower_id: int, requester_user_id: i
                 requester_user_id=requester_user_id, followee_id=followee_id, follower_id=follower_id
             ),
         )
-        raise core_exceptions.NotFoundError("Follow relationship not found")
+        raise core_exceptions.AccessConcealedError("Follow relationship not found")
     followers_crud.delete_follower(follower_id, followee_id, db)
     db.commit()
     logger.info(

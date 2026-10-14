@@ -10,7 +10,6 @@ from pathlib import Path
 
 import fitdecode
 
-import core.config as core_config
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
@@ -26,7 +25,7 @@ logger = core_logger.get_logger(__name__)
 def create_activity_objects(
     sessions_records: list[dict],
     user_id: int,
-    default_timezone: str | None = None,
+    default_timezone: str,
 ) -> list:
     """Build per-activity parsed payloads from the split FIT session records.
 
@@ -49,7 +48,7 @@ def create_activity_objects(
         )
         # Fallback for sessions with neither a GPS track nor a reported UTC
         # offset (indoor rides, treadmill runs, pool swims).
-        timezone = default_timezone or core_config.settings.TZ
+        timezone = default_timezone
 
         activities = []
 

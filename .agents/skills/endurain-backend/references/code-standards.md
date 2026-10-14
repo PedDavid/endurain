@@ -6,8 +6,7 @@
 - Imports grouped stdlib / third-party / local; `TYPE_CHECKING` to avoid cycles.
 - Every module has a top-level docstring.
 - Comments and docstrings state what the code does now and why. History (what it "used to" do, how much duplication a refactor removed) goes in the commit message.
-- `db` is the last required positional parameter in `service`, `crud` and `integration_service`; routers and dependencies are exempt because FastAPI resolves them by name.
-- `__init__.py` follows the module guide (docstring only), not `__all__`.
+- Parameter order, `__init__.py`, comment content, naming and layering are stated once in `docs/developer-guide/module-structure.md`; this file only holds the language- and framework-level style below.
 
 ## Docstrings (PEP 257, Google sections)
 Enforced by ruff `D` with `convention = "google"` on the converted modules (`activities`, `followers`); other modules are exempt until converted.
@@ -43,7 +42,7 @@ Use `core.logger.get_logger(__name__)` and `core.logger.context(...)`; never f-s
 | Layer | Logs |
 | --- | --- |
 | `router`, `public_router` | nothing (a rejected capability token is logged by the `service` that verifies it) |
-| `service` | INFO state change completed; WARNING request refused; DEBUG inputs to a non-obvious decision. A function that raises `PermissionDeniedError` or ends a transaction logs in the same function; a service that only delegates logs nothing |
+| `service` | INFO state change completed; WARNING request refused; DEBUG inputs to a non-obvious decision. A function that raises `PermissionDeniedError` or `AccessConcealedError` logs a WARNING in the same function, and one that ends a transaction logs in the same function; a service that only delegates logs nothing |
 | `crud` | only what it swallows: ERROR cannot complete, WARNING absorbed anomaly; never success narration |
 | `subscribers` | DEBUG when skipping, ERROR when failing |
 | `query`, `serializers`, `signing`, `models`, `schema`, pure utils | nothing |

@@ -84,6 +84,18 @@ class NotFoundError(DomainError):
     default_detail = "Not found"
 
 
+class AccessConcealedError(NotFoundError):
+    """A caller was refused, and the refusal is answered exactly like a missing resource.
+
+    Renders as the same ``404`` and ``not-found`` problem as :class:`NotFoundError`,
+    so a client cannot tell the two apart. The difference is on the server: raising
+    this says the code *decided* to refuse (an invalid capability token, a network
+    the caller may not view), which is a security-relevant event the service must log
+    as a WARNING, while a plain :class:`NotFoundError` reports a record that is
+    missing or whose absence cannot be told from a refusal.
+    """
+
+
 class PermissionDeniedError(DomainError):
     """The caller is authenticated but not allowed to perform this action."""
 

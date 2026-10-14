@@ -44,6 +44,9 @@ def _patch_parser_side_effects(monkeypatch) -> None:
     )
 
 
+_SERVER_TZ = "UTC"
+
+
 class TestParseGpxFile:
     """Test suite for full GPX parser behavior."""
 
@@ -84,10 +87,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         expected_distance = (
             geodesic(
@@ -146,10 +146,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         expected_distance = (
             geodesic((0.0, 0.0), (0.0, 0.001)).meters
@@ -186,10 +183,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         # 08:19:19-07:00 == 15:19:19 UTC; the offset must be converted (not
         # silently dropped) and ActivityCore stores it as an aware-UTC datetime.
@@ -224,10 +218,7 @@ class TestParseGpxFile:
         )
 
         with pytest.raises(core_exceptions.InvalidInputError) as exc_info:
-            gpx_utils.parse_gpx_file(
-                gpx_path,
-                user_id=1,
-            )
+            gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert exc_info.value.status_code == 400
         assert "no valid segments" in exc_info.value.detail
@@ -270,10 +261,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["ele_waypoints"] == [
             {
@@ -320,10 +308,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["activity"].calories == 123
 
@@ -355,10 +340,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["is_heart_rate_set"] is False
         assert result["hr_waypoints"] == []
@@ -401,10 +383,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["is_heart_rate_set"] is True
         assert len(result["hr_waypoints"]) == 2
@@ -448,10 +427,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["is_cadence_set"] is True
         assert [wp["cad"] for wp in result["cad_waypoints"]] == [80, 90]
@@ -491,10 +467,7 @@ class TestParseGpxFile:
             """.strip(),
         )
 
-        result = gpx_utils.parse_gpx_file(
-            gpx_path,
-            user_id=1,
-        )
+        result = gpx_utils.parse_gpx_file(gpx_path, user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["is_heart_rate_set"] is False
         assert result["activity"].average_hr is None

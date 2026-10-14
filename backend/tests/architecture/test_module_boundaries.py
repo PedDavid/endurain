@@ -58,23 +58,14 @@ _PUBLIC_WITHIN_MODULE = frozenset(
         "scheduled_jobs",
         "model_registry",
         "contributor_registry",
+        "contributors",
     }
 )
 
 #: Roles importable from *outside* the owning module. Everything else is
 #: module-internal or package-private. ``service`` and ``query`` are deliberately
 #: absent: they are the module's own layers, not its published surface.
-_PUBLIC_ACROSS_MODULES = (_PUBLIC_WITHIN_MODULE - {"service", "query"}) | frozenset(
-    {
-        "integration_service",
-        "subscriber_registry",
-        "scheduled_jobs",
-        "computation",
-        "dependencies",
-        "router",
-        "public_router",
-    }
-)
+_PUBLIC_ACROSS_MODULES = _PUBLIC_WITHIN_MODULE | {"computation", "contributors"}
 
 _MIGRATION_SURFACE = "migration_service"
 
@@ -207,6 +198,31 @@ def _python_files(root: pathlib.Path) -> list[pathlib.Path]:
         The sorted list of ``.py`` files, excluding caches.
     """
     return sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
+
+
+def _session_names(tree: ast.AST) -> set[str]:
+    """Return the names a file binds to a SQLAlchemy ``Session``.
+
+    The convention is ``db``, but a rule keyed on one spelling is exempted by a rename, so
+    any parameter annotated ``Session`` (or ``scoped_session``) counts as well. ``session``
+    alone is not assumed: a FIT *session* record is a dict with its own ``get``.
+
+    Args:
+        tree: The parsed file.
+
+    Returns:
+        ``db`` and every annotated parameter name.
+    """
+    names = {"db"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
+                annotation = argument.annotation
+                if isinstance(annotation, ast.Name | ast.Attribute):
+                    label = annotation.id if isinstance(annotation, ast.Name) else annotation.attr
+                    if label in {"Session", "scoped_session"}:
+                        names.add(argument.arg)
+    return names
 
 
 def _symbol_reference_nodes(tree: ast.AST, symbols: set[str]) -> list[tuple[ast.AST, str]]:
@@ -646,19 +662,21 @@ class TestSubPackagePrivacy:
             for path in _python_files(_MODULES_ROOT / module_name):
                 if _role(path.stem) == "crud":
                     continue
+                tree = ast.parse(path.read_text())
+                sessions = _session_names(tree)
                 executed = sorted(
                     {
-                        node.func.attr
-                        for node in ast.walk(ast.parse(path.read_text()))
+                        f"{node.func.value.id}.{node.func.attr}"
+                        for node in ast.walk(tree)
                         if isinstance(node, ast.Call)
                         and isinstance(node.func, ast.Attribute)
                         and node.func.attr in _SESSION_EXECUTION
                         and isinstance(node.func.value, ast.Name)
-                        and node.func.value.id == "db"
+                        and node.func.value.id in sessions
                     }
                 )
                 if executed:
-                    offenders.append(f"{path} (role={_role(path.stem)}): db.{', db.'.join(executed)}")
+                    offenders.append(f"{path} (role={_role(path.stem)}): {', '.join(executed)}")
         assert not offenders, (
             "Only a crud-role file may execute against the session. Move the "
             "query into the package's crud, or rename the file so its role is "
@@ -996,9 +1014,6 @@ class TestProviderResolution:
     #: scheduler, a peer module) calls them with nothing to carry a provider.
     _ENTRY_ROLES = frozenset({"router", "public_router", "subscribers", "integration_service", "scheduled_jobs"})
 
-    #: Stem suffixes for entry layers whose names are not in the role vocabulary.
-    _ENTRY_SUFFIXES = ("_jobs", "_entry", "_subscribers")
-
     def test_services_and_helpers_receive_their_providers(self):
         """``get_active_platform()`` is a service locator, so it stays at the edge.
 
@@ -1012,7 +1027,7 @@ class TestProviderResolution:
         offenders: list[str] = []
         for module_name in _CONVERTED:
             for path in _python_files(_MODULES_ROOT / module_name):
-                if _role(path.stem) in self._ENTRY_ROLES or path.stem.endswith(self._ENTRY_SUFFIXES):
+                if _role(path.stem) in self._ENTRY_ROLES:
                     continue
                 for node in ast.walk(ast.parse(path.read_text())):
                     if isinstance(node, ast.Attribute) and node.attr in {"get_active_platform", "get_state"}:
@@ -1219,3 +1234,95 @@ class TestModuleSurface:
             "to the module's integration_service, or record the exception in "
             "_INBOUND_EXCEPTIONS:\n  " + "\n  ".join(sorted(offenders))
         )
+
+
+#: Roles that may read application settings (``core.config``). Everything else is a
+#: pure layer: a parser, renderer, query, serializer or contract that needs a value
+#: takes it as a parameter, so it can be tested and reused with no settings present.
+_MAY_READ_CONFIGURATION = frozenset(
+    {
+        "service",
+        "router",
+        "public_router",
+        "dependencies",
+        "subscribers",
+        "scheduled_jobs",
+        "integration_service",
+        "migration_service",
+    }
+)
+
+
+class TestConfigurationReads:
+    """Settings are read where the application decides, never inside a pure layer."""
+
+    def test_only_application_layers_read_configuration(self):
+        """``core.config`` is a declared dependency of the application layers.
+
+        Providers are passed down because a dependency has to be visible in a signature;
+        configuration is the same kind of dependency. A parser that fell back to
+        ``settings.TZ`` or a contract that computed a directory from settings had a hidden
+        input that tests had to patch and a library extraction would have to drag along.
+        """
+        offenders = sorted(
+            f"{_module_dotted(path)} ({_role(path.stem)})"
+            for module_name in _CONVERTED
+            for path in _python_files(_MODULES_ROOT / module_name)
+            if _role(path.stem) not in _MAY_READ_CONFIGURATION
+            and any(target == "core.config" or target.startswith("core.config.") for target in _imported_modules(path))
+        )
+
+        assert not offenders, (
+            "A pure layer imports core.config. Take the value as a parameter and read it in a "
+            "service, router, subscriber or job:\n  " + "\n  ".join(offenders)
+        )
+
+
+class TestReadModelsAreStoredRows:
+    """A ``<Thing>Read`` is what the server returns, so its ``id`` is never optional."""
+
+    def test_read_models_require_their_id(self):
+        offenders: list[str] = []
+        for module_name in _CONVERTED:
+            for path in _python_files(_MODULES_ROOT / module_name):
+                if _role(path.stem) not in {"schema", "contracts"}:
+                    continue
+                for node in ast.walk(ast.parse(path.read_text())):
+                    if not (isinstance(node, ast.ClassDef) and node.name.endswith("Read")):
+                        continue
+                    for statement in node.body:
+                        if (
+                            isinstance(statement, ast.AnnAssign)
+                            and isinstance(statement.target, ast.Name)
+                            and statement.target.id == "id"
+                            and (
+                                (statement.value is not None
+                                and _is_none_default(statement.value))
+                                or "None" in ast.unparse(statement.annotation)
+                            )
+                        ):
+                            offenders.append(f"{_module_dotted(path)}::{node.name}")
+
+        assert not offenders, (
+            "A Read model has an optional id, which usually means it is also used as a write input. "
+            "Give the input its own <Thing>Create in contracts.py:\n  " + "\n  ".join(sorted(offenders))
+        )
+
+
+def _is_none_default(value: ast.expr) -> bool:
+    """Return whether an assignment's value is a ``None`` default.
+
+    Args:
+        value: The right-hand side of an annotated assignment.
+
+    Returns:
+        True for ``= None`` and for ``Field(default=None, ...)``.
+    """
+    if isinstance(value, ast.Constant) and value.value is None:
+        return True
+    if isinstance(value, ast.Call):
+        return any(
+            keyword.arg == "default" and isinstance(keyword.value, ast.Constant) and keyword.value.value is None
+            for keyword in value.keywords
+        )
+    return False

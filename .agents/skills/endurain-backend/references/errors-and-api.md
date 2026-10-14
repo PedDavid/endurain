@@ -9,7 +9,8 @@
 
 | Exception | Status | Use when |
 | --- | --- | --- |
-| `NotFoundError` | 404 | Missing, or not visible to the caller (prefer 404 over 403 to avoid confirming existence; followers' private network and relationship deletes answer this way) |
+| `NotFoundError` | 404 | Missing, or not visible to the caller and the code cannot tell which (prefer 404 over 403 to avoid confirming existence) |
+| `AccessConcealedError` | 404 | The code *knows* it is refusing the caller and answers like a missing resource (invalid capability token, a follower network the caller may not view). Same response as `NotFoundError`; log a WARNING in the same function |
 | `PermissionDeniedError` | 403 | Authenticated but not allowed |
 | `InvalidInputError` | 400 | Well-formed but semantically unusable |
 | `ConflictError` | 409 | Conflicts with current state (duplicates, races) |

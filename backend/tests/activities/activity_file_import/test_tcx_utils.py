@@ -9,6 +9,8 @@ import pytest
 import core.exceptions as core_exceptions
 import modules.activities.activity_file_import.tcx_utils as tcx_utils
 
+_SERVER_TZ = "UTC"
+
 
 class TestUtilsTcx:
     """Test suite for TCX parser helper functions."""
@@ -191,10 +193,7 @@ class TestUtilsTcx:
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = tcx_utils.parse_tcx_file(
-                file="dummy.tcx",
-                user_id=1,
-            )
+            result = tcx_utils.parse_tcx_file(file="dummy.tcx", user_id=1, default_timezone=_SERVER_TZ)
 
         activity = result["activity"]
         # Zeros excluded: mean([150, 160]) = 155, max = 160.
@@ -254,10 +253,7 @@ class TestUtilsTcx:
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = tcx_utils.parse_tcx_file(
-                file="dummy.tcx",
-                user_id=1,
-            )
+            result = tcx_utils.parse_tcx_file(file="dummy.tcx", user_id=1, default_timezone=_SERVER_TZ)
 
         assert 1000 < result["activity"].distance < 1200
         assert result["activity"].pace > 0
@@ -314,9 +310,6 @@ class TestUtilsTcx:
         ):
             mock_reader_class.return_value.read.return_value = mock_tcx
 
-            result = tcx_utils.parse_tcx_file(
-                file="dummy.tcx",
-                user_id=1,
-            )
+            result = tcx_utils.parse_tcx_file(file="dummy.tcx", user_id=1, default_timezone=_SERVER_TZ)
 
         assert result["activity"].distance == 5000

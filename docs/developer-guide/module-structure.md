@@ -67,6 +67,9 @@ rather than that its name is on a list. Ending a transaction (`commit`,
 | `integration_service.py` | **module surface** | The curated set of operations other modules may call. |
 | `contributors.py` | **namespace contract** | Typed callbacks installed by app composition for generic ingestion/profile orchestration. |
 | `scheduled_jobs.py` | **module surface** | The module's recurring jobs, collected by the composition root. |
+| `subscriber_registry.py` | **composition surface** | Registers the package's bus subscribers and durable handlers and declares its reconciliation nets; the entrypoints import this, never `subscribers.py`. |
+| `contributor_registry.py` | **composition surface** | Process-local store of the contributors and resolvers that `app/module_registry.py` installs. Names no package. |
+| `computation.py` | **namespace helper** | Pure computation shared by a namespace's packages. Owns no table and calls no module. |
 | `model_registry.py` | **composition surface** | Declares the package's ORM model module without requiring core to scan domains. |
 | `migration_service.py` | **migration-only surface** | Version-pinned operations used by `app/migrations`; never an ordinary domain dependency. |
 
@@ -136,8 +139,8 @@ shared word.
 A namespace-level file is appropriate only for composition or a genuinely
 shared, dependency-free contract. `modules/activities/computation.py` is the
 pure metric maths used by parsers and provider adapters; it owns no table and
-calls no module. `modules/activities/contributors.py` defines the dependency-free
-activity ingestion/profile callback contracts, while `contributor_registry.py`
+calls no module. `modules/activities/contributors.py` defines the activity
+ingestion/profile callback contracts (it depends only on the activity schema), while `contributor_registry.py`
 stores only the contributors explicitly installed by `app/module_registry.py`.
 Child packages return contributor objects from `integration_service.py`; package
 imports never register themselves as a side effect.
@@ -377,6 +380,18 @@ stating so the next module is converted to the same target:
 Do not use a contributor for a plain query, and do not use an event for something
 the caller needs the answer to.
 
+## Configuration is read by the application layers
+
+`core.config` is the application's settings, which makes it a dependency like a provider:
+it has to be visible in a signature, not discovered in a function body. A converted module
+therefore reads it only in the layers that decide (`service`, `router`, `public_router`,
+`dependencies`, `subscribers`, `scheduled_jobs`, `integration_service`,
+`migration_service`). Every other file is a pure layer, and a value it needs is a
+parameter: the file parsers take the fallback `default_timezone`, the thumbnail renderer
+takes a `user_agent`, and a `BulkImportSource` that needs a directory names none and lets
+the entry service apply the default. `TestConfigurationReads` fails on a `core.config`
+import anywhere else, so the rule holds for a file added next year.
+
 ## What a module may take from `core`
 
 `core.*` is "always allowed" today, and it is the largest hidden coupling between
@@ -593,11 +608,25 @@ one pattern. Recorded here so a review does not reopen them.
   raise `HTTPException`, and a child router declares the shared alias
   (`activity_dependencies.ActivityId`) on its own handlers rather than mounting a
   dependency whose only job is to carry the parameter.
-- **Refusals answer 404.** Reading someone's follower network or deleting a follow
-  relationship you are not part of is answered as not found, the same as an activity
-  the caller cannot see, so an endpoint cannot be used to probe who exists or who
-  follows whom. `PermissionDeniedError` is for a caller who is entitled to know the
-  resource exists but may not change it.
+- **Refusals answer 404, and say so in the log.** Reading someone's follower network or
+  deleting a follow relationship you are not part of is answered as not found, the same
+  as an activity the caller cannot see, so an endpoint cannot be used to probe who exists
+  or who follows whom. `PermissionDeniedError` is for a caller who is entitled to know
+  the resource exists but may not change it. What the server logs depends on what the
+  code knows:
+
+  | The code knows | Raises | Logs |
+  | --- | --- | --- |
+  | It is refusing a caller (bad capability token, a network the caller may not view) | `AccessConcealedError` (renders as the same 404) | WARNING in the same function |
+  | The caller is entitled to know the resource exists | `PermissionDeniedError` | WARNING in the same function |
+  | The record is missing, or a missing record cannot be told from a refusal (an empty page, `owns_activity` is false) | `NotFoundError` or an empty page | DEBUG at most |
+
+  `test_a_service_decision_is_logged` enforces the first two rows: a service function that
+  raises either refusal logs at WARNING in that same function.
+- **Request bodies.** A shape a client sends is named for what it does (`<Thing>Edit`,
+  `<Thing>Create`, `FollowRequestAccept`) and lives in `schema.py`; the same shape fed by
+  a parser or an archive rather than a client is `<Thing>Create` in `contracts.py`. A
+  `<Thing>Read` is never accepted as input (`TestReadModelsAreStoredRows`).
 - **Collections.** A list a client receives is a `core.pagination.Page`; a
   collection that is absent is `[]`, never `None`. The two exceptions are the
   exercise-title reference table (`/all`, read whole by design) and the response

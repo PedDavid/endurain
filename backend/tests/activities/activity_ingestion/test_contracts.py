@@ -10,7 +10,6 @@ tested in ``tests/strava/test_bulk_import_source.py`` — the split that stopped
 activities importing a provider.
 """
 
-import core.config as core_config
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_ingestion.contracts as sources
 
@@ -42,12 +41,9 @@ class TestGarminSource:
 
 
 class TestErrorDirectory:
-    def test_per_user_directory_when_the_import_has_an_owner(self):
-        source = sources.BulkImportSource(user_id=7)
-        assert source.error_directory == core_config.bulk_import_error_dir_for(7)
-
-    def test_shared_directory_when_it_does_not(self):
-        assert sources.BulkImportSource().error_directory == core_config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR
+    def test_a_generic_import_names_no_directory_of_its_own(self):
+        """The contract reads no settings; the entry service applies the per-user default."""
+        assert sources.BulkImportSource(user_id=7).error_directory is None
 
 
 class TestMetadataFor:

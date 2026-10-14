@@ -239,3 +239,19 @@ class TestStoreActivitiesFromFile:
 
         assert result is None
         assert source.exists()
+
+
+class TestParseFileTimezoneFallback:
+    """The parsers are pure, so the pipeline applies the server timezone."""
+
+    def test_uses_the_server_timezone_when_the_owner_has_none(self):
+        from unittest.mock import MagicMock, patch
+
+        import core.config as core_config
+        import modules.activities.activity_ingestion.pipeline_service as pipeline_service
+
+        parser = MagicMock(return_value="parsed")
+        with patch.object(pipeline_service.activity_file_import_integration, "get_parser", return_value=parser):
+            pipeline_service.parse_file(1, ".gpx", "/f.gpx")
+
+        assert parser.call_args.args[3] == core_config.settings.TZ

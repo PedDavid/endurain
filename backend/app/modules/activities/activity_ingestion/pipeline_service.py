@@ -83,7 +83,9 @@ def parse_file(
             raise core_exceptions.UnsupportedFormatError(
                 f"File extension not supported. Supported file extensions are {supported}"
             )
-        return parser(filename, token_user_id, activity_name, default_timezone)
+        # The parsers are pure and cannot read settings, so the server timezone
+        # fallback for a file with no zone of its own is applied here.
+        return parser(filename, token_user_id, activity_name, default_timezone or core_config.settings.TZ)
     except core_exceptions.DomainError:
         raise
     except (

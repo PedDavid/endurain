@@ -47,8 +47,8 @@ class FileParser(Protocol):
         self,
         path: str,
         user_id: int,
-        activity_name: str | None = None,
-        default_timezone: str | None = None,
+        activity_name: str | None,
+        default_timezone: str,
     ) -> activity_contracts.ParsedFile:
         """Parse the file at ``path`` for ``user_id``.
 
@@ -72,8 +72,8 @@ class FileParser(Protocol):
 def _parse_gpx(
     path: str,
     user_id: int,
-    activity_name: str | None = None,
-    default_timezone: str | None = None,
+    activity_name: str | None,
+    default_timezone: str,
 ) -> activity_contracts.ParsedFile:
     """Adapter: parse a GPX file into the single activity it describes.
 
@@ -86,7 +86,11 @@ def _parse_gpx(
     Returns:
         The parsed file.
     """
-    parsed_info = dict(activity_file_import_gpx_utils.parse_gpx_file(path, user_id, activity_name, default_timezone))
+    parsed_info = dict(
+        activity_file_import_gpx_utils.parse_gpx_file(
+            path, user_id, activity_name_input=activity_name, default_timezone=default_timezone
+        )
+    )
     return activity_contracts.ParsedFile(
         activities=[activity_file_import_adapter.parsed_info_to_parsed_activity(parsed_info)]
     )
@@ -95,8 +99,8 @@ def _parse_gpx(
 def _parse_tcx(
     path: str,
     user_id: int,
-    activity_name: str | None = None,
-    default_timezone: str | None = None,
+    activity_name: str | None,
+    default_timezone: str,
 ) -> activity_contracts.ParsedFile:
     """Adapter: parse a TCX file into the single activity it describes.
 
@@ -109,7 +113,9 @@ def _parse_tcx(
     Returns:
         The parsed file.
     """
-    parsed_info = activity_file_import_tcx_utils.parse_tcx_file(path, user_id, activity_name, default_timezone)
+    parsed_info = activity_file_import_tcx_utils.parse_tcx_file(
+        path, user_id, activity_name_input=activity_name, default_timezone=default_timezone
+    )
     return activity_contracts.ParsedFile(
         activities=[activity_file_import_adapter.parsed_info_to_parsed_activity(parsed_info)]
     )
@@ -118,8 +124,8 @@ def _parse_tcx(
 def _parse_fit(
     path: str,
     user_id: int,
-    activity_name: str | None = None,
-    default_timezone: str | None = None,
+    activity_name: str | None,
+    default_timezone: str,
 ) -> activity_contracts.ParsedFile:
     """Adapter: parse a FIT file into the one *or more* activities it describes.
 
