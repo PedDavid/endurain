@@ -14,9 +14,9 @@ get_activities_with_legacy_thumbnail_path = activity_crud.get_activities_with_le
 def edit_activity(
     user_id: int,
     activity_id: int,
-    activity_attributes: activity_schema.ActivityEdit | activity_schema.Activity,
+    activity_attributes: activity_schema.ActivityEdit | activity_schema.ActivityRead,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Apply a historical activity edit and commit it, as migrations did.
 
     Args:
@@ -40,9 +40,6 @@ def set_activity_thumbnail_path(activity_id: int, thumbnail_path: str | None, db
         activity_id: Target activity ID.
         thumbnail_path: The path or storage key, or None to clear it.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_crud.set_activity_thumbnail_path(activity_id, thumbnail_path, db)
     db.commit()

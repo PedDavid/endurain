@@ -392,11 +392,10 @@ export interface paths {
         };
         /**
          * Read Activities Media User
-         * @description Retrieve activity media records for an activity owned by the user.
+         * @description Return one page of the media attached to an activity owned by the user.
          *
-         *     Returns an empty list when the activity has no media or is not accessible to
-         *     the caller — previously ``200 null``, which made a collection endpoint answer
-         *     with a scalar and forced every client to null-check it.
+         *     The page is empty when the activity has no media or is not accessible to the
+         *     caller.
          */
         get: operations["read_activities_media_user_api_v1_activities__activity_id__media_get"];
         put?: never;
@@ -5129,138 +5128,6 @@ export interface components {
             visibility?: number | null;
         };
         /**
-         * Activity
-         * @description Schema representing a stored fitness activity — what the API returns.
-         *
-         *     Extends :class:`ActivityBase` with the fields the **server** owns: they are
-         *     read out of a stored row and are never accepted from an ingestion producer,
-         *     which is exactly why they live here rather than on the shared base.
-         *
-         *     Attributes:
-         *         id: Unique activity identifier, assigned on insert.
-         *         map_thumbnail_path: Storage key of the generated map thumbnail, written
-         *             by the thumbnail subsystem reacting to ``activity.created``.
-         */
-        Activity: {
-            /** Activity Type */
-            activity_type: number;
-            /** Average Cad */
-            average_cad?: number | null;
-            /** Average Hr */
-            average_hr?: number | null;
-            /** Average Power */
-            average_power?: number | null;
-            /** Average Speed */
-            average_speed?: number | null;
-            /** Calories */
-            calories?: number | null;
-            /** City */
-            city?: string | null;
-            /** Country */
-            country?: string | null;
-            /** Created At */
-            created_at?: string | null;
-            /** Description */
-            description?: string | null;
-            /** Distance */
-            distance: number;
-            /** Elevation Gain */
-            elevation_gain?: number | null;
-            /** Elevation Loss */
-            elevation_loss?: number | null;
-            /** End Time */
-            end_time?: string | null;
-            /** Garminconnect Activity Id */
-            garminconnect_activity_id?: number | null;
-            /** Garminconnect Gear Id */
-            garminconnect_gear_id?: string | null;
-            /** Gear Id */
-            gear_id?: number | null;
-            /** Hide Cadence */
-            hide_cadence?: boolean | null;
-            /** Hide Elevation */
-            hide_elevation?: boolean | null;
-            /** Hide Gear */
-            hide_gear?: boolean | null;
-            /** Hide Hr */
-            hide_hr?: boolean | null;
-            /** Hide Laps */
-            hide_laps?: boolean | null;
-            /** Hide Location */
-            hide_location?: boolean | null;
-            /** Hide Map */
-            hide_map?: boolean | null;
-            /** Hide Pace */
-            hide_pace?: boolean | null;
-            /** Hide Power */
-            hide_power?: boolean | null;
-            /** Hide Speed */
-            hide_speed?: boolean | null;
-            /** Hide Start Time */
-            hide_start_time?: boolean | null;
-            /** Hide Workout Sets Steps */
-            hide_workout_sets_steps?: boolean | null;
-            /** Id */
-            id?: number | null;
-            /** Import Info */
-            import_info?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Is Hidden
-             * @default false
-             */
-            is_hidden: boolean;
-            /** Map Thumbnail Path */
-            map_thumbnail_path?: string | null;
-            /** Max Cad */
-            max_cad?: number | null;
-            /** Max Hr */
-            max_hr?: number | null;
-            /** Max Power */
-            max_power?: number | null;
-            /** Max Speed */
-            max_speed?: number | null;
-            /** Name */
-            name: string;
-            /** Normalized Power */
-            normalized_power?: number | null;
-            /** Pace */
-            pace?: number | null;
-            /** Private Notes */
-            private_notes?: string | null;
-            /** Start Time */
-            start_time?: string | null;
-            /** Strava Activity Id */
-            strava_activity_id?: number | null;
-            /** Strava Gear Id */
-            strava_gear_id?: string | null;
-            /** Timezone */
-            timezone?: string | null;
-            /** Total Cycles */
-            total_cycles?: number | null;
-            /** Total Elapsed Time */
-            total_elapsed_time?: number | null;
-            /** Total Timer Time */
-            total_timer_time?: number | null;
-            /** Town */
-            town?: string | null;
-            /** Tracker Manufacturer */
-            tracker_manufacturer?: string | null;
-            /** Tracker Model */
-            tracker_model?: string | null;
-            /** User Id */
-            user_id?: number | null;
-            /** Version */
-            version?: number | null;
-            /** Visibility */
-            visibility?: number | null;
-            /** Workout Feeling */
-            workout_feeling?: number | null;
-            /** Workout Rpe */
-            workout_rpe?: number | null;
-        };
-        /**
          * ActivityEdit
          * @description Schema for partial (PATCH) updates to an activity.
          *
@@ -5330,7 +5197,7 @@ export interface components {
             visibility?: number | null;
         };
         /**
-         * ActivityExerciseTitles
+         * ActivityExerciseTitlesRead
          * @description Schema describing an activity exercise title entry.
          *
          *     Attributes:
@@ -5339,7 +5206,7 @@ export interface components {
          *         exercise_name: FIT exercise name identifier.
          *         wkt_step_name: Workout step name (may include spaces).
          */
-        ActivityExerciseTitles: {
+        ActivityExerciseTitlesRead: {
             /** Exercise Category */
             exercise_category: number;
             /** Exercise Name */
@@ -5350,7 +5217,7 @@ export interface components {
             wkt_step_name: string;
         };
         /**
-         * ActivityIngestionJob
+         * ActivityIngestionJobRead
          * @description An accepted ingestion request and the current state of its import.
          *
          *     One shape for all kinds, so a client has a single thing to poll: an upload, a
@@ -5370,7 +5237,7 @@ export interface components {
          *         updated_at: When the job last changed state.
          *         completed_at: When the job reached a terminal state.
          */
-        ActivityIngestionJob: {
+        ActivityIngestionJobRead: {
             /**
              * Activity Ids
              * @default []
@@ -5492,7 +5359,7 @@ export interface components {
             total_work?: number | null;
         };
         /**
-         * ActivityMedia
+         * ActivityMediaRead
          * @description A photo attached to an activity, as returned to a client.
          *
          *     Read-only by construction: every field is populated for a media record that
@@ -5500,7 +5367,7 @@ export interface components {
          *     deliberately absent — it is not an address, and a client has nothing to do
          *     with it; see :class:`~modules.activities.activity_media.contracts.ActivityMediaRecord`.
          */
-        ActivityMedia: {
+        ActivityMediaRead: {
             /** Activity Id */
             activity_id: number;
             /** Id */
@@ -5509,6 +5376,138 @@ export interface components {
             media_type: number;
             /** Url */
             url: string;
+        };
+        /**
+         * ActivityRead
+         * @description Schema representing a stored fitness activity — what the API returns.
+         *
+         *     Extends :class:`ActivityBase` with the fields the **server** owns: they are
+         *     read out of a stored row and are never accepted from an ingestion producer,
+         *     which is exactly why they live here rather than on the shared base.
+         *
+         *     Attributes:
+         *         id: Unique activity identifier, assigned on insert.
+         *         map_thumbnail_path: Storage key of the generated map thumbnail, written
+         *             by the thumbnail subsystem reacting to ``activity.created``.
+         */
+        ActivityRead: {
+            /** Activity Type */
+            activity_type: number;
+            /** Average Cad */
+            average_cad?: number | null;
+            /** Average Hr */
+            average_hr?: number | null;
+            /** Average Power */
+            average_power?: number | null;
+            /** Average Speed */
+            average_speed?: number | null;
+            /** Calories */
+            calories?: number | null;
+            /** City */
+            city?: string | null;
+            /** Country */
+            country?: string | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Distance */
+            distance: number;
+            /** Elevation Gain */
+            elevation_gain?: number | null;
+            /** Elevation Loss */
+            elevation_loss?: number | null;
+            /** End Time */
+            end_time?: string | null;
+            /** Garminconnect Activity Id */
+            garminconnect_activity_id?: number | null;
+            /** Garminconnect Gear Id */
+            garminconnect_gear_id?: string | null;
+            /** Gear Id */
+            gear_id?: number | null;
+            /** Hide Cadence */
+            hide_cadence?: boolean | null;
+            /** Hide Elevation */
+            hide_elevation?: boolean | null;
+            /** Hide Gear */
+            hide_gear?: boolean | null;
+            /** Hide Hr */
+            hide_hr?: boolean | null;
+            /** Hide Laps */
+            hide_laps?: boolean | null;
+            /** Hide Location */
+            hide_location?: boolean | null;
+            /** Hide Map */
+            hide_map?: boolean | null;
+            /** Hide Pace */
+            hide_pace?: boolean | null;
+            /** Hide Power */
+            hide_power?: boolean | null;
+            /** Hide Speed */
+            hide_speed?: boolean | null;
+            /** Hide Start Time */
+            hide_start_time?: boolean | null;
+            /** Hide Workout Sets Steps */
+            hide_workout_sets_steps?: boolean | null;
+            /** Id */
+            id?: number | null;
+            /** Import Info */
+            import_info?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Is Hidden
+             * @default false
+             */
+            is_hidden: boolean;
+            /** Map Thumbnail Path */
+            map_thumbnail_path?: string | null;
+            /** Max Cad */
+            max_cad?: number | null;
+            /** Max Hr */
+            max_hr?: number | null;
+            /** Max Power */
+            max_power?: number | null;
+            /** Max Speed */
+            max_speed?: number | null;
+            /** Name */
+            name: string;
+            /** Normalized Power */
+            normalized_power?: number | null;
+            /** Pace */
+            pace?: number | null;
+            /** Private Notes */
+            private_notes?: string | null;
+            /** Start Time */
+            start_time?: string | null;
+            /** Strava Activity Id */
+            strava_activity_id?: number | null;
+            /** Strava Gear Id */
+            strava_gear_id?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Total Cycles */
+            total_cycles?: number | null;
+            /** Total Elapsed Time */
+            total_elapsed_time?: number | null;
+            /** Total Timer Time */
+            total_timer_time?: number | null;
+            /** Town */
+            town?: string | null;
+            /** Tracker Manufacturer */
+            tracker_manufacturer?: string | null;
+            /** Tracker Model */
+            tracker_model?: string | null;
+            /** User Id */
+            user_id?: number | null;
+            /** Version */
+            version?: number | null;
+            /** Visibility */
+            visibility?: number | null;
+            /** Workout Feeling */
+            workout_feeling?: number | null;
+            /** Workout Rpe */
+            workout_rpe?: number | null;
         };
         /**
          * ActivitySetsRead
@@ -5662,7 +5661,7 @@ export interface components {
          */
         ActivityVisibility: "public" | "followers" | "private";
         /**
-         * ActivityWorkoutSteps
+         * ActivityWorkoutStepsRead
          * @description Activity workout step schema.
          *
          *     Attributes:
@@ -5684,7 +5683,7 @@ export interface components {
          *         secondary_target_value: Workout step secondary
          *             target value.
          */
-        ActivityWorkoutSteps: {
+        ActivityWorkoutStepsRead: {
             /** Activity Id */
             activity_id?: number | null;
             /** Duration Type */
@@ -5810,10 +5809,10 @@ export interface components {
          * @enum {string}
          */
         Currency: "euro" | "dollar" | "pound";
-        /** CursorPage[Activity] */
-        CursorPage_Activity_: {
+        /** CursorPage[ActivityRead] */
+        CursorPage_ActivityRead_: {
             /** Items */
-            items: components["schemas"]["Activity"][];
+            items: components["schemas"]["ActivityRead"][];
             /** Next Cursor */
             next_cursor?: string | null;
             /** Num Records */
@@ -9442,6 +9441,32 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[ActivityMediaRead] */
+        Page_ActivityMediaRead_: {
+            /** Items */
+            items: components["schemas"]["ActivityMediaRead"][];
+            /** Next */
+            next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ActivityRead] */
+        Page_ActivityRead_: {
+            /** Items */
+            items: components["schemas"]["ActivityRead"][];
+            /** Next */
+            next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
+        };
         /** Page[ActivitySetsRead] */
         Page_ActivitySetsRead_: {
             /** Items */
@@ -9468,23 +9493,10 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** Page[ActivityWorkoutSteps] */
-        Page_ActivityWorkoutSteps_: {
+        /** Page[ActivityWorkoutStepsRead] */
+        Page_ActivityWorkoutStepsRead_: {
             /** Items */
-            items: components["schemas"]["ActivityWorkoutSteps"][];
-            /** Next */
-            next?: number | null;
-            /** Num Records */
-            num_records: number;
-            /** Page */
-            page: number;
-            /** Total */
-            total: number;
-        };
-        /** Page[Activity] */
-        Page_Activity_: {
-            /** Items */
-            items: components["schemas"]["Activity"][];
+            items: components["schemas"]["ActivityWorkoutStepsRead"][];
             /** Next */
             next?: number | null;
             /** Num Records */
@@ -12221,7 +12233,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_Activity_"];
+                    "application/json": components["schemas"]["Page_ActivityRead_"];
                 };
             };
             /** @description Validation Error */
@@ -12301,7 +12313,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityIngestionJob"][];
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"][];
                 };
             };
             /** @description Unexpected error */
@@ -12330,7 +12342,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityExerciseTitles"][];
+                    "application/json": components["schemas"]["ActivityExerciseTitlesRead"][];
                 };
             };
             /** @description Unexpected error */
@@ -12362,7 +12374,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CursorPage_Activity_"];
+                    "application/json": components["schemas"]["CursorPage_ActivityRead_"];
                 };
             };
             /** @description Validation Error */
@@ -12405,7 +12417,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_Activity_"];
+                    "application/json": components["schemas"]["Page_ActivityRead_"];
                 };
             };
             /** @description Validation Error */
@@ -12447,7 +12459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityIngestionJob"];
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
                 };
             };
             /** @description Validation Error */
@@ -12485,7 +12497,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityIngestionJob"];
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
                 };
             };
             /** @description Unexpected error */
@@ -12600,7 +12612,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityIngestionJob"];
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
                 };
             };
             /** @description Validation Error */
@@ -12650,7 +12662,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_Activity_"];
+                    "application/json": components["schemas"]["Page_ActivityRead_"];
                 };
             };
             /** @description Validation Error */
@@ -12734,7 +12746,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Activity"];
+                    "application/json": components["schemas"]["ActivityRead"];
                 };
             };
             /** @description Validation Error */
@@ -12818,7 +12830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Activity"];
+                    "application/json": components["schemas"]["ActivityRead"];
                 };
             };
             /** @description Validation Error */
@@ -12886,7 +12898,10 @@ export interface operations {
     };
     read_activities_media_user_api_v1_activities__activity_id__media_get: {
         parameters: {
-            query?: never;
+            query?: {
+                page_number?: number | null;
+                num_records?: number | null;
+            };
             header?: never;
             path: {
                 activity_id: number;
@@ -12901,7 +12916,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityMedia"][];
+                    "application/json": components["schemas"]["Page_ActivityMediaRead_"];
                 };
             };
             /** @description Validation Error */
@@ -12945,7 +12960,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityMedia"];
+                    "application/json": components["schemas"]["ActivityMediaRead"];
                 };
             };
             /** @description Validation Error */
@@ -13243,7 +13258,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_ActivityWorkoutSteps_"];
+                    "application/json": components["schemas"]["Page_ActivityWorkoutStepsRead_"];
                 };
             };
             /** @description Validation Error */
@@ -13580,9 +13595,9 @@ export interface operations {
     list_user_followers_api_v1_followers_users__user_id__followers_get: {
         parameters: {
             query?: {
+                accepted_only?: boolean;
                 page_number?: number | null;
                 num_records?: number | null;
-                accepted_only?: boolean;
             };
             header?: never;
             path: {
@@ -13703,9 +13718,9 @@ export interface operations {
     list_user_following_api_v1_followers_users__user_id__following_get: {
         parameters: {
             query?: {
+                accepted_only?: boolean;
                 page_number?: number | null;
                 num_records?: number | null;
-                accepted_only?: boolean;
             };
             header?: never;
             path: {
@@ -17604,7 +17619,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityExerciseTitles"][];
+                    "application/json": components["schemas"]["ActivityExerciseTitlesRead"][];
                 };
             };
             /** @description Unexpected error */
@@ -17635,7 +17650,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Activity"];
+                    "application/json": components["schemas"]["ActivityRead"];
                 };
             };
             /** @description Validation Error */
@@ -17848,7 +17863,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_ActivityWorkoutSteps_"];
+                    "application/json": components["schemas"]["Page_ActivityWorkoutStepsRead_"];
                 };
             };
             /** @description Validation Error */

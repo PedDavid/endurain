@@ -33,9 +33,6 @@ def publish_follower_requested(
         db: The producer's DB session, used for durable outbox delivery when
             durable jobs are enabled for this event type.
         commit: Commit the relationship row and outbox event together.
-
-    Returns:
-        None.
     """
     payload = followers_events.FollowerRequestedPayload(
         requester_user_id=requester_user_id,
@@ -67,9 +64,6 @@ def publish_follower_accepted(
             the payload and mirrored into the metadata for correlation.
         db: The producer's DB session (see :func:`publish_follower_requested`).
         commit: Commit the relationship row and outbox event together.
-
-    Returns:
-        None.
     """
     payload = followers_events.FollowerAcceptedPayload(
         accepter_user_id=accepter_user_id,

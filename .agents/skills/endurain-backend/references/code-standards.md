@@ -31,7 +31,7 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 - `response_model` on every endpoint; status 200 (GET), 201 (POST create), 202 (POST accepted for background processing), 204 (DELETE).
 - Auth through `Depends()`.
 - Endpoint docstring says what, not how. It is exempt from `Args`/`Returns`/`Raises`: FastAPI publishes it as the OpenAPI description and it is copied into `api.generated.ts`, so parameter names such as `_check_scopes` would become public API text.
-- Async file reads: `await file.read()`.
+- Route handlers are plain `def`, never `async def` (a blocking call in an async handler stalls the event loop; `test_no_route_handler_is_async`). Handle uploads with `core.file_uploads.save_validated_upload_sync`.
 
 ## Logging
 Use `core.logger.get_logger(__name__)` and `core.logger.context(...)`; never f-string values into messages.

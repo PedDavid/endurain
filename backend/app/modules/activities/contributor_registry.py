@@ -14,9 +14,6 @@ def register_activity_ingestion(contributor: activities_contributors.ActivityIng
 
     Args:
         contributor: The contributor to register.
-
-    Returns:
-        None.
     """
     _activity_ingestion[contributor.key] = contributor
 
@@ -26,9 +23,6 @@ def register_file_ingestion(contributor: activities_contributors.FileIngestionCo
 
     Args:
         contributor: The contributor to register.
-
-    Returns:
-        None.
     """
     _file_ingestion[contributor.key] = contributor
 
@@ -38,9 +32,6 @@ def register_profile_activity(contributor: activities_contributors.ProfileActivi
 
     Args:
         contributor: The contributor to register.
-
-    Returns:
-        None.
     """
     _profile_activity[contributor.key] = contributor
 
@@ -50,9 +41,6 @@ def register_profile_global(contributor: activities_contributors.ProfileGlobalCo
 
     Args:
         contributor: The contributor to register.
-
-    Returns:
-        None.
     """
     _profile_global[contributor.key] = contributor
 
@@ -124,9 +112,6 @@ def register_thumbnail_url_resolver(resolver: activities_contributors.ThumbnailU
 
     Args:
         resolver: Callable resolving a stored key and activity ID to a URL.
-
-    Returns:
-        None.
     """
     global _thumbnail_url_resolver
     _thumbnail_url_resolver = resolver
@@ -157,11 +142,7 @@ def resolve_thumbnail_url(key: str | None, activity_id: int) -> str | None:
 
 
 def clear() -> None:
-    """Remove every installed contributor.
-
-    Returns:
-        None.
-    """
+    """Remove every installed contributor."""
     global _thumbnail_url_resolver
     _activity_ingestion.clear()
     _file_ingestion.clear()

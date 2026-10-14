@@ -429,7 +429,7 @@ def does_activity_start_time_match_the_data_in_strava_activities_csv(
 
 def import_media_from_strava_bulk_export(
     strava_activities: dict,
-    created_activity: activity_schema.Activity,
+    created_activity: activity_schema.ActivityRead,
     file_base_name: str,
     db: Annotated[
         Session,

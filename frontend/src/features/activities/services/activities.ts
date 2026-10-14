@@ -4,7 +4,7 @@ import { apiFetch, HttpError } from '@/services/http'
 import { todayIsoDate } from '@/utils/datetime'
 
 /** Job handle returned by the refresh endpoint; polled via `fetchIngestionJob`. */
-type ActivityIngestionJob = Schemas['ActivityIngestionJob']
+type ActivityIngestionJob = Schemas['ActivityIngestionJobRead']
 
 import type {
   ActivitiesPage,
@@ -62,7 +62,10 @@ interface ChildPage<T> {
  * @param context - Auth + cancellation context.
  * @returns Every row across all pages, in server order.
  */
-async function fetchAllChildPages<T>(path: string, context: ActivityFetchContext): Promise<T[]> {
+export async function fetchAllChildPages<T>(
+  path: string,
+  context: ActivityFetchContext,
+): Promise<T[]> {
   const rows: T[] = []
   let page: number | null = 1
 
@@ -265,7 +268,7 @@ export async function searchActivitiesByName(
   signal?: AbortSignal,
 ): Promise<Activity[]> {
   const params = new URLSearchParams({ name })
-  const page_ = await apiFetch<Schemas['Page_Activity_']>(`/activities?${params.toString()}`, {
+  const page_ = await apiFetch<Schemas['Page_ActivityRead_']>(`/activities?${params.toString()}`, {
     signal,
   })
   return (page_.items ?? []).map(mapActivity)
@@ -293,7 +296,7 @@ export async function fetchUserActivities(
     page_number: String(page),
     num_records: String(numRecords),
   })
-  const page_ = await apiFetch<Schemas['Page_Activity_']>(`/activities?${params.toString()}`, {
+  const page_ = await apiFetch<Schemas['Page_ActivityRead_']>(`/activities?${params.toString()}`, {
     signal,
   })
   return (page_.items ?? []).map(mapActivity)
@@ -322,7 +325,7 @@ export async function fetchFollowersActivities(
   if (cursor) {
     params.set('cursor', cursor)
   }
-  const slice = await apiFetch<Schemas['CursorPage_Activity_']>(
+  const slice = await apiFetch<Schemas['CursorPage_ActivityRead_']>(
     `/activities/feed?${params.toString()}`,
     { signal },
   )
@@ -391,7 +394,7 @@ export async function fetchUserWeekActivities(
     end_date: endDate,
     num_records: '200',
   })
-  const page_ = await apiFetch<Schemas['Page_Activity_']>(
+  const page_ = await apiFetch<Schemas['Page_ActivityRead_']>(
     `/activities/users/${userId}?${params.toString()}`,
     { signal },
   )
@@ -487,9 +490,12 @@ export async function fetchUserActivitiesPage(
   listParams.set('page_number', String(page))
   listParams.set('num_records', String(numRecords))
 
-  const page_ = await apiFetch<Schemas['Page_Activity_']>(`/activities?${listParams.toString()}`, {
-    signal,
-  })
+  const page_ = await apiFetch<Schemas['Page_ActivityRead_']>(
+    `/activities?${listParams.toString()}`,
+    {
+      signal,
+    },
+  )
 
   return { records: (page_.items ?? []).map(mapActivity), total: page_.total }
 }
@@ -580,7 +586,7 @@ export async function fetchUserThisMonthActivityCount(
     end_date: endDate,
     num_records: '200',
   })
-  const page_ = await apiFetch<Schemas['Page_Activity_']>(
+  const page_ = await apiFetch<Schemas['Page_ActivityRead_']>(
     `/activities/users/${userId}?${params.toString()}`,
     { signal },
   )

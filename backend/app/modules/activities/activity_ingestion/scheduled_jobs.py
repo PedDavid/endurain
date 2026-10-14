@@ -11,9 +11,6 @@ def prune_expired_ingestion_jobs() -> None:
 
     Scheduler-invoked, with no request to carry the providers, so this entry
     point resolves them.
-
-    Returns:
-        None.
     """
     platform = platform_runtime.get_active_platform()
     activity_ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)

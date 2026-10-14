@@ -7,7 +7,7 @@ import modules.activities.activity_workout_steps.schema as activity_workout_step
 
 
 def create_activity_workout_steps(
-    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutSteps],
+    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -17,9 +17,6 @@ def create_activity_workout_steps(
         activity_workout_steps: Steps to store.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_workout_steps_crud.create_activity_workout_steps(activity_workout_steps, activity_id, db)
     db.commit()

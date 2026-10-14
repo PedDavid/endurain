@@ -19,7 +19,7 @@ logger = core_logger.get_logger(__name__)
 
 def list_activity_exercise_titles(
     db: Session,
-) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
+) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
     """Return every exercise title for an authenticated caller.
 
     Args:
@@ -33,7 +33,7 @@ def list_activity_exercise_titles(
 
 def list_public_activity_exercise_titles(
     db: Session,
-) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
+) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
     """Return every exercise title for an anonymous caller.
 
     Args:

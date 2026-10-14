@@ -125,9 +125,6 @@ def _retain_source_file(
         file_extension: The file's extension, used for the stored object's name.
         activity_ids: IDs of the activities parsed from the file.
         storage: The blob-storage provider the file is retained in.
-
-    Returns:
-        None.
     """
     if activity_ids:
         with open(file_path, "rb") as source_file:
@@ -153,7 +150,7 @@ def store_activities_from_file(
     source: activity_ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
     garmin_connect_activity_id: str | None = None,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Parse a validated, on-disk activity file and persist its activities.
 
     The single ingestion core shared by every source. By the time it runs the file
@@ -253,7 +250,7 @@ def store_activities_from_file(
     )
     garmin_activity_id = int(garmin_connect_activity_id) if garmin_connect_activity_id else None
 
-    created_activities: list[activity_schema.Activity] = []
+    created_activities: list[activity_schema.ActivityRead] = []
     for parsed in parsed_file.activities:
         # Re-attach owner privacy defaults, gear, and Garmin ids before the
         # bulk-import metadata can override the gear.
@@ -299,7 +296,7 @@ def store_activities_from_file(
 
 def _finish_bulk_import_file(
     source: activity_ingestion_contracts.BulkImportSource,
-    created_activities: list[activity_schema.Activity],
+    created_activities: list[activity_schema.ActivityRead],
     file_base_name: str,
     db: Session,
 ) -> None:
@@ -310,9 +307,6 @@ def _finish_bulk_import_file(
         created_activities: Activities persisted from the file.
         file_base_name: The file's original base name.
         db: Database session.
-
-    Returns:
-        None.
     """
     ids_to_filename = "_".join(str(activity.id) for activity in created_activities)
     logger.info(
@@ -343,7 +337,7 @@ def validate_prepare_and_store_file(
     *,
     source: activity_ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
 
     The shared raising core behind both the swallowing background entry

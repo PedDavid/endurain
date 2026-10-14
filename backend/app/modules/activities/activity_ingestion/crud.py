@@ -10,12 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
-import core.logger as core_logger
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.serializers as activity_ingestion_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 @core_decorators.handle_db_errors
@@ -29,7 +26,7 @@ def create_ingestion_job(
     staged_key: str | None = None,
     idempotency_key: str | None = None,
     request_fingerprint: str | None = None,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Stage an accepted ingestion request in the pending state (not committed).
 
     Args:
@@ -75,7 +72,7 @@ def get_ingestion_job(
     job_id: str,
     user_id: int,
     db: Session,
-) -> activity_ingestion_schema.ActivityIngestionJob | None:
+) -> activity_ingestion_schema.ActivityIngestionJobRead | None:
     """Retrieve one ingestion job belonging to a user.
 
     Always filtered by ``user_id``: a job id is a bearer-ish handle, and
@@ -133,7 +130,7 @@ def get_job_for_idempotency(
     user_id: int,
     kind: activity_ingestion_schema.IngestionJobKind,
     db: Session,
-) -> tuple[activity_ingestion_schema.ActivityIngestionJob, str | None] | None:
+) -> tuple[activity_ingestion_schema.ActivityIngestionJobRead, str | None] | None:
     """Retrieve a user's job by the idempotency key it was accepted with.
 
     Returns the stored request fingerprint alongside the job: the caller has to
@@ -197,9 +194,6 @@ def mark_processing(job_id: str, db: Session) -> None:
         job_id: The job identifier.
         db: Database session.
 
-    Returns:
-        None.
-
     Raises:
         ProcessingError: If a database error occurs.
     """
@@ -219,9 +213,6 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
         job_id: The job identifier.
         activity_ids: Ids of the activities the import created.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ProcessingError: If a database error occurs.
@@ -251,9 +242,6 @@ def mark_failed(
         job_id: The job identifier.
         error_code: Sanitized failure reason shown to the owner.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ProcessingError: If a database error occurs.

@@ -9,9 +9,9 @@ later by ``ingestion_service.store_parsed_activity``).
 import modules.activities.activity.schema as activity_schema
 
 
-def _activity() -> activity_schema.Activity:
+def _activity() -> activity_schema.ActivityRead:
     """A minimal valid Activity (the ingestion contract's activity type)."""
-    return activity_schema.Activity(distance=0, name="test", activity_type=1)
+    return activity_schema.ActivityRead(distance=0, name="test", activity_type=1)
 
 
 class TestParsedInfoToParsedActivity:

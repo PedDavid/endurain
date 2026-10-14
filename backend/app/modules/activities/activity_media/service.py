@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.hashing as core_hashing
 import core.logger as core_logger
+import core.pagination as core_pagination
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.crud as activity_media_crud
@@ -79,9 +80,6 @@ def _require_owned_activity(activity_id: int, user_id: int, db: Session) -> None
         activity_id: The activity the media belongs to.
         user_id: The authenticated user.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         NotFoundError: When the activity does not exist or is not owned by the
@@ -154,9 +152,6 @@ def _cleanup_orphaned_blob(storage: platform_providers.StorageProvider, storage_
         storage: The storage provider the blob was saved through.
         storage_key: The key to remove.
         activity_id: The activity it was being attached to, for the log context.
-
-    Returns:
-        None.
     """
     try:
         storage.delete(activity_media_signing.MEDIA_STORAGE_AREA, storage_key)
@@ -235,7 +230,7 @@ def _persist_media_bytes(
 
 def _to_read_model(
     record: activity_media_contracts.ActivityMediaRecord,
-) -> activity_media_schema.ActivityMedia:
+) -> activity_media_schema.ActivityMediaRead:
     """Resolve a stored record to the client-facing read model.
 
     The record→URL step lives here rather than in ``crud`` because addressing a
@@ -249,7 +244,7 @@ def _to_read_model(
     Returns:
         The read model, with the servable URL resolved.
     """
-    return activity_media_schema.ActivityMedia(
+    return activity_media_schema.ActivityMediaRead(
         id=record.id,
         activity_id=record.activity_id,
         media_type=record.media_type,
@@ -261,32 +256,42 @@ def list_activity_media(
     activity_id: int,
     user_id: int,
     db: Session,
-) -> list[activity_media_schema.ActivityMedia]:
-    """List the media attached to one of the user's activities.
+    *,
+    page_number: int = 1,
+    num_records: int = core_pagination.DEFAULT_CHILD_NUM_RECORDS,
+) -> activity_media_schema.ActivityMediaPage:
+    """List one page of the media attached to one of the user's activities.
 
     Args:
         activity_id: The activity whose media to list.
         user_id: The authenticated user.
         db: Database session.
+        page_number: 1-based page number.
+        num_records: Page size.
 
     Returns:
-        The activity's media, empty when the activity is not the user's or has
-        no media. A collection read returns a collection; "you cannot see it"
-        and "there is none" are deliberately indistinguishable here so the
-        endpoint cannot be used to probe which activity ids exist.
+        The page envelope, empty when the activity is not the user's or has no
+        media. "You cannot see it" and "there is none" are deliberately
+        indistinguishable, so the endpoint cannot be used to probe which
+        activity ids exist.
     """
     if not activity_integration.owns_activity(activity_id, user_id, db):
         logger.debug(
             "Listing activity media for an activity the caller does not own; returning empty",
             extra=core_logger.context(activity_id=activity_id, user_id=user_id),
         )
-        return []
-    records = activity_media_crud.get_media_for_activity(activity_id, db) or []
+        return activity_media_schema.ActivityMediaPage.build([], 0, page_number, num_records)
+    records = activity_media_crud.get_media_for_activity(
+        activity_id, db, page_number=page_number, num_records=num_records
+    )
+    total = activity_media_crud.count_media_for_activity(activity_id, db)
     logger.debug(
         "Listed activity media",
         extra=core_logger.context(activity_id=activity_id, user_id=user_id, count=len(records)),
     )
-    return [_to_read_model(record) for record in records]
+    return activity_media_schema.ActivityMediaPage.build(
+        [_to_read_model(record) for record in records], total, page_number, num_records
+    )
 
 
 def read_activity_media_blob(
@@ -349,7 +354,7 @@ def store_activity_media(
     data: bytes,
     storage: platform_providers.StorageProvider,
     db: Session,
-) -> activity_media_schema.ActivityMedia:
+) -> activity_media_schema.ActivityMediaRead:
     """Persist an uploaded image and register it against an activity.
 
     The caller has already validated the bytes (magic number and size). They are
@@ -444,9 +449,6 @@ def delete_activity_media(
         user_id: The authenticated user, who must own the owning activity.
         storage: The blob-storage provider.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         NotFoundError: When the media does not exist, does not belong to

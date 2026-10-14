@@ -19,13 +19,10 @@ from sqlalchemy.orm import Session
 
 import core.calendar as core_calendar
 import core.decorators as core_decorators
-import core.logger as core_logger
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.models as activity_models
 import modules.activities.activity.query as activity_query
 import modules.activities.activity.summary_schema as activity_summary_schema
-
-logger = core_logger.get_logger(__name__)
 
 
 def _apply_activity_type_filter(

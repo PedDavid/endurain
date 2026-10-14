@@ -20,9 +20,6 @@ def validate_activity_id(activity_id: int) -> None:
     Args:
         activity_id: The ID of the activity to validate.
 
-    Returns:
-        None.
-
     Raises:
         HTTPException: 422 when the ID is not greater than zero.
     """
@@ -34,9 +31,6 @@ def validate_activity_type(activity_type: int | None = Query(None)) -> None:
 
     Args:
         activity_type: The activity type to validate; ``None`` means no filter.
-
-    Returns:
-        None.
 
     Raises:
         HTTPException: 422 when the type is not a known activity type.
@@ -59,9 +53,6 @@ def validate_sort_by(sort_by: str | None = Query(None)) -> None:
         sort_by: The sort field; ``None`` means the default order. Allowed values
             are :data:`~modules.activities.activity.constants.ACTIVITY_SORT_FIELDS`.
 
-    Returns:
-        None.
-
     Raises:
         HTTPException: 422 when the field is not an allowed sort field.
     """
@@ -82,9 +73,6 @@ def validate_sort_order(sort_order: str | None = Query(None)) -> None:
     Args:
         sort_order: The sort direction; ``None`` means the default. Allowed values
             are :data:`~modules.activities.activity.constants.ACTIVITY_SORT_ORDERS`.
-
-    Returns:
-        None.
 
     Raises:
         HTTPException: 422 when the direction is not an allowed sort order.

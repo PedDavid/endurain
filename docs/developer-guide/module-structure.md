@@ -7,8 +7,9 @@ module deliberately publishes.
 
 `modules/activities` is a composition namespace containing several independent
 modules (`activity`, `activity_laps`, `activity_streams`, and so on).
-`modules/followers` is the reference for a module that stays flat. Every other
-module, and every new module, is converted to one of these shapes.
+`modules/followers` is the reference for a module that stays flat. A new module
+follows one of these shapes; the existing modules are converted one at a time as
+they are reworked (see [Known debt](#known-debt)).
 
 ## The two units
 
@@ -543,6 +544,15 @@ one pattern. Recorded here so a review does not reopen them.
   reads at the end of the stem like every other role.
 - **Route defaults.** The default `200` is not repeated in `status_code`. Handler
   names are OpenAPI `operationId`s, so renaming one is an API change.
+- **Read models.** The schema a client receives is `<Thing>Read` (or
+  `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
+  share a name, and the OpenAPI component name is the schema's.
+- **Collections.** A list a client receives is a `core.pagination.Page`; a
+  collection that is absent is `[]`, never `None`. The two exceptions are the
+  exercise-title reference table (`/all`, read whole by design) and the response
+  to a bulk import (the handles of the jobs that POST created).
+  `None` is kept only where it is a distinct signal: the ingestion store
+  functions return `None` for "this file failed" and a list for "it parsed".
 
 **Intentional variation:**
 
@@ -574,12 +584,12 @@ the conformance test's allowlist.
 
 ### Pilot status and what the next conversion owns
 
-`activities` and `followers` are the only modules converted to this structure,
-and no further conversion is planned. The remaining modules are listed in
-`UNCONVERTED_MODULES` so that `TestModuleInventory` keeps them visible rather
-than silently exempt. The items below need changes outside the two converted
-modules, so they are recorded here as accepted limitations rather than
-half-done:
+`activities` and `followers` are the only modules converted so far. The
+remaining modules are listed in `UNCONVERTED_MODULES` so that
+`TestModuleInventory` keeps them visible rather than silently exempt, and are
+converted one at a time with the `convert-module` skill. The items below need
+changes outside the two converted modules, so they are recorded here as accepted
+limitations rather than half-done:
 
 - **Top-level cycles.** `users` ⇄ `activities` (profile export/import consumes
   activities; activities consumes `users.integration_service`) and, by the

@@ -26,9 +26,6 @@ def backfill_zone_percentages_for_missing_hr_streams(
     Args:
         computed_streams: Stream ids with their computed breakdowns.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_streams_crud.backfill_zone_percentages_for_missing_hr_streams(computed_streams, db)
     try:

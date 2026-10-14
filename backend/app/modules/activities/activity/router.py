@@ -230,7 +230,7 @@ def edit_activities(
 
 @router.get(
     "/{activity_id}",
-    response_model=activity_schema.Activity,
+    response_model=activity_schema.ActivityRead,
 )
 def read_activity(
     activity_id: int,
@@ -256,7 +256,7 @@ def read_activity(
 
 @router.patch(
     "/{activity_id}",
-    response_model=activity_schema.Activity,
+    response_model=activity_schema.ActivityRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def edit_activity(
@@ -310,8 +310,6 @@ def delete_activity(
 ) -> None:
     """Delete one of the authenticated user's activities.
 
-    Answers ``204`` with no body, like every other delete in the API. It used to
-    return ``200`` with a confirmation sentence, which is a representation of
-    nothing: the resource is gone, and the status already says so.
+    Answers ``204`` with no body: the resource is gone, and the status says so.
     """
     activity_service.delete_activity(activity_id, token_user_id, db)

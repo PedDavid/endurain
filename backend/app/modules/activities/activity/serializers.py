@@ -27,7 +27,7 @@ import modules.activities.contributor_registry as activities_contributor_registr
 
 def to_read_schema(
     activity: activity_models.Activity,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Convert an ORM Activity to its API schema.
 
     Does NOT mutate the ORM object.
@@ -38,7 +38,7 @@ def to_read_schema(
     Returns:
         An Activity schema.
     """
-    schema = activity_schema.Activity.model_validate(activity)
+    schema = activity_schema.ActivityRead.model_validate(activity)
 
     # The DB stores the thumbnail's storage key; resolve it to a servable URL
     # (a signed, token-gated app route locally, or a presigned URL for object
@@ -55,11 +55,11 @@ def to_read_schema(
 
 
 def apply_visibility_mask(
-    schema: activity_schema.Activity,
+    schema: activity_schema.ActivityRead,
     *,
     is_owner: bool,
     mask_private_notes: bool = True,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Mask hidden activity fields for non-owners.
 
     Mutates and returns the provided Pydantic schema instance.
@@ -106,7 +106,7 @@ def serialize_and_mask(
     requester_user_id: int | None = None,
     force_non_owner: bool = False,
     mask_private_notes: bool = True,
-) -> list[activity_schema.Activity]:
+) -> list[activity_schema.ActivityRead]:
     """Serialize ORM rows and apply visibility masking.
 
     Args:
@@ -123,7 +123,7 @@ def serialize_and_mask(
         List of Activity schema instances with visibility
         masking applied.
     """
-    result: list[activity_schema.Activity] = []
+    result: list[activity_schema.ActivityRead] = []
     for orm_activity in activities:
         schema = to_read_schema(orm_activity)
         is_owner = not force_non_owner and requester_user_id is not None and orm_activity.user_id == requester_user_id

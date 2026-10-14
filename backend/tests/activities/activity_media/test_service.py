@@ -54,13 +54,15 @@ class TestListActivityMedia:
         mock_media_crud.get_media_for_activity.return_value = [
             ActivityMediaRecord(id=3, activity_id=1, media_path="1_abc.jpg", media_type=1)
         ]
+        mock_media_crud.count_media_for_activity.return_value = 1
 
-        media = list_activity_media(1, 2, MagicMock())
+        page = list_activity_media(1, 2, MagicMock())
 
         # The storage key never reaches the caller; a servable URL does.
-        assert len(media) == 1
-        assert not hasattr(media[0], "media_path")
-        assert "/activities/1/media/3/file?t=" in media[0].url
+        assert page.total == 1
+        assert len(page.items) == 1
+        assert not hasattr(page.items[0], "media_path")
+        assert "/activities/1/media/3/file?t=" in page.items[0].url
 
     @patch(f"{_SVC}.activity_media_crud")
     @patch(f"{_SVC}.activity_integration")
@@ -69,7 +71,10 @@ class TestListActivityMedia:
 
         mock_activities_service.owns_activity.return_value = False
 
-        assert list_activity_media(1, 2, MagicMock()) == []
+        page = list_activity_media(1, 2, MagicMock())
+
+        assert page.items == []
+        assert page.total == 0
         mock_media_crud.get_media_for_activity.assert_not_called()
 
     @patch(f"{_SVC}.activity_media_crud")
@@ -79,8 +84,9 @@ class TestListActivityMedia:
 
         mock_activities_service.owns_activity.return_value = True
         mock_media_crud.get_media_for_activity.return_value = []
+        mock_media_crud.count_media_for_activity.return_value = 0
 
-        assert list_activity_media(1, 2, MagicMock()) == []
+        assert list_activity_media(1, 2, MagicMock()).items == []
 
 
 class TestStoreActivityMedia:

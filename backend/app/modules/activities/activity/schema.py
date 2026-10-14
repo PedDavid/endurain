@@ -181,7 +181,7 @@ class ActivityBase(BaseModel):
         return core_timezone.to_utc_aware(value) if isinstance(value, str) else value
 
 
-class Activity(ActivityBase):
+class ActivityRead(ActivityBase):
     """Schema representing a stored fitness activity — what the API returns.
 
     Extends :class:`ActivityBase` with the fields the **server** owns: they are
@@ -258,11 +258,11 @@ class ActivityStats(BaseModel):
 #: One page of activities. Aliases the shared :class:`core.pagination.Page` so
 #: the activities list endpoints and every other module's return the same
 #: envelope rather than each inventing its own.
-ActivityPage = core_pagination.Page[Activity]
+ActivityPage = core_pagination.Page[ActivityRead]
 
 #: One keyset slice of the following feed. The feed takes inserts at the head
 #: continuously, so offset paging would repeat and skip rows across requests.
-ActivityFeedPage = core_pagination.CursorPage[Activity]
+ActivityFeedPage = core_pagination.CursorPage[ActivityRead]
 
 
 class ActivityMessageResponse(BaseModel):

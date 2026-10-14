@@ -31,7 +31,7 @@ def _list_streams_for_activities(
 
 def _store_streams(
     streams: list[activity_streams_contracts.ActivityStreamsCreate],
-    activity: activity_schema.Activity,
+    activity: activity_schema.ActivityRead,
     db: Session,
 ) -> None:
     """Store parsed streams for an activity.
@@ -40,16 +40,13 @@ def _store_streams(
         streams: Streams to store.
         activity: The parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_streams_crud.create_activity_streams(streams, activity, db)
 
 
 def _persist_ingestion_component(
     data: Any,
-    activity: activity_schema.Activity,
+    activity: activity_schema.ActivityRead,
     db: Session,
 ) -> None:
     """Validate and persist parsed streams through the ingestion contract.
@@ -58,9 +55,6 @@ def _persist_ingestion_component(
         data: The parsed component payload.
         activity: The newly created parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     if activity.id is None:
         raise core_exceptions.ProcessingError("Cannot store streams before the activity has an id")
@@ -91,7 +85,7 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
 def _restore_profile_records(
     records: list[dict[str, Any]],
     original_activity_id: int,
-    new_activity: activity_schema.Activity,
+    new_activity: activity_schema.ActivityRead,
     db: Session,
 ) -> int:
     """Validate and restore profile stream records for one activity.
@@ -182,8 +176,5 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     Args:
         user_id: ID of the user.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_streams_service.recompute_hr_zones_for_user(user_id, db)

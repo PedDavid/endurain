@@ -6,14 +6,14 @@ import type { Schemas } from '@/types'
  * silent runtime mismatch; the mappers in `services/activities.ts` translate
  * them into the camelCase domain models below.
  */
-export type ActivityDto = Schemas['Activity']
+export type ActivityDto = Schemas['ActivityRead']
 export type ActivityStreamDto = Schemas['ActivityStreamsRead']
 export type ActivityLapDto = Schemas['ActivityLapsRead']
 export type ActivityEditDto = Schemas['ActivityEdit']
-export type ActivityMediaDto = Schemas['ActivityMedia']
-export type ActivityWorkoutStepDto = Schemas['ActivityWorkoutSteps']
+export type ActivityMediaDto = Schemas['ActivityMediaRead']
+export type ActivityWorkoutStepDto = Schemas['ActivityWorkoutStepsRead']
 export type ActivitySetDto = Schemas['ActivitySetsRead']
-export type ActivityExerciseTitleDto = Schemas['ActivityExerciseTitles']
+export type ActivityExerciseTitleDto = Schemas['ActivityExerciseTitlesRead']
 
 /**
  * Per-sport aggregated stats for a timeframe (this week / this month). Keys are

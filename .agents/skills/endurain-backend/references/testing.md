@@ -2,20 +2,20 @@
 
 - Tests live in `backend/tests/` mirroring `backend/app/`; files `test_*.py`, grouped in classes.
 - Use fixtures from `conftest.py`.
-- Never instantiate SQLAlchemy models; inspect attributes (`MyModel.name.nullable is False`, `MyModel.id.type.python_type == int`).
-- `AsyncMock` for async, `MagicMock` for sync; `@patch` external dependencies (logging, DB calls).
+- Unit tests of a pure function or a model definition inspect attributes (`MyModel.id.type.python_type == int`) rather than instantiating rows; tests of persistence may insert rows against a real session (see below).
+- `AsyncMock` for async, `MagicMock` for sync. Patch external dependencies (providers, the network). Do not mock the session to check a query or a commit: use a real database, below.
 - Cover empty/None, missing entity, errors, malformed input.
 - `with pytest.raises(...) as exc_info` for exceptions.
 - Async tests: `async def test_*`, check with `assert_awaited_once()`.
 - Skips need `reason=`.
-- Target 100% coverage on new code.
+- CI fails under 80% total coverage; cover every branch of new code (errors, empty, refusal), not just the happy path.
 
 ```bash
 uv run pytest tests/<area> -v
 uv run pytest tests/<area> --cov=app/<area> --cov-report=term-missing
 ```
 
-Architecture tests: `tests/architecture/`, `tests/test_logging_rule.py`; role vocabulary in `tests/_helpers/module_roles.py`.
+Architecture tests (boundaries, layers, logging, module template): `tests/architecture/`; role vocabulary in `tests/_helpers/module_roles.py`.
 
 ## Real-database tests
 

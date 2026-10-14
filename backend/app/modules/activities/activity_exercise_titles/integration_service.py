@@ -19,9 +19,6 @@ def _persist_file_ingestion_component(data: Any, db: Session) -> None:
     Args:
         data: The parsed exercise titles.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_exercise_titles_crud.create_activity_exercise_titles(data, db)
 
@@ -48,7 +45,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
     Returns:
         The number of records restored.
     """
-    titles: list[activity_exercise_titles_schema.ActivityExerciseTitles] = []
+    titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead] = []
     for record in records:
         if not isinstance(record, dict):
             logger.warning("Skipping non-object exercise-title profile record")
@@ -56,7 +53,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
         data = dict(record)
         data.pop("id", None)
         try:
-            titles.append(activity_exercise_titles_schema.ActivityExerciseTitles.model_validate(data))
+            titles.append(activity_exercise_titles_schema.ActivityExerciseTitlesRead.model_validate(data))
         except ValidationError as err:
             logger.warning("Skipping invalid exercise-title profile record", exc_info=err)
 

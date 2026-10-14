@@ -13,9 +13,6 @@ def register_bus_subscribers(events: EventBusProvider) -> None:
 
     Args:
         events: The event bus to subscribe on.
-
-    Returns:
-        None.
     """
     activity_geocoding_subscribers.register_geocoding_subscribers(events)
 
@@ -25,9 +22,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-handler registry to register on.
-
-    Returns:
-        None.
     """
     activity_geocoding_subscribers.register_geocoding_durable_handlers(registry)
 

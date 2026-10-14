@@ -19,7 +19,7 @@ def _build_app(mock_db):
 
 
 def _valid_activity(**kw):
-    from modules.activities.activity.schema import Activity
+    from modules.activities.activity.schema import ActivityRead
 
     data = dict(
         distance=10000,
@@ -48,7 +48,7 @@ def _valid_activity(**kw):
         user_id=1,
     )
     data.update(kw)
-    return Activity(**data)
+    return ActivityRead(**data)
 
 
 class TestReadPublicActivity:

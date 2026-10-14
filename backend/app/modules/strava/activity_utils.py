@@ -376,7 +376,7 @@ def save_activity_streams_laps(
     stream_data: list,
     laps: list[dict] | None,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Persist a Strava-parsed activity through the canonical ingestion seam.
 
     Strava is a thin adapter: it builds the
@@ -773,7 +773,7 @@ async def get_user_strava_activities_by_dates(
     user_id: int,
     db: Session = None,
     is_startup: bool = False,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     close_session = False
     if db is None:
         # Create a new database session

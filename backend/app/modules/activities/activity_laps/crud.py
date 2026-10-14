@@ -4,12 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
-import core.logger as core_logger
 import modules.activities.activity_laps.models as activity_laps_models
 import modules.activities.activity_laps.schema as activity_laps_schema
 import modules.activities.activity_laps.serializers as activity_laps_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 @core_decorators.handle_db_errors
@@ -116,9 +113,6 @@ def create_activity_laps(
             file parsers.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ProcessingError: If database error occurs.

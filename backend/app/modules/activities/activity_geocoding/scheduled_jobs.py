@@ -16,9 +16,6 @@ def run_missing_location_backfill() -> None:
     Scheduler-invoked, with no request to carry the provider or a session, so
     this entry point resolves the provider and opens the session. Acquires the
     coordination lock so only one replica runs the pass.
-
-    Returns:
-        None.
     """
     platform = platform_runtime.get_active_platform()
     with platform.lock.try_acquire("location_backfill") as acquired:
@@ -45,11 +42,7 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
 
 
 def schedule_missing_location_backfill() -> None:
-    """Queue one missing-location reconciliation pass.
-
-    Returns:
-        None.
-    """
+    """Queue one missing-location reconciliation pass."""
     core_scheduler.run_once(
         run_missing_location_backfill,
         job_id="endurain_backfill_missing_locations_oneshot",

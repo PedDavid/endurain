@@ -43,9 +43,6 @@ def _restore_media_records(
         media: Media records to restore.
         activity_id: ID of the parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_media_crud.create_activity_medias(media, activity_id, db)
 
@@ -53,7 +50,7 @@ def _restore_media_records(
 def _restore_profile_records(
     records: list[dict[str, Any]],
     original_activity_id: int,
-    new_activity: activity_schema.Activity,
+    new_activity: activity_schema.ActivityRead,
     db: Session,
 ) -> int:
     """Validate and restore profile media records for one activity.

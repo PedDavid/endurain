@@ -11,9 +11,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-handler registry to register on.
-
-    Returns:
-        None.
     """
     activity_ingestion_subscribers.register_durable_handlers(registry)
 

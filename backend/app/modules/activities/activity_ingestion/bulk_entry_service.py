@@ -36,7 +36,7 @@ def store_bulk_import_file(
     import_initiated_time: str | None,
     storage: platform_providers.StorageProvider,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Import one bulk-import file, **raising** on failure (the durable job body).
 
     The per-file body of the durable bulk-import job: it validates, decompresses,
@@ -72,9 +72,6 @@ def _move_failed_file_to_error_directory(source: activity_ingestion_contracts.Bu
     Args:
         source: The bulk-import source, which decides the destination.
         file_path: The file that failed to import.
-
-    Returns:
-        None.
     """
     try:
         error_file_dir = source.error_directory
@@ -99,7 +96,7 @@ def store_activity_file(
     db: Session,
     *,
     source: activity_ingestion_contracts.IngestionSource,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Validate an on-disk activity file and persist it, returning ``None`` on failure.
 
     Thin entry point for background ingestion (Garmin sync, Strava/generic bulk

@@ -18,10 +18,7 @@ job runs wherever it is claimed.
 
 from dataclasses import dataclass
 
-import core.logger as core_logger
 import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
-
-logger = core_logger.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -48,9 +45,6 @@ def register(provider: ActivityProvider) -> None:
             replaces the previous entry, so a repeated call (a test, a second
             lifespan) is idempotent rather than duplicating the fetch.
 
-    Returns:
-        None.
-
     Raises:
         None.
     """
@@ -76,9 +70,6 @@ def clear() -> None:
     """Drop every registration.
 
     Args:
-        None.
-
-    Returns:
         None.
 
     Raises:

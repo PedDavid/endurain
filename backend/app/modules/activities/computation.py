@@ -56,9 +56,6 @@ def append_if_not_none(
         waypoint_time: Timestamp associated with the value.
         value: The value to record; ignored when ``None``.
         key: Dict key under which ``value`` is stored.
-
-    Returns:
-        None.
     """
     if value is not None:
         waypoint_list.append({"time": waypoint_time, key: value})

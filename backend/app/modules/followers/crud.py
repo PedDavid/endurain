@@ -28,9 +28,6 @@ def _invalidate_followee_cache(db: Session) -> None:
     Args:
         db: Database session whose cache is cleared.
 
-    Returns:
-        None.
-
     Raises:
         None.
     """
@@ -393,9 +390,6 @@ def delete_follower(
         db: Database session.
         status: When given, only delete the row if it is in this state. Declining
             a request must not double as removing an accepted follower.
-
-    Returns:
-        None.
 
     Raises:
         NotFoundError: If no matching follower record exists.

@@ -45,9 +45,6 @@ def cleanup_activity_media_for_event(event: Event) -> None:
 
     Args:
         event: The ``activity.deleted`` event (payload ``{"activity_id": int}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityDeletedPayload, event)
     activity_media_service.delete_media_files_for_activity(
@@ -71,9 +68,6 @@ def register_activity_media_cleanup_subscribers(events: EventBusProvider) -> Non
 
     Args:
         events: The event-bus provider to subscribe on.
-
-    Returns:
-        None.
     """
     events.subscribe(activity_events.ACTIVITY_DELETED, on_activity_deleted_cleanup_media)
 
@@ -87,9 +81,6 @@ def register_activity_media_cleanup_durable_handlers(registry: JobHandlerRegistr
 
     Args:
         registry: The durable-subscriber registry to register on.
-
-    Returns:
-        None.
     """
     registry.register(
         activity_events.ACTIVITY_DELETED,

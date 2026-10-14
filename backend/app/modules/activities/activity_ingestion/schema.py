@@ -39,7 +39,7 @@ class IngestionJobErrorCode(StrEnum):
     PROVIDER_UNAVAILABLE = "provider_unavailable"
 
 
-class ActivityIngestionJob(BaseModel):
+class ActivityIngestionJobRead(BaseModel):
     """An accepted ingestion request and the current state of its import.
 
     One shape for all kinds, so a client has a single thing to poll: an upload, a

@@ -175,4 +175,4 @@ class TestSchemaMapping:
 
     def test_the_staged_key_is_not_part_of_the_read_schema(self):
         """It is an internal filesystem detail and must not reach a client."""
-        assert "staged_key" not in activity_ingestion_schema.ActivityIngestionJob.model_fields
+        assert "staged_key" not in activity_ingestion_schema.ActivityIngestionJobRead.model_fields

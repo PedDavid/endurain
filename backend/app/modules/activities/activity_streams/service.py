@@ -53,7 +53,7 @@ _STREAM_HIDE_MAP: dict[int, str] = {
 }
 
 
-def _is_stream_hidden(activity: activity_schema.Activity, stream_type: int) -> bool:
+def _is_stream_hidden(activity: activity_schema.ActivityRead, stream_type: int) -> bool:
     """Return whether the activity hides a stream type from other viewers.
 
     Args:
@@ -69,7 +69,7 @@ def _is_stream_hidden(activity: activity_schema.Activity, stream_type: int) -> b
 
 def _filter_visible_streams(
     streams: list[activity_streams_schema.ActivityStreamsRead],
-    activity: activity_schema.Activity,
+    activity: activity_schema.ActivityRead,
 ) -> list[activity_streams_schema.ActivityStreamsRead]:
     """Drop the streams the activity hides from other viewers.
 
@@ -324,9 +324,6 @@ def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
     Args:
         user_id: The user whose HR streams should be refreshed.
         db: Database session.
-
-    Returns:
-        None.
     """
     max_heart_rate = _max_heart_rate_of(user_id, db)
     last_activity_id = 0
@@ -369,9 +366,6 @@ def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None
         activity_id: The activity whose HR stream should be scored.
         user_id: The owning user, whose max heart rate scales the zones.
         db: Database session.
-
-    Returns:
-        None.
     """
     context = activity_integration.get_activity_scoring_context(activity_id, db)
     if context is None or context.owner_id != user_id:

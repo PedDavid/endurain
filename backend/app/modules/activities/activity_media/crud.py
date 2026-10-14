@@ -8,19 +8,16 @@ carries the storage key; turning that key into a servable URL is an addressing
 concern owned by ``service.py``, not by the persistence layer.
 """
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
 import core.exceptions as core_exceptions
-import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity_media.contracts as activity_media_contracts
 import modules.activities.activity_media.models as activity_media_models
 import modules.activities.activity_media.serializers as activity_media_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 @core_decorators.handle_db_errors
@@ -70,8 +67,11 @@ def get_activity_media_by_id(
 def get_media_for_activity(
     activity_id: int,
     db: Session,
+    *,
+    page_number: int = 1,
+    num_records: int = 200,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
-    """Retrieve all media records for a single activity.
+    """Retrieve one page of a single activity's media records, oldest first.
 
     Permission is the caller's concern; see
     :func:`modules.activities.activity_media.service.list_activity_media`.
@@ -79,17 +79,41 @@ def get_media_for_activity(
     Args:
         activity_id: Activity ID to fetch media for.
         db: Database session.
+        page_number: 1-based page number.
+        num_records: Page size.
 
     Returns:
-        The activity's media records (empty when it has none).
+        The page of media records (empty when the activity has none).
 
     Raises:
         ProcessingError: If a database error occurs.
     """
-    stmt = select(activity_media_models.ActivityMedia).where(
-        activity_media_models.ActivityMedia.activity_id == activity_id
+    stmt = (
+        select(activity_media_models.ActivityMedia)
+        .where(activity_media_models.ActivityMedia.activity_id == activity_id)
+        .order_by(activity_media_models.ActivityMedia.id)
+        .offset((page_number - 1) * num_records)
+        .limit(num_records)
     )
     return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
+
+
+@core_decorators.handle_db_errors
+def count_media_for_activity(activity_id: int, db: Session) -> int:
+    """Count an activity's media records.
+
+    Args:
+        activity_id: Activity ID to count media for.
+        db: Database session.
+
+    Returns:
+        The total number of media records.
+
+    Raises:
+        ProcessingError: If a database error occurs.
+    """
+    stmt = select(func.count()).where(activity_media_models.ActivityMedia.activity_id == activity_id)
+    return db.scalar(stmt) or 0
 
 
 @core_decorators.handle_db_errors
@@ -247,9 +271,6 @@ def create_activity_medias(
         activity_id: Activity ID the media belong to.
         db: Database session.
 
-    Returns:
-        None.
-
     Raises:
         ProcessingError: If a database error occurs.
     """
@@ -312,9 +333,6 @@ def delete_activity_media(activity_media_id: int, db: Session) -> None:
     Args:
         activity_media_id: ID of the activity media record to delete.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         NotFoundError: If the media record does not exist.

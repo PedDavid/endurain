@@ -48,15 +48,7 @@ Plain child collections (rows hanging off one activity) build them with `activit
 
 ## Adding a module
 
-1. Create `modules/<name>` or `modules/<namespace>/<name>`; docstring-only `__init__.py`.
-2. Add `integration_service.py` with only operations that have a caller outside the package. A package nothing calls has none and is listed in `_NO_CROSS_MODULE_SURFACE` (`tests/activities/test_module_template.py`).
-3. Add `model_registry.py` if it owns a table, and contribute it to the namespace/app registry.
-4. Add `migration_service.py` only if an existing data migration needs it.
-5. Add `subscriber_registry.py` / `scheduled_jobs.py`, then one `RuntimeModule(name=..., ...)` in `app/module_registry.py` (keywords; backfills as `StartupTask`).
-6. Activity child archived as JSON: add contributor factories and register in `configure_activity_contributors`.
-7. Add the module to `backend/.importlinter` contract source lists.
-8. New top-level module: add to `CONVERTED_MODULES` in `backend/tests/_helpers/module_roles.py`.
-9. Mirror the tree under `backend/tests/`.
+Follow `docs/developer-guide/module-structure.md#adding-a-module`; the `convert-module` skill has the procedure for an existing module. Mirror the tree under `backend/tests/`.
 
 ## Auth boundary
 
@@ -66,6 +58,4 @@ Never import `modules.auth._internal` or any `modules.auth.*.crud`. No `ignore_i
 
 ## Enforcement
 
-- `backend/.importlinter`: external packages, platform direction, auth boundary, migration surface, named design seams. Not layer rules: it matches exact module names.
-- `tests/architecture/test_module_boundaries.py`: `TestLayerRules` (ORM ownership, transport delegation, persistence purity, outbound reach through a surface, direction), own-package vs peer privacy, DAG, only crud executes, content matches role, module inventory, surface callers and transactions.
-- Allowlist entries (`_LAYER_EXCEPTIONS`, `_INTRA_MODULE_SEAMS`, `_INBOUND_EXCEPTIONS`) are exact composition or read-model edges with a reason.
+`backend/.importlinter` (external packages, platform direction, auth boundary, named seams) and `tests/architecture/` (layer rules, privacy, DAG, roles, transactions, logging). The guide's Enforcement section is authoritative; allowlists hold only exact composition or read-model edges, each with a reason.

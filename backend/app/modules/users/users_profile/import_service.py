@@ -628,7 +628,7 @@ class ImportService:
         self,
         component_data: dict[str, list[dict[str, Any]]],
         original_activity_id: int,
-        new_activity: activity_schema.Activity,
+        new_activity: activity_schema.ActivityRead,
     ) -> None:
         """Import contributed components for a single restored activity.
 

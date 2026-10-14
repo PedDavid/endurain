@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get(
     "/all",
-    response_model=list[activity_exercise_titles_schema.ActivityExerciseTitles],
+    response_model=list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
 )
 def read_activities_exercise_titles_all(
     _check_scopes: Annotated[
@@ -24,6 +24,6 @@ def read_activities_exercise_titles_all(
         Security(auth_dependencies.check_scopes, scopes=["activities:read"]),
     ],
     db: Annotated[Session, Depends(core_database.get_db)],
-) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
+) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
     """Return all activity exercise titles."""
     return activity_exercise_titles_service.list_activity_exercise_titles(db)

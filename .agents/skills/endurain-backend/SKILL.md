@@ -44,7 +44,7 @@ Where this skill and a guide disagree, the guide wins.
 ```bash
 cd backend
 PYTHONPATH=app uv run lint-imports
-uv run pytest tests/architecture tests/test_logging_rule.py -q --no-cov
+uv run pytest tests/architecture -q --no-cov
 uv run ruff format --check . && uv run ruff check .
 ```
 

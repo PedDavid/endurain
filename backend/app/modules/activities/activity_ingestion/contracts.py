@@ -39,7 +39,7 @@ import modules.activities.activity.schema as activity_schema
 #: integration is not an error.
 FetchWindow = Callable[
     [int, datetime, datetime, Session],
-    Awaitable[list[activity_schema.Activity] | None],
+    Awaitable[list[activity_schema.ActivityRead] | None],
 ]
 
 
@@ -75,9 +75,6 @@ def apply_bulk_import_metadata(
     Args:
         activity: The parsed activity to enrich (mutated in place).
         activity_metadata: Metadata from the source's ``metadata_for``.
-
-    Returns:
-        None.
     """
     if activity_metadata.get("name"):
         activity.name = activity_metadata["name"]
@@ -201,15 +198,12 @@ class BulkImportSource:
         Args:
             activity: The parsed activity to enrich, mutated in place.
             activity_metadata: Metadata from :meth:`metadata_for`.
-
-        Returns:
-            None.
         """
         apply_bulk_import_metadata(activity, activity_metadata)
 
     def import_side_artifacts(
         self,
-        created_activities: list[activity_schema.Activity],
+        created_activities: list[activity_schema.ActivityRead],
         file_base_name: str,
         db: Session,
     ) -> None:
@@ -223,9 +217,6 @@ class BulkImportSource:
             created_activities: Activities persisted from the file, in order.
             file_base_name: The file's original base name.
             db: Database session.
-
-        Returns:
-            None.
         """
         return None
 

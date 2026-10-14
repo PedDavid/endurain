@@ -50,9 +50,6 @@ def _log_failure(future: Future) -> None:
 
     Args:
         future: The completed future to inspect.
-
-    Returns:
-        None.
     """
     exc = future.exception()
     if isinstance(exc, Exception):
@@ -88,9 +85,6 @@ def shutdown(wait: bool = False) -> None:
 
     Args:
         wait: Whether to block until running tasks finish.
-
-    Returns:
-        None.
     """
     global _executor
     if _executor is None:

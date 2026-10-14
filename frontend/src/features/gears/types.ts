@@ -142,7 +142,7 @@ export interface GearComponentInput {
 }
 
 /** Raw `Activity` payload as returned by the gear-activities endpoint. */
-export type GearActivityDto = Schemas['Activity']
+export type GearActivityDto = Schemas['ActivityRead']
 
 /**
  * The trimmed activity model used by the gear-detail activities list — only the

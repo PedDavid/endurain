@@ -9,7 +9,7 @@ import modules.activities.activity_workout_steps.schema as activity_workout_step
 
 def to_read_schema(
     orm_step: activity_workout_steps_models.ActivityWorkoutSteps,
-) -> activity_workout_steps_schema.ActivityWorkoutSteps:
+) -> activity_workout_steps_schema.ActivityWorkoutStepsRead:
     """Convert an ORM row to its read schema.
 
     Args:
@@ -18,11 +18,11 @@ def to_read_schema(
     Returns:
         The read schema.
     """
-    return activity_workout_steps_schema.ActivityWorkoutSteps.model_validate(orm_step)
+    return activity_workout_steps_schema.ActivityWorkoutStepsRead.model_validate(orm_step)
 
 
 def to_orm(
-    step: activity_workout_steps_schema.ActivityWorkoutSteps,
+    step: activity_workout_steps_schema.ActivityWorkoutStepsRead,
     activity_id: int,
 ) -> activity_workout_steps_models.ActivityWorkoutSteps:
     """Build an ORM row from a workout step schema.

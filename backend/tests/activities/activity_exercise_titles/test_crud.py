@@ -51,10 +51,10 @@ class TestCreateExerciseTitle:
     @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
     def test_all_existing(self, mock_model_cls, mock_select, mock_tuple, mock_db):
         import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitles
+        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
 
         titles = [
-            ActivityExerciseTitles(exercise_category=1, exercise_name=1, wkt_step_name="Run"),
+            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=1, wkt_step_name="Run"),
         ]
         mock_db.execute.return_value.all.return_value = [(1, 1)]
         crud.create_activity_exercise_titles(titles, mock_db)
@@ -65,10 +65,10 @@ class TestCreateExerciseTitle:
     @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
     def test_new_entries(self, mock_model_cls, mock_select, mock_tuple, mock_db):
         import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitles
+        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
 
         titles = [
-            ActivityExerciseTitles(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
+            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
         ]
         mock_db.execute.return_value.all.return_value = []
         mock_instance = MagicMock()
@@ -83,10 +83,10 @@ class TestCreateExerciseTitle:
     @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
     def test_integrity_error(self, mock_model_cls, mock_select, mock_tuple, mock_db):
         import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitles
+        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
 
         titles = [
-            ActivityExerciseTitles(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
+            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
         ]
         mock_db.execute.return_value.all.return_value = []
         mock_model_cls.return_value = MagicMock()

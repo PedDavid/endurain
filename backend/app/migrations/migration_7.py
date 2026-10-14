@@ -37,7 +37,7 @@ def process_migration_7(db: Session) -> None:
             if not batch_streams:
                 break
 
-            activity_cache: dict[int, activity_schema.Activity] = {}
+            activity_cache: dict[int, activity_schema.ActivityRead] = {}
             user_cache: dict[int, users_schema.UsersRead] = {}
 
             computed_streams: list[dict[str, int | dict[str, dict]]] = []
@@ -45,7 +45,7 @@ def process_migration_7(db: Session) -> None:
             for stream in batch_streams:
                 zone_percentages: dict[str, dict] | None = None
 
-                activity: activity_schema.Activity | None = activity_cache.get(stream.activity_id)
+                activity: activity_schema.ActivityRead | None = activity_cache.get(stream.activity_id)
                 if activity is None:
                     activity = activity_crud.get_activity_by_id(stream.activity_id, db)
                     if activity is None:

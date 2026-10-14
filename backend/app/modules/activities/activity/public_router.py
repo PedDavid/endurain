@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.get(
     "/{activity_id}",
-    response_model=activity_schema.Activity,
+    response_model=activity_schema.ActivityRead,
 )
 def read_public_activities_activity_from_id(
     activity_id: int,
@@ -34,7 +34,6 @@ def read_public_activities_activity_from_id(
 
     Answers 404 when the activity does not exist *or* is not public — the two are
     deliberately indistinguishable so this unauthenticated endpoint cannot be
-    used to enumerate which activity ids exist. It previously returned
-    ``200 null``, which is neither a resource nor an error.
+    used to enumerate which activity ids exist.
     """
     return activity_service.get_public_activity(activity_id, db)

@@ -69,9 +69,6 @@ def store_activity_file_for_ids(
         extension: The source-file extension (e.g. ``".fit"``).
         data: The raw (already-decompressed) file bytes.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     for activity_id in activity_ids:
         store_activity_file(activity_id, extension, data, storage)

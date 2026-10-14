@@ -121,9 +121,6 @@ def enrich_parsed_activity(
             activity, for a Garmin sync.
         garmin_connect_activity_id: The Garmin Connect activity id, for a Garmin
             sync.
-
-    Returns:
-        None.
     """
     for key, value in build_activity_privacy_kwargs(user_privacy_settings).items():
         setattr(activity, key, value)

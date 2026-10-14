@@ -169,7 +169,7 @@ def _apply_activity_visibility_filter(
 @core_decorators.handle_db_errors
 def get_all_activities(
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Return every activity in the database, serialized.
 
     Note:
@@ -187,7 +187,7 @@ def get_all_activities(
     """
     activities = db.execute(select(activity_models.Activity)).scalars().all()
     if not activities:
-        return None
+        return []
     return [activity_serializers.to_read_schema(a) for a in activities]
 
 
@@ -234,7 +234,7 @@ def get_user_activities(
     name_search: str | None = None,
     user_is_owner: bool = True,
     followee_ids: Sequence[int] | None = None,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get activities owned by a user (with optional filters).
 
     Args:
@@ -272,7 +272,7 @@ def get_user_activities(
 
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
@@ -335,7 +335,7 @@ def count_user_activities(
 @core_decorators.handle_db_errors
 def get_user_activities_by_user_id_and_garminconnect_gear_set(
     user_id: int, db: Session
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get activities for a user that have a Garmin gear ID.
 
     Args:
@@ -358,7 +358,7 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
@@ -380,7 +380,7 @@ def get_user_activities_with_pagination(
     sort_order: str | None = None,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get a page of user activities with filters and sorting.
 
     Args:
@@ -427,7 +427,7 @@ def get_user_activities_with_pagination(
 
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
@@ -472,7 +472,7 @@ def get_user_activities_per_timeframe(
     *,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get a user's activities within a date range.
 
     Args:
@@ -506,7 +506,7 @@ def get_user_activities_per_timeframe(
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id if user_is_owner else None,
@@ -525,7 +525,7 @@ def get_user_activities_per_timeframe_and_activity_types(
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
     exclude_hidden: bool = False,
-) -> list[activity_schema.Activity]:
+) -> list[activity_schema.ActivityRead]:
     """Get a user's activities within a date range by types.
 
     Args:
@@ -662,7 +662,7 @@ def get_gear_activities_count_by_user_id(
 @core_decorators.handle_db_errors
 def get_user_activities_by_gear_id_and_user_id(
     user_id: int, gear_id: int, db: Session
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get all activities for a gear owned by a user.
 
     Args:
@@ -686,7 +686,7 @@ def get_user_activities_by_gear_id_and_user_id(
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
@@ -700,7 +700,7 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
     page_number: int,
     num_records: int,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Get a page of activities for a gear owned by a user.
 
     Args:
@@ -728,7 +728,7 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
     )
     activities = db.execute(stmt).scalars().all()
     if not activities:
-        return None
+        return []
     return activity_serializers.serialize_and_mask(
         list(activities),
         requester_user_id=user_id,
@@ -816,7 +816,7 @@ def sum_gear_usage_by_window(
 @core_decorators.handle_db_errors
 def get_activity_by_id_from_user_id_or_has_visibility(
     activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Get an activity by ID if owned or visible to the user.
 
     Args:
@@ -851,7 +851,7 @@ def get_activity_by_id_from_user_id_or_has_visibility(
 @core_decorators.handle_db_errors
 def get_viewable_activity_by_id_for_user(
     activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return an activity (unmasked) iff the user may view it — child-resource authz gate.
 
     Enforces the same visibility rule as
@@ -894,7 +894,7 @@ def get_viewable_activity_by_id_for_user(
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_schema.Activity | None:
+def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get an activity by ID if it is publicly shareable.
 
     Answers only the row-level question. Whether the server allows public
@@ -930,7 +930,7 @@ def get_public_activity_for_child_read(
     db: Session,
     *,
     hide_attr: str,
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return a publicly readable activity for an unauthenticated child-resource read.
 
     The single public gate for activity sub-resources (laps / sets / workout
@@ -995,7 +995,7 @@ def get_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[i
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activity | None:
+def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get an activity by ID without permission checks.
 
     Args:
@@ -1020,7 +1020,7 @@ def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activit
 @core_decorators.handle_db_errors
 def get_activity_by_start_time(
     start_time: str | datetime, user_id: int, db: Session
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Get a user's activity matching a specific start time.
 
     Args:
@@ -1049,7 +1049,7 @@ def get_activity_by_start_time(
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> activity_schema.Activity | None:
+def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get a user's activity by its idempotency dedup key.
 
     Used by the ingestion seam to make re-import of an already-ingested activity
@@ -1160,7 +1160,7 @@ def list_user_activity_scoring_contexts(
 
 
 @core_decorators.handle_db_errors
-def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session) -> activity_schema.Activity | None:
+def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get a user's activity by ID.
 
     Args:
@@ -1187,7 +1187,7 @@ def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session)
 @core_decorators.handle_db_errors
 def get_activity_by_strava_id_from_user_id(
     activity_strava_id: int, user_id: int, db: Session
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Get a user's activity by its Strava activity ID.
 
     Args:
@@ -1214,7 +1214,7 @@ def get_activity_by_strava_id_from_user_id(
 @core_decorators.handle_db_errors
 def get_activity_by_garminconnect_id_from_user_id(
     activity_garminconnect_id: int, user_id: int, db: Session
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Get a user's activity by its Garmin Connect activity ID.
 
     Args:
@@ -1244,7 +1244,7 @@ def create_activity(
     db: Session,
     *,
     dedup_key: str | None = None,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Stage a new activity; duplicate start-times are marked hidden.
 
     Pure persistence: notifications and derived work (thumbnails, HR zones) are
@@ -1561,9 +1561,9 @@ def get_activities_with_legacy_thumbnail_path(
 def edit_activity(
     user_id: int,
     activity_id: int,
-    activity_attributes: activity_schema.ActivityEdit | activity_schema.Activity,
+    activity_attributes: activity_schema.ActivityEdit | activity_schema.ActivityRead,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Stage partial updates to a user's activity.
 
     Args:

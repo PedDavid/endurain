@@ -29,7 +29,7 @@ class TestGetUserActivities:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_user_activities(user_id=1, db=mock_db) is None
+        assert crud.get_user_activities(user_id=1, db=mock_db) == []
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -74,7 +74,7 @@ class TestGetUserActivitiesWithPagination:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_user_activities_with_pagination(user_id=1, db=mock_db) is None
+        assert crud.get_user_activities_with_pagination(user_id=1, db=mock_db) == []
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -134,7 +134,7 @@ class TestGetAllActivities:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_all_activities(db=mock_db) is None
+        assert crud.get_all_activities(db=mock_db) == []
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -173,7 +173,7 @@ class TestGetActivitiesPerTimeframe:
         r = crud.get_user_activities_per_timeframe(
             user_id=1, start=datetime(2024, 1, 1, tzinfo=UTC), end=datetime(2024, 1, 31, tzinfo=UTC), db=mock_db
         )
-        assert r is None
+        assert r == []
 
     def test_db_error(self, mock_db):
         from datetime import UTC, datetime
@@ -689,7 +689,7 @@ class TestGetUserActivitiesByGarminGear:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_user_activities_by_user_id_and_garminconnect_gear_set(user_id=1, db=mock_db) is None
+        assert crud.get_user_activities_by_user_id_and_garminconnect_gear_set(user_id=1, db=mock_db) == []
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -789,7 +789,7 @@ class TestGetUserActivitiesByGearId:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_user_activities_by_gear_id_and_user_id(user_id=1, gear_id=5, db=mock_db) is None
+        assert crud.get_user_activities_by_gear_id_and_user_id(user_id=1, gear_id=5, db=mock_db) == []
 
     def test_db_error(self, mock_db):
         import modules.activities.activity.crud as crud
@@ -821,7 +821,7 @@ class TestGetUserActivitiesByGearIdWithPagination:
             crud.get_user_activities_by_gear_id_and_user_id_with_pagination(
                 user_id=1, gear_id=5, page_number=1, num_records=10, db=mock_db
             )
-            is None
+            == []
         )
 
     def test_db_error(self, mock_db):

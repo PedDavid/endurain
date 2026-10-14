@@ -70,9 +70,6 @@ def process_uploaded_file_for_event(event: Event) -> None:
 
     Args:
         event: The ``activity.file_uploaded`` event (payload ``{"job_id": str}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_ingestion_events.UploadedFilePayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -103,9 +100,6 @@ def process_refresh_requested_for_event(event: Event) -> None:
     Args:
         event: The ``activity.refresh_requested`` event (payload
             ``{"job_id": str}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_ingestion_events.RefreshRequestedPayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -145,9 +139,6 @@ def process_bulk_import_file_for_event(event: Event) -> None:
         event: The ``activity.bulk_import_file`` event (payload
             ``{"job_id": str | None, "storage_key": str, "filename": str,
             "user_id": int, "import_initiated_time": str}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_ingestion_events.BulkImportFilePayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -201,9 +192,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-subscriber registry to register on.
-
-    Returns:
-        None.
     """
     registry.register(
         activity_ingestion_events.ACTIVITY_FILE_UPLOADED,

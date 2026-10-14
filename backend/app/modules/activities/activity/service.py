@@ -61,7 +61,7 @@ def get_activities_in_timeframe(
     end: datetime,
     requester_user_id: int,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Return a user's activities in ``[start, end]`` scoped to the requester.
 
     The owner sees all of their activities; any other requester sees only the
@@ -300,7 +300,7 @@ def list_gear_activities(
     page_number: int | None,
     num_records: int | None,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """List a user's activities for a gear (paginated when page/size are given).
 
     Args:
@@ -347,7 +347,7 @@ def list_user_activities_paginated(
     name_search: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """List a user's activities (filtered, paginated) scoped to the requester.
 
     The owner sees all of their activities; any other requester sees only the
@@ -403,9 +403,6 @@ def _require_feed_owner(user_id: int, requester_user_id: int) -> None:
     Args:
         user_id: ID of the user.
         requester_user_id: The authenticated caller.
-
-    Returns:
-        None.
     """
     if user_id != requester_user_id:
         logger.warning(
@@ -570,7 +567,7 @@ def list_activity_types(user_id: int, db: Session) -> dict[int, str]:
     return activity_crud.get_distinct_activity_types_for_user(user_id, db)
 
 
-def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activity_schema.Activity:
+def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activity_schema.ActivityRead:
     """Return an activity the requester owns or is permitted to see.
 
     Args:
@@ -598,7 +595,7 @@ def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activ
     return activity
 
 
-def get_public_activity(activity_id: int, db: Session) -> activity_schema.Activity:
+def get_public_activity(activity_id: int, db: Session) -> activity_schema.ActivityRead:
     """Return a publicly shared activity.
 
     Args:
@@ -626,7 +623,7 @@ def edit_activity(
     db: Session,
     *,
     if_match: str | None = None,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Apply partial updates to one of the user's activities.
 
     The update is staged and the publisher owns the single
@@ -740,9 +737,6 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
         activity_id: The activity to delete.
         user_id: The authenticated owner.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_crud.delete_activity(activity_id, user_id, db)
     activity_event_publishers.publish_activity_deleted(activity_id, user_id, db, commit=db.commit)

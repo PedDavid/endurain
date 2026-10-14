@@ -197,9 +197,6 @@ def discard_received_upload(received: ReceivedUpload) -> None:
 
     Args:
         received: The upload returned by :func:`receive_upload`.
-
-    Returns:
-        None.
     """
     core_file_uploads.remove_files([received.incoming_path])
 
@@ -209,7 +206,7 @@ def process_staged_upload(
     staged_key: str,
     storage: platform_providers.StorageProvider,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Decompress, parse and persist a previously staged upload.
 
     Runs on a background worker, on any node: the bytes come back from the
@@ -313,9 +310,6 @@ def discard_staged_upload(staged_key: str, storage: platform_providers.StoragePr
     Args:
         staged_key: The storage key to remove.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     try:
         storage.delete(

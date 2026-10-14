@@ -28,7 +28,7 @@ class TestReadActivityMedia:
     @patch("modules.activities.activity_media.router.activity_media_service.list_activity_media")
     def test_read_media_success(self, mock_list, mock_db):
         client = TestClient(_build_app(mock_db))
-        mock_list.return_value = []
+        mock_list.return_value = {"items": [], "total": 0, "page": 1, "num_records": 200, "next": None}
 
         response = client.get("/activities/1/media", headers={"Authorization": "Bearer x"})
         assert response.status_code == 200
@@ -37,13 +37,13 @@ class TestReadActivityMedia:
     @patch("modules.activities.activity_media.router.activity_media_service.list_activity_media")
     def test_read_media_not_found(self, mock_list, mock_db):
         client = TestClient(_build_app(mock_db))
-        mock_list.return_value = []
+        mock_list.return_value = {"items": [], "total": 0, "page": 1, "num_records": 200, "next": None}
 
-        # A collection endpoint answers with a collection: no media (or an
-        # activity the caller cannot see) is an empty list, not ``null``.
+        # A collection endpoint answers with the page envelope: no media (or an
+        # activity the caller cannot see) is an empty page, not ``null``.
         response = client.get("/activities/999/media", headers={"Authorization": "Bearer x"})
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json()["items"] == []
 
 
 class TestUploadActivityMedia:
@@ -66,10 +66,10 @@ class TestUploadActivityMedia:
     @patch("modules.activities.activity_media.router.core_file_uploads")
     @patch("modules.activities.activity_media.router.activity_media_service.store_activity_media")
     def test_upload_success(self, mock_store, mock_uploads, mock_db):
-        from modules.activities.activity_media.schema import ActivityMedia
+        from modules.activities.activity_media.schema import ActivityMediaRead
 
         client = TestClient(_build_app(mock_db))
-        mock_store.return_value = ActivityMedia(
+        mock_store.return_value = ActivityMediaRead(
             id=1, activity_id=1, media_type=1, url="/api/v1/activities/1/media/1/file?t=tok"
         )
 

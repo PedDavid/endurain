@@ -12,7 +12,7 @@ import modules.activities.contributors as activities_contributors
 def _list_workout_steps_for_activities(
     activity_ids: list[int],
     db: Session,
-) -> list[activity_workout_steps_schema.ActivityWorkoutSteps]:
+) -> list[activity_workout_steps_schema.ActivityWorkoutStepsRead]:
     """Return workout steps for activity IDs already scoped by the caller.
 
     Args:
@@ -26,7 +26,7 @@ def _list_workout_steps_for_activities(
 
 
 def _store_workout_steps(
-    steps: list[activity_workout_steps_schema.ActivityWorkoutSteps],
+    steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -36,9 +36,6 @@ def _store_workout_steps(
         steps: Workout steps to store.
         activity_id: ID of the parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_workout_steps_crud.create_activity_workout_steps(steps, activity_id, db)
 
@@ -46,7 +43,7 @@ def _store_workout_steps(
 def _parse_profile_record(
     record: dict[str, Any],
     activity_id: int,
-) -> activity_workout_steps_schema.ActivityWorkoutSteps:
+) -> activity_workout_steps_schema.ActivityWorkoutStepsRead:
     """Validate one archived workout step onto the restored activity.
 
     Args:
@@ -56,7 +53,7 @@ def _parse_profile_record(
     Returns:
         The validated step.
     """
-    return activity_workout_steps_schema.ActivityWorkoutSteps.model_validate({**record, "activity_id": activity_id})
+    return activity_workout_steps_schema.ActivityWorkoutStepsRead.model_validate({**record, "activity_id": activity_id})
 
 
 def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:

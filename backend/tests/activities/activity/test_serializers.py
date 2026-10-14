@@ -29,7 +29,7 @@ def _activity_orm_stub():
 
 class TestSerializeActivity:
     @patch("modules.activities.activity.serializers.activities_contributor_registry")
-    @patch("modules.activities.activity.serializers.activity_schema.Activity")
+    @patch("modules.activities.activity.serializers.activity_schema.ActivityRead")
     def test_serialize_basic(self, mock_schema_cls, mock_registry):
         from modules.activities.activity.serializers import to_read_schema
 
@@ -178,10 +178,10 @@ class TestApplyVisibilityMask:
         assert result.map_thumbnail_path == "42.webp"
 
     def test_hide_start_time_clears_both_timestamps(self):
-        from modules.activities.activity.schema import Activity
+        from modules.activities.activity.schema import ActivityRead
         from modules.activities.activity.serializers import apply_visibility_mask
 
-        schema = Activity(
+        schema = ActivityRead(
             distance=1000,
             name="Ride",
             activity_type=5,
@@ -196,10 +196,10 @@ class TestApplyVisibilityMask:
         assert schema.end_time is None
 
     def test_owner_keeps_everything(self):
-        from modules.activities.activity.schema import Activity
+        from modules.activities.activity.schema import ActivityRead
         from modules.activities.activity.serializers import apply_visibility_mask
 
-        schema = Activity(
+        schema = ActivityRead(
             distance=1000,
             name="Ride",
             activity_type=5,

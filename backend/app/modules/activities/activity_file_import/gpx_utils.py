@@ -77,11 +77,7 @@ class ParseState:
     is_velocity_set: bool = False
 
     def reset_segment(self) -> None:
-        """Clear cursors that must not carry across GPX segments.
-
-        Returns:
-            None.
-        """
+        """Clear cursors that must not carry across GPX segments."""
         self.prev_latitude = None
         self.prev_longitude = None
         self.prev_waypoint_time = None

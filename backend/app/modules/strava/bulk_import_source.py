@@ -114,7 +114,7 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
 
     def import_side_artifacts(
         self,
-        created_activities: list[activity_schema.Activity],
+        created_activities: list[activity_schema.ActivityRead],
         file_base_name: str,
         db: Session,
     ) -> None:

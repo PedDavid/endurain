@@ -98,10 +98,10 @@ class TestServerOwnedFieldsAreNotIngestionInputs:
     """
 
     def test_read_model_exposes_the_server_owned_fields(self):
-        from modules.activities.activity.schema import Activity
+        from modules.activities.activity.schema import ActivityRead
 
-        assert "id" in Activity.model_fields
-        assert "map_thumbnail_path" in Activity.model_fields
+        assert "id" in ActivityRead.model_fields
+        assert "map_thumbnail_path" in ActivityRead.model_fields
 
     def test_ingestion_contract_does_not(self):
         assert "id" not in ActivityCore.model_fields

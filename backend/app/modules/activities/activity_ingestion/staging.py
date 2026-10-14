@@ -92,9 +92,6 @@ def settle(staged: list[tuple[str, str]], user_id: int) -> None:
     Args:
         staged: ``(storage_key, file_path)`` pairs that were published.
         user_id: Owner of the import, for the log context.
-
-    Returns:
-        None.
     """
     for key, file_path in staged:
         try:
@@ -115,9 +112,6 @@ def unstage(keys: list[str], storage: platform_providers.StorageProvider) -> Non
     Args:
         keys: Storage keys staged before the failure.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     for key in keys:
         try:
@@ -170,9 +164,6 @@ def discard(key: str, storage: platform_providers.StorageProvider) -> None:
     Args:
         key: The staged blob's storage key.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     storage.delete(BULK_IMPORT_STORAGE_AREA, key)
 
@@ -190,9 +181,6 @@ def move_to_errors(key: str, user_id: int, filename: str, storage: platform_prov
         user_id: Owner of the import.
         filename: The dropped file's original name, recorded for the operator.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     try:
         data = storage.get(BULK_IMPORT_STORAGE_AREA, key)

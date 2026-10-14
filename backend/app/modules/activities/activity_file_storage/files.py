@@ -61,9 +61,6 @@ def delete_activity_file(
     Args:
         activity_id: The owning activity id.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     for extension in STORED_EXTENSIONS:
         key = activity_file_key(activity_id, extension)

@@ -45,7 +45,7 @@ def get_activity_by_strava_id(
     strava_activity_id: int,
     user_id: int,
     db: Session,
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return the user's activity imported from the given Strava activity id.
 
     Args:
@@ -63,7 +63,7 @@ def get_activity_by_garminconnect_id(
     garminconnect_activity_id: int,
     user_id: int,
     db: Session,
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return the user's activity imported from the given Garmin Connect activity id.
 
     Args:
@@ -77,7 +77,7 @@ def get_activity_by_garminconnect_id(
     return activity_crud.get_activity_by_garminconnect_id_from_user_id(garminconnect_activity_id, user_id, db)
 
 
-def list_user_activities(user_id: int, db: Session) -> list[activity_schema.Activity] | None:
+def list_user_activities(user_id: int, db: Session) -> list[activity_schema.ActivityRead]:
     """Return all of a user's activities (used by provider gear reconciliation).
 
     Args:
@@ -93,7 +93,7 @@ def list_user_activities(user_id: int, db: Session) -> list[activity_schema.Acti
 def list_user_activities_with_garminconnect_gear(
     user_id: int,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead]:
     """Return a user's activities that carry a Garmin Connect gear id.
 
     Args:
@@ -171,7 +171,7 @@ def list_user_activities_page(
     page_number: int,
     num_records: int,
     db: Session,
-) -> list[activity_schema.Activity]:
+) -> list[activity_schema.ActivityRead]:
     """Return one page of a user's own activities, newest first.
 
     The profile export walks a user's whole library in batches; it is always the
@@ -207,7 +207,7 @@ def list_user_activities_in_timeframe_by_types(
     db: Session,
     *,
     exclude_hidden: bool = True,
-) -> list[activity_schema.Activity]:
+) -> list[activity_schema.ActivityRead]:
     """Return a user's own activities of the given types within a window.
 
     Used by goal progress. Hidden activities are excluded by default so a
@@ -239,7 +239,7 @@ def list_user_activities_in_timeframe_by_types(
 def restore_activity(
     activity: activity_contracts.ActivityCore,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Persist an activity from a profile restore **without** publishing events.
 
     Deliberately not the ``store_parsed_activity`` ingestion seam: a bulk restore
@@ -267,7 +267,7 @@ def restore_activity(
 def store_parsed_activity(
     parsed: activity_contracts.ParsedActivity,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Persist a canonical parsed activity through the atomic ingestion seam.
 
     Args:
@@ -284,7 +284,7 @@ def resolve_readable_parent(
     activity_id: int,
     requester_user_id: int,
     db: Session,
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return the parent activity when an authenticated caller may read it.
 
     Args:
@@ -298,7 +298,7 @@ def resolve_readable_parent(
     return activity_child_access_service.resolve_readable_parent(activity_id, requester_user_id, db)
 
 
-def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:
+def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Return the parent activity when it is publicly shareable.
 
     Args:
@@ -399,9 +399,6 @@ def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
         activity_id: ID of the activity.
         key: The new storage key, or None to clear it.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_crud.set_activity_thumbnail_path(activity_id, key, db)
 
@@ -413,9 +410,6 @@ def clear_all_thumbnail_keys(db: Session) -> None:
 
     Args:
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_crud.clear_all_activity_thumbnail_paths(db)
 

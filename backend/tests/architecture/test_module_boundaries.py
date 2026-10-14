@@ -22,7 +22,7 @@ import tomllib
 from tests._helpers.module_roles import CONVERTED_MODULES, UNCONVERTED_MODULES
 from tests._helpers.module_roles import role_of as _role
 
-#: Modules converted to the structure guide, shared with ``test_logging_rule.py``
+#: Modules converted to the structure guide, shared with ``test_logging_rule.py`` (also in ``tests/architecture/``)
 #: through ``tests/_helpers/module_roles.py``. Opt-in, and ratcheted by
 #: ``TestModuleInventory`` so an unconverted module is visibly outstanding
 #: rather than silently exempt.
@@ -350,6 +350,11 @@ def _excepted(importer: str, imported: str) -> bool:
 #: someone else's operation is how an invariant breaks. The rule is that a
 #: surface write **stages** and its caller commits; what is listed here is
 #: deliberately a self-contained unit of work, with the reason it has to be.
+#:
+#: TODO(jasil): the four publishing entries below exist only because the platform
+#: publisher must own the commit (best-effort dispatch has to follow it). They go
+#: away once ``jasil.publisher`` gains an after-commit publish; see the TODO in
+#: ``modules/activities/activity/event_publishers.py``.
 _SURFACE_UNITS_OF_WORK: dict[str, str] = {
     "activity.integration_service.store_parsed_activity": (
         "Stores the activity and its components and publishes activity.created in one commit, so "

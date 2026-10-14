@@ -38,9 +38,6 @@ def _store_sets(
         sets: Sets to store.
         activity_id: ID of the parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_sets_crud.create_activity_sets(list(sets), activity_id, db)
 

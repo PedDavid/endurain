@@ -212,7 +212,7 @@ def refresh_user_strava_token(user_id: int, db: Session, is_startup: bool = Fals
         logger.info(f"User {user_id}: No Strava token found. Will skip processing")
 
 
-def fetch_and_validate_activity(activity_id: int, user_id: int, db: Session) -> activity_schema.Activity | None:
+def fetch_and_validate_activity(activity_id: int, user_id: int, db: Session) -> activity_schema.ActivityRead | None:
     # Get the activity by Strava ID from the user
     activity_db = activity_integration.get_activity_by_strava_id(activity_id, user_id, db)
 

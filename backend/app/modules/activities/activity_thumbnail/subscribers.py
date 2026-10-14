@@ -55,9 +55,6 @@ def generate_activity_thumbnail_for_event(event: Event) -> None:
     Args:
         event: The ``activity.created`` event (payload
             ``{"activity_id": int, "user_id": int}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -105,9 +102,6 @@ def cleanup_activity_thumbnail_for_event(event: Event) -> None:
 
     Args:
         event: The ``activity.deleted`` event (payload ``{"activity_id": int}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityDeletedPayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -124,11 +118,7 @@ on_activity_deleted_cleanup_thumbnail = best_effort(cleanup_activity_thumbnail_f
 
 
 def _schedule_thumbnail_regeneration() -> None:
-    """Queue a delete-and-regenerate pass over every thumbnail.
-
-    Returns:
-        None.
-    """
+    """Queue a delete-and-regenerate pass over every thumbnail."""
     core_scheduler.run_once(
         activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails,
         job_id="endurain_regenerate_all_thumbnails",
@@ -141,9 +131,6 @@ def regenerate_thumbnails_for_tile_settings_event(event: Event) -> None:
 
     Args:
         event: The settings-changed event.
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(server_settings_events.TileSettingsChangedPayload, event)
     if not payload.regenerate_thumbnails:
@@ -169,9 +156,6 @@ def register_thumbnail_subscribers(events: EventBusProvider) -> None:
 
     Args:
         events: The event-bus provider to subscribe on.
-
-    Returns:
-        None.
     """
     events.subscribe(activity_events.ACTIVITY_CREATED, on_activity_created_generate_thumbnail)
     events.subscribe(activity_events.ACTIVITY_DELETED, on_activity_deleted_cleanup_thumbnail)
@@ -188,9 +172,6 @@ def register_thumbnail_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-subscriber registry to register on.
-
-    Returns:
-        None.
     """
     registry.register(
         activity_events.ACTIVITY_CREATED,

@@ -73,7 +73,7 @@ class ActivityFeedEntry:
         cursor_id: Raw activity id used to break start-time ties.
     """
 
-    activity: activity_schema.Activity
+    activity: activity_schema.ActivityRead
     cursor_start_time: datetime
     cursor_id: int
 
@@ -147,7 +147,7 @@ class ActivityCore(activity_schema.ActivityBase):
 
     Extends :class:`~modules.activities.activity.schema.ActivityBase` — the
     fields that describe an activity — **not** the read
-    :class:`~modules.activities.activity.schema.Activity`. That distinction is
+    :class:`~modules.activities.activity.schema.ActivityRead`. That distinction is
     the point: the read model adds the server-owned ``id`` and
     ``map_thumbnail_path``, and while this class inherited from it those became
     accepted ingestion inputs by accident, as would every future read-only field.

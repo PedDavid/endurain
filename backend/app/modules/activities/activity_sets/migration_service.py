@@ -17,9 +17,6 @@ def create_activity_sets(
         activity_sets: Sets to store.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_sets_crud.create_activity_sets(activity_sets, activity_id, db)
     db.commit()

@@ -4,12 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
-import core.logger as core_logger
 import modules.activities.activity_workout_steps.models as activity_workout_steps_models
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.activity_workout_steps.serializers as activity_workout_steps_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 @core_decorators.handle_db_errors
@@ -19,7 +16,7 @@ def get_activity_workout_steps(
     *,
     page_number: int = 1,
     num_records: int = 200,
-) -> list[activity_workout_steps_schema.ActivityWorkoutSteps]:
+) -> list[activity_workout_steps_schema.ActivityWorkoutStepsRead]:
     """Get one page of an activity's planned workout steps, in step order.
 
     Performs no access check: whether the caller may read these rows is decided
@@ -75,7 +72,7 @@ def count_activity_workout_steps(activity_id: int, db: Session) -> int:
 def get_activities_workout_steps(
     activity_ids: list[int],
     db: Session,
-) -> list[activity_workout_steps_schema.ActivityWorkoutSteps]:
+) -> list[activity_workout_steps_schema.ActivityWorkoutStepsRead]:
     """Retrieve the workout steps of several activities at once.
 
     Performs no access check and joins no parent row: which activities the
@@ -103,7 +100,7 @@ def get_activities_workout_steps(
 
 @core_decorators.handle_db_errors
 def create_activity_workout_steps(
-    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutSteps],
+    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -114,9 +111,6 @@ def create_activity_workout_steps(
             schemas to persist.
         activity_id: Activity ID to associate with.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ProcessingError: If database error occurs.

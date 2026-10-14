@@ -4,7 +4,7 @@ Filenames are part of the contract: a file named ``crud.py`` is treated as
 persistence wherever it appears. The corollary is that the enforcement rules have
 to agree on what a filename *means*, and they are spread across two test modules
 (``tests/architecture/test_module_boundaries.py`` decides visibility,
-``tests/test_logging_rule.py`` decides which log levels a layer may use). Stating
+``tests/architecture/test_logging_rule.py`` decides which log levels a layer may use). Stating
 the vocabulary in each of them would be two copies of one definition, and a
 divergence between them is exactly the silent exemption the rules exist to
 prevent.

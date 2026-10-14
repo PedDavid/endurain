@@ -52,7 +52,7 @@ Rules and file roles: `docs/developer-guide/module-structure.md` and the `endura
 ```bash
 cd backend
 PYTHONPATH=app uv run lint-imports
-uv run pytest tests/architecture tests/test_logging_rule.py -q --no-cov
+uv run pytest tests/architecture -q --no-cov
 uv run pytest tests/<module> -q --no-cov
 uv run ruff format --check . && uv run ruff check .
 ```

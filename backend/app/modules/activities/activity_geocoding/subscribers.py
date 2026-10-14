@@ -38,9 +38,6 @@ def geocode_activity_for_event(event: Event) -> None:
     Args:
         event: The ``activity.created`` event (payload
             ``{"activity_id": int, "user_id": int, ...}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityCreatedPayload, event)
     with core_database.SessionLocal() as db:
@@ -66,9 +63,6 @@ def register_geocoding_subscribers(events: EventBusProvider) -> None:
 
     Args:
         events: The event-bus provider to subscribe on.
-
-    Returns:
-        None.
     """
     events.subscribe(activity_events.ACTIVITY_CREATED, on_activity_created_geocode)
 
@@ -82,9 +76,6 @@ def register_geocoding_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-subscriber registry to register on.
-
-    Returns:
-        None.
     """
     registry.register(
         activity_events.ACTIVITY_CREATED,

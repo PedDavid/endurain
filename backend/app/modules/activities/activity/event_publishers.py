@@ -19,6 +19,18 @@ from sqlalchemy.orm import Session
 import core.event_metadata as core_event_metadata
 import modules.activities.activity.events as activity_events
 
+# TODO(jasil): drop the ``commit`` callable from every publisher here once
+# ``jasil.publisher`` offers an after-commit publish (``publish_on_commit`` /
+# ``publish_many_on_commit``): durable mode stages the outbox row in the caller's
+# transaction, best-effort mode dispatches on the bus after the OUTERMOST commit
+# and discards on rollback, tied to the Session. Today ``publish_committing``
+# must own the commit so best-effort dispatch can follow it, which is why a
+# publishing surface function cannot stage-and-let-the-caller-commit and sits in
+# ``_SURFACE_UNITS_OF_WORK`` (tests/architecture/test_module_boundaries.py).
+# After the change: publishers take only ``db``, ``service`` and the surface stop
+# passing ``db.commit``, and ``_SURFACE_UNITS_OF_WORK`` shrinks to the two
+# rollback cases (``ingest_activity_file``, ``attach_media_bytes``).
+
 
 def publish_activity_created(
     activity_id: int,
@@ -47,9 +59,6 @@ def publish_activity_created(
             activity's start time (marked hidden on store). Carried in the
             payload so the notification subscriber can raise the duplicate
             variant instead of the new-activity notification.
-
-    Returns:
-        None.
     """
     payload = activity_events.ActivityCreatedPayload(
         activity_id=activity_id,
@@ -93,9 +102,6 @@ def publish_activity_updated(
             durable jobs are enabled.
         commit: Zero-arg callable that commits the caller's unit of work, so the
             outbox row joins the same transaction as the update.
-
-    Returns:
-        None.
     """
     payload = activity_events.ActivityUpdatedPayload(
         activity_id=activity_id,
@@ -146,9 +152,6 @@ def publish_activities_updated(
         db: The producer's DB session holding the staged updates.
         commit: Zero-arg callable that commits the caller's unit of work.
         source: Origin label identifying the bulk operation.
-
-    Returns:
-        None.
     """
     fields = sorted(changed_fields)
     platform_publisher.publish_many_committing(
@@ -189,9 +192,6 @@ def publish_activity_deleted(
             so the row deletion and the cleanup event commit together (a crash
             cannot delete the activity while orphaning its thumbnail /
             source-file blobs).
-
-    Returns:
-        None.
     """
     deleted = activity_events.ActivityDeletedPayload(activity_id=activity_id)
     metadata = {
@@ -239,9 +239,6 @@ def publish_activities_deleted(
         db: The producer's DB session holding the staged deletes.
         commit: Zero-arg callable that commits the caller's unit of work.
         source: Origin label identifying the bulk operation.
-
-    Returns:
-        None.
     """
     platform_publisher.publish_many_committing(
         activity_events.ACTIVITY_DELETED,

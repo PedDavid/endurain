@@ -165,6 +165,7 @@ def accept_follow_request(
 
 @router.delete(
     "/follow-requests/{requester_user_id}",
+    response_model=None,
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
@@ -187,6 +188,7 @@ def reject_follow_request(
 
 @router.delete(
     "/users/{user_id}/followers/{follower_id}",
+    response_model=None,
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)

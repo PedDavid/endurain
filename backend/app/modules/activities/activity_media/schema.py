@@ -2,8 +2,10 @@
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
+import core.pagination as core_pagination
 
-class ActivityMedia(BaseModel):
+
+class ActivityMediaRead(BaseModel):
     """A photo attached to an activity, as returned to a client.
 
     Read-only by construction: every field is populated for a media record that
@@ -18,3 +20,7 @@ class ActivityMedia(BaseModel):
     activity_id: StrictInt = Field(ge=1)
     media_type: StrictInt = Field(ge=1, le=1)
     url: str = Field(min_length=1)
+
+
+#: One page of an activity's media, the same envelope every child collection returns.
+ActivityMediaPage = core_pagination.Page[ActivityMediaRead]

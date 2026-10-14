@@ -21,9 +21,6 @@ def sweep_orphaned_activity_files() -> None:
     here. Scheduler-invoked, with no request to carry the provider or a session,
     so this entry point resolves the provider, opens the session and holds the
     coordination lock so only one replica runs the pass.
-
-    Returns:
-        None.
     """
     platform = platform_runtime.get_active_platform()
     with platform.lock.try_acquire("activity_file_sweep") as acquired:

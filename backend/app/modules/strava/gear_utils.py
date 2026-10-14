@@ -104,7 +104,7 @@ def process_gear(
 
 
 def match_gear_for_activity(
-    activity: activity_schema.Activity,
+    activity: activity_schema.ActivityRead,
     gears: list[gears_schema.GearRead],
 ) -> int | None:
     """Return the local gear ID matching this activity's Strava gear, else None."""
@@ -121,7 +121,7 @@ def set_activities_gear(user_id: int, db: Session) -> int:
     activities = activity_integration.list_user_activities(user_id, db)
 
     # Skip if no activities
-    if activities is None:
+    if not activities:
         return 0
 
     # Get user gears

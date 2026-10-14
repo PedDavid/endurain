@@ -7,7 +7,7 @@ import modules.activities.activity_exercise_titles.schema as activity_exercise_t
 
 
 def create_activity_exercise_titles(
-    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitles],
+    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
     db: Session,
 ) -> None:
     """Create exercise titles and commit them, as migrations did.
@@ -15,9 +15,6 @@ def create_activity_exercise_titles(
     Args:
         activity_exercise_titles: The titles to store.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_exercise_titles_crud.create_activity_exercise_titles(activity_exercise_titles, db)
     db.commit()

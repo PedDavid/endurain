@@ -204,9 +204,6 @@ def delete_activity_thumbnail(activity_id: int, storage: platform_providers.Stor
     Args:
         activity_id: The activity whose thumbnail should be removed.
         storage: The blob-storage provider.
-
-    Returns:
-        None.
     """
     storage.delete(
         activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, activity_thumbnail_signing.thumbnail_key(activity_id)

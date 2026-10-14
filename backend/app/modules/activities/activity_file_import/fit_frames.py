@@ -351,7 +351,7 @@ def parse_frame_workout_step(frame):
     if workout_set_data[9] is None:
         workout_set_data[9] = 0 if workout_set_data[10] is not None else None
 
-    return activity_workout_steps_schema.ActivityWorkoutSteps(
+    return activity_workout_steps_schema.ActivityWorkoutStepsRead(
         message_index=workout_set_data[0] if workout_set_data[0] else 0,
         duration_type=workout_set_data[1],
         duration_value=workout_set_data[2],
@@ -388,7 +388,7 @@ def parse_frame_exercise_title(frame):
     exercise_title_data = [get_value_from_frame(frame, key) for key in keys_value]
     exercise_title_data.extend(get_raw_value_from_frame(frame, key) for key in keys_raw)
 
-    return activity_exercise_titles_schema.ActivityExerciseTitles(
+    return activity_exercise_titles_schema.ActivityExerciseTitlesRead(
         exercise_category=exercise_title_data[1] if exercise_title_data[1] else 0,
         exercise_name=exercise_title_data[2] if exercise_title_data[2] else 0,
         wkt_step_name=str(exercise_title_data[0]),

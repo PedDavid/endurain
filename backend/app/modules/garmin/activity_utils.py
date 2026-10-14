@@ -28,7 +28,7 @@ async def fetch_and_process_activities_by_dates(
     user_id: int,
     ws_manager: websocket_manager.WebSocketManager,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     try:
         # Fetch Garmin Connect activities for the specified date range
         # Run in a thread pool to avoid blocking the asyncio event loop with
@@ -62,7 +62,7 @@ async def fetch_and_process_activities_by_dates(
         # Return 0 to indicate no activities were processed
         return None
 
-    parsed_activities: list[activity_schema.Activity] = []
+    parsed_activities: list[activity_schema.ActivityRead] = []
 
     # Download activities
     for activity in garmin_activities:
@@ -234,7 +234,7 @@ async def get_user_garminconnect_activities_by_dates(
     user_id: int,
     ws_manager: websocket_manager.WebSocketManager,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     try:
         # Get the Garmin Connect client for the user
         garminconnect_client = get_user_garminconnect_client(user_id, db)

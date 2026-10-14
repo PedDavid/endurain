@@ -19,11 +19,11 @@ class TestReadPublicExerciseTitles:
         "modules.activities.activity_exercise_titles.public_router.activity_exercise_titles_service.list_public_activity_exercise_titles"
     )
     def test_success(self, mock_get, mock_db):
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitles
+        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
 
         client = TestClient(_build_app(mock_db))
         mock_get.return_value = [
-            ActivityExerciseTitles(id=1, exercise_category=1, exercise_name=1, wkt_step_name="Run")
+            ActivityExerciseTitlesRead(id=1, exercise_category=1, exercise_name=1, wkt_step_name="Run")
         ]
 
         response = client.get("/public/activity_exercise_titles/all")

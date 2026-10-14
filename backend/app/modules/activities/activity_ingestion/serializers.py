@@ -9,7 +9,7 @@ import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 
 def to_read_schema(
     orm_job: activity_ingestion_models.ActivityIngestionJob,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Convert an ORM ``ActivityIngestionJob`` row to its read schema.
 
     Args:
@@ -18,7 +18,7 @@ def to_read_schema(
     Returns:
         The job's read schema.
     """
-    return activity_ingestion_schema.ActivityIngestionJob(
+    return activity_ingestion_schema.ActivityIngestionJobRead(
         id=orm_job.id,
         kind=activity_ingestion_schema.IngestionJobKind(orm_job.kind),
         filename=orm_job.filename,

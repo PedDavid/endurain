@@ -38,9 +38,6 @@ def cleanup_activity_file_for_event(event: Event) -> None:
 
     Args:
         event: The ``activity.deleted`` event (payload ``{"activity_id": int}``).
-
-    Returns:
-        None.
     """
     payload = platform_event_versioning.parse_payload(activity_events.ActivityDeletedPayload, event)
     storage = platform_runtime.get_active_platform().storage
@@ -63,9 +60,6 @@ def register_activity_file_cleanup_subscribers(events: EventBusProvider) -> None
 
     Args:
         events: The event-bus provider to subscribe on.
-
-    Returns:
-        None.
     """
     events.subscribe(activity_events.ACTIVITY_DELETED, on_activity_deleted_cleanup_file)
 
@@ -79,9 +73,6 @@ def register_activity_file_cleanup_durable_handlers(registry: JobHandlerRegistry
 
     Args:
         registry: The durable-subscriber registry to register on.
-
-    Returns:
-        None.
     """
     registry.register(
         activity_events.ACTIVITY_DELETED,

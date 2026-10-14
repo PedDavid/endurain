@@ -182,9 +182,6 @@ def backfill_zone_percentages_for_missing_hr_streams(
     Args:
         computed_streams: Stream IDs with their computed zone breakdowns.
         db: Database session.
-
-    Returns:
-        None.
     """
     for stream in computed_streams:
         db.query(activity_streams_models.ActivityStreams).filter(
@@ -284,9 +281,6 @@ def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session
         zones_by_stream_id: Stream id -> breakdown, or None to clear it.
         db: Database session.
 
-    Returns:
-        None.
-
     Raises:
         ProcessingError: On database error.
     """
@@ -303,7 +297,7 @@ def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session
 @core_decorators.handle_db_errors
 def create_activity_streams(
     activity_streams: list[activity_streams_contracts.ActivityStreamsCreate],
-    activity: activity_schema.Activity,
+    activity: activity_schema.ActivityRead,
     db: Session,
 ) -> None:
     """Stage activity streams (waypoints only; flushed, not committed).
@@ -317,9 +311,6 @@ def create_activity_streams(
         activity_streams: List of stream schemas.
         activity: Activity schema to associate streams with.
         db: Database session.
-
-    Returns:
-        None.
     """
     if activity.user_id is None:
         logger.warning(

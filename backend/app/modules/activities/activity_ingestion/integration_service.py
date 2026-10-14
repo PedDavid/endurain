@@ -36,7 +36,7 @@ def ingest_activity_file(
     db: Session,
     *,
     source: activity_ingestion_contracts.IngestionSource,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """Validate one on-disk activity file and persist the activities it yields.
 
     The background entry point: it never raises to its caller. A bulk-import
@@ -68,9 +68,6 @@ def register_activity_provider(name: str, fetch_window: activity_ingestion_contr
     Args:
         name: Stable provider identifier.
         fetch_window: Coroutine that fetches and stores one user window.
-
-    Returns:
-        None.
     """
     activity_ingestion_provider_registry.register(
         activity_ingestion_provider_registry.ActivityProvider(name, fetch_window)
@@ -82,8 +79,5 @@ def shutdown_background_ingestion(*, wait: bool = False) -> None:
 
     Args:
         wait: Whether to wait for running ingestion tasks.
-
-    Returns:
-        None.
     """
     activity_ingestion_background.shutdown(wait=wait)

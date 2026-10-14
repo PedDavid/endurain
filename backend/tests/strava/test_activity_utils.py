@@ -151,11 +151,11 @@ class TestSaveActivityStreamsLaps:
         def _fake_store(parsed, db):
             captured["parsed"] = parsed
             captured["db"] = db
-            return activity_schema.Activity(id=42, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.ActivityRead(id=42, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
-        activity = activity_schema.Activity(
+        activity = activity_schema.ActivityRead(
             user_id=1, distance=1000, name="Ride", activity_type=1, strava_activity_id=555
         )
         stream_data = [
@@ -184,11 +184,11 @@ class TestSaveActivityStreamsLaps:
 
         def _fake_store(parsed, db):
             captured["parsed"] = parsed
-            return activity_schema.Activity(id=1, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.ActivityRead(id=1, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
-        activity = activity_schema.Activity(user_id=1, distance=0, name="X", activity_type=1)
+        activity = activity_schema.ActivityRead(user_id=1, distance=0, name="X", activity_type=1)
         activity_utils.save_activity_streams_laps(activity, [], None, Mock())
 
         parsed = captured["parsed"]
@@ -227,7 +227,7 @@ class TestProcessActivityOffTheEventLoop:
 
         def _fake_save(*args, **kwargs):
             threads["persist"] = threading.get_ident()
-            return activity_schema.Activity(id=7, user_id=1, distance=0, name="X", activity_type=1)
+            return activity_schema.ActivityRead(id=7, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils, "parse_activity", _fake_parse)
         monkeypatch.setattr(activity_utils, "save_activity_streams_laps", _fake_save)

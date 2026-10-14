@@ -6,14 +6,14 @@ import type { Schemas } from '@/types'
  * contract change surfaces here as a TypeScript error rather than a silent
  * runtime mismatch.
  */
-export type Activity = Schemas['Activity']
+export type Activity = Schemas['ActivityRead']
 
 /**
  * A queued activity-file import. The upload endpoint answers `202` with this
  * handle rather than the parsed activities, because parsing runs on a
  * background worker; the client polls until it reaches a terminal state.
  */
-export type ActivityIngestionJob = Schemas['ActivityIngestionJob']
+export type ActivityIngestionJob = Schemas['ActivityIngestionJobRead']
 
 /** Lifecycle state of an {@link ActivityIngestionJob}. */
 export type IngestionJobStatus = ActivityIngestionJob['status']

@@ -21,7 +21,7 @@ async def _fetch_window(
     window_start: datetime,
     window_end: datetime,
     db: Session,
-) -> list[activity_schema.Activity] | None:
+) -> list[activity_schema.ActivityRead] | None:
     """
     Fetch and store a user's Strava activities recorded in the given window.
 

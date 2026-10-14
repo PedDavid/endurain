@@ -41,9 +41,6 @@ def commit_or_publish(db: Session, *, publish: Callable[[Callable[[], None]], No
         publish: Publishes the work event, given the commit callable the
             publisher must own so the outbox row commits with the job row. Not
             called on the local profile.
-
-    Returns:
-        None.
     """
     if worker_retries():
         publish(db.commit)
@@ -59,9 +56,6 @@ def run_in_background(run: Callable[..., Any], *args: Any) -> None:
     Args:
         run: The job body.
         *args: Arguments for the job body.
-
-    Returns:
-        None.
     """
     if not worker_retries():
         activity_ingestion_background.submit(run, *args)

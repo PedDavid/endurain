@@ -12,9 +12,6 @@ def create_activity_laps(activity_laps: list[dict], activity_id: int, db: Sessio
         activity_laps: Lap dicts to store.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_laps_crud.create_activity_laps(activity_laps, activity_id, db)
     db.commit()

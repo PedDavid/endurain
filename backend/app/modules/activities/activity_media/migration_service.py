@@ -35,9 +35,6 @@ def delete_activity_media(activity_media_id: int, db: Session) -> None:
     Args:
         activity_media_id: ID of the media record to delete.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_media_crud.delete_activity_media(activity_media_id, db)
     db.commit()

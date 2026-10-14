@@ -11,7 +11,7 @@ from pydantic import (
 import core.pagination as core_pagination
 
 
-class ActivityWorkoutSteps(BaseModel):
+class ActivityWorkoutStepsRead(BaseModel):
     """Activity workout step schema.
 
     Attributes:
@@ -57,4 +57,4 @@ class ActivityWorkoutSteps(BaseModel):
 
 #: One page of an activity's planned workout steps. A structured workout's step
 #: count has no domain ceiling, so the read is paginated.
-ActivityWorkoutStepsPage = core_pagination.Page[ActivityWorkoutSteps]
+ActivityWorkoutStepsPage = core_pagination.Page[ActivityWorkoutStepsRead]

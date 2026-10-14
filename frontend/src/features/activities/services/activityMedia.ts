@@ -1,4 +1,5 @@
 import { apiFetch } from '@/services/http'
+import { fetchAllChildPages } from '@/features/activities/services/activities'
 import { getBackendAssetUrl } from '@/services/runtime'
 
 import type { ActivityMedia, ActivityMediaDto } from '../types'
@@ -31,10 +32,11 @@ export async function fetchActivityMedia(
   activityId: number,
   signal?: AbortSignal,
 ): Promise<ActivityMedia[]> {
-  const dtos = await apiFetch<ActivityMediaDto[] | null>(`/activities/${activityId}/media`, {
+  const dtos = await fetchAllChildPages<ActivityMediaDto>(`/activities/${activityId}/media`, {
+    authenticated: true,
     signal,
   })
-  return (dtos ?? []).map(mapActivityMedia)
+  return dtos.map(mapActivityMedia)
 }
 
 /**

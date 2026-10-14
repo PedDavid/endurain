@@ -58,9 +58,6 @@ def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Se
         requester_user_id: The authenticated user making the request.
         db: Database session.
 
-    Returns:
-        None.
-
     Raises:
         PermissionDeniedError: When the requester may not view this network.
     """
@@ -202,9 +199,6 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
         requester_user_id: The user whose pending request is declined.
         db: Database session.
 
-    Returns:
-        None.
-
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
@@ -231,9 +225,6 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
         follower_id: The user doing the following.
         caller_user_id: The authenticated caller, who must be one of the two.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         PermissionDeniedError: When the caller is not part of the relationship.

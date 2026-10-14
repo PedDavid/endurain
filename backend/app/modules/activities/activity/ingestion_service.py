@@ -68,7 +68,7 @@ def _derive_dedup_key(
 def store_parsed_activity(
     parsed: activity_contracts.ParsedActivity,
     db: Session,
-) -> activity_schema.Activity:
+) -> activity_schema.ActivityRead:
     """Persist a parsed activity and its children, then publish ``activity.created``.
 
     Args:

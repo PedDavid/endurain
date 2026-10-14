@@ -4,13 +4,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import core.decorators as core_decorators
-import core.logger as core_logger
 import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.models as activity_sets_models
 import modules.activities.activity_sets.schema as activity_sets_schema
 import modules.activities.activity_sets.serializers as activity_sets_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 @core_decorators.handle_db_errors
@@ -115,9 +112,6 @@ def create_activity_sets(
             raw lists from the FIT parser.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ProcessingError: If database error occurs.

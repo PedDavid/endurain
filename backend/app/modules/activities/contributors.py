@@ -26,7 +26,7 @@ class PersistActivityComponent(Protocol):
     def __call__(
         self,
         data: Any,
-        activity: activity_schema.Activity,
+        activity: activity_schema.ActivityRead,
         db: Session,
     ) -> None:
         """Stage the component for a newly created activity.
@@ -35,9 +35,6 @@ class PersistActivityComponent(Protocol):
             data: The parsed component payload.
             activity: The newly created activity.
             db: Database session.
-
-        Returns:
-            None.
         """
 
 
@@ -50,9 +47,6 @@ class PersistFileComponent(Protocol):
         Args:
             data: The parsed component payload.
             db: Database session.
-
-        Returns:
-            None.
         """
 
 
@@ -78,7 +72,7 @@ class RestoreActivityRecords(Protocol):
         self,
         records: list[dict[str, Any]],
         original_activity_id: int,
-        new_activity: activity_schema.Activity,
+        new_activity: activity_schema.ActivityRead,
         db: Session,
     ) -> int:
         """Restore the records onto a remapped activity.
@@ -187,9 +181,6 @@ class StoreChildRecords(Protocol):
             records: The parsed or restored rows.
             activity_id: ID of the parent activity.
             db: Database session.
-
-        Returns:
-            None.
         """
 
 
@@ -225,7 +216,7 @@ def child_ingestion_contributor(
         The contributor.
     """
 
-    def persist(data: Any, activity: activity_schema.Activity, db: Session) -> None:
+    def persist(data: Any, activity: activity_schema.ActivityRead, db: Session) -> None:
         if activity.id is None:
             raise core_exceptions.ProcessingError(f"Cannot store {label} before the activity has an id")
         store(data, activity.id, db)
@@ -265,7 +256,7 @@ def child_profile_contributor(
     def restore(
         records: list[dict[str, Any]],
         original_activity_id: int,
-        new_activity: activity_schema.Activity,
+        new_activity: activity_schema.ActivityRead,
         db: Session,
     ) -> int:
         if new_activity.id is None:

@@ -13,9 +13,6 @@ def register_bus_subscribers(events: EventBusProvider) -> None:
 
     Args:
         events: The event bus to subscribe on.
-
-    Returns:
-        None.
     """
     activity_media_subscribers.register_activity_media_cleanup_subscribers(events)
 
@@ -25,9 +22,6 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 
     Args:
         registry: The durable-handler registry to register on.
-
-    Returns:
-        None.
     """
     activity_media_subscribers.register_activity_media_cleanup_durable_handlers(registry)
 

@@ -17,7 +17,7 @@ import modules.activities.activity_ingestion.service as bulk_import_service
 def _job(job_id, user_id, kind, db, *, filename=None, commit=True, **_kwargs):
     """Stand in for the CRUD write, returning the row shape it would create."""
     now = datetime.now(UTC)
-    return activity_ingestion_schema.ActivityIngestionJob(
+    return activity_ingestion_schema.ActivityIngestionJobRead(
         id=job_id,
         kind=kind,
         filename=filename,

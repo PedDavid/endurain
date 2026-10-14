@@ -38,17 +38,20 @@ describe('mapActivityMedia', () => {
 
 describe('fetchActivityMedia', () => {
   it('requests the activity media endpoint and maps the list', async () => {
-    vi.mocked(apiFetch).mockResolvedValueOnce([mediaDto])
+    vi.mocked(apiFetch).mockResolvedValueOnce({ items: [mediaDto], next: null })
 
     const media = await fetchActivityMedia(5)
 
-    expect(apiFetch).toHaveBeenCalledWith('/activities/5/media', { signal: undefined })
+    expect(apiFetch).toHaveBeenCalledWith('/activities/5/media?page_number=1', {
+      auth: true,
+      signal: undefined,
+    })
     expect(media).toHaveLength(1)
     expect(media[0]?.url).toContain('/activities/5/media/3/file?t=signed-token')
   })
 
-  it('maps a null response to an empty array', async () => {
-    vi.mocked(apiFetch).mockResolvedValueOnce(null)
+  it('maps an empty page to an empty array', async () => {
+    vi.mocked(apiFetch).mockResolvedValueOnce({ items: [], next: null })
     expect(await fetchActivityMedia(5)).toEqual([])
   })
 })

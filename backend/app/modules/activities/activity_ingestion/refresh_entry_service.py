@@ -25,7 +25,7 @@ logger = core_logger.get_logger(__name__)
 _REFRESH_WINDOW = timedelta(days=1)
 
 
-async def sync_linked_providers(user_id: int, db: Session) -> list[activity_schema.Activity]:
+async def sync_linked_providers(user_id: int, db: Session) -> list[activity_schema.ActivityRead]:
     """Fetch the recent window of activities from every registered provider.
 
     A provider that is not linked returns nothing rather than failing, so one
@@ -49,7 +49,7 @@ async def sync_linked_providers(user_id: int, db: Session) -> list[activity_sche
             extra=core_logger.context(user_id=user_id),
         )
 
-    activities: list[activity_schema.Activity] = []
+    activities: list[activity_schema.ActivityRead] = []
     for provider in providers:
         try:
             produced = await provider.fetch_window(user_id, window_start, window_end, db)

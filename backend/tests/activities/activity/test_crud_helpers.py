@@ -55,7 +55,7 @@ class TestTransformSchemaToModel:
             visibility=0,
         )
         defaults.update(overrides)
-        return activities_schema.Activity(**defaults)
+        return activities_schema.ActivityRead(**defaults)
 
     @patch("modules.activities.activity.serializers.activity_models.Activity")
     @patch("modules.activities.activity.serializers.core_sanitization")

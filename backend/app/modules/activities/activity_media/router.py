@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 import core.database as core_database
 import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
+import core.pagination as core_pagination
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_media.dependencies as activity_media_dependencies
 import modules.activities.activity_media.schema as activity_media_schema
@@ -26,7 +27,7 @@ router = APIRouter()
 
 @router.get(
     "/media",
-    response_model=list[activity_media_schema.ActivityMedia],
+    response_model=activity_media_schema.ActivityMediaPage,
 )
 def read_activities_media_user(
     activity_id: int,
@@ -39,19 +40,21 @@ def read_activities_media_user(
         Session,
         Depends(core_database.get_db),
     ],
-) -> list[activity_media_schema.ActivityMedia]:
-    """Retrieve activity media records for an activity owned by the user.
+    page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
+) -> activity_media_schema.ActivityMediaPage:
+    """Return one page of the media attached to an activity owned by the user.
 
-    Returns an empty list when the activity has no media or is not accessible to
-    the caller — previously ``200 null``, which made a collection endpoint answer
-    with a scalar and forced every client to null-check it.
+    The page is empty when the activity has no media or is not accessible to the
+    caller.
     """
-    return activity_media_service.list_activity_media(activity_id, token_user_id, db)
+    return activity_media_service.list_activity_media(
+        activity_id, token_user_id, db, page_number=page.page_number, num_records=page.num_records
+    )
 
 
 @router.post(
     "/media",
-    response_model=activity_media_schema.ActivityMedia,
+    response_model=activity_media_schema.ActivityMediaRead,
     status_code=status.HTTP_201_CREATED,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
@@ -75,7 +78,7 @@ def upload_media(
         platform_providers.StorageProvider,
         Depends(core_dependencies.get_storage),
     ],
-) -> activity_media_schema.ActivityMedia:
+) -> activity_media_schema.ActivityMediaRead:
     """Upload an image file to associate with an activity.
 
     The file is validated by magic number (not extension) and size limits via

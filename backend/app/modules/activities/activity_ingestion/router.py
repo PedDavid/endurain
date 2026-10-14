@@ -43,7 +43,7 @@ api_upload_router = APIRouter()
 @api_upload_router.post(
     "/upload",
     status_code=status.HTTP_202_ACCEPTED,
-    response_model=activity_ingestion_schema.ActivityIngestionJob,
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
 def create_activity_with_uploaded_file(
@@ -79,7 +79,7 @@ def create_activity_with_uploaded_file(
             ),
         ),
     ] = None,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Upload an activity file (GPX, FIT, TCX, GZ) for import.
 
     Returns ``202`` once the file is stored and queued: parsing is seconds of
@@ -111,7 +111,7 @@ def create_activity_with_uploaded_file(
 
 @api_upload_router.get(
     "/ingestion-jobs/{job_id}",
-    response_model=activity_ingestion_schema.ActivityIngestionJob,
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
 def get_activity_ingestion_job(
     job_id: str,
@@ -130,7 +130,7 @@ def get_activity_ingestion_job(
         Session,
         Depends(core_database.get_db),
     ],
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Read the state of one of your ingestion requests.
 
     Serves both uploads and provider refreshes: the caller's question is the
@@ -146,7 +146,7 @@ def get_activity_ingestion_job(
 @router.post(
     "/bulk-import",
     status_code=status.HTTP_202_ACCEPTED,
-    response_model=list[activity_ingestion_schema.ActivityIngestionJob],
+    response_model=list[activity_ingestion_schema.ActivityIngestionJobRead],
 )
 @core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
 def create_activity_with_bulk_import(
@@ -161,7 +161,7 @@ def create_activity_with_bulk_import(
         platform_providers.StorageProvider,
         Depends(core_dependencies.get_storage),
     ],
-) -> list[activity_ingestion_schema.ActivityIngestionJob]:
+) -> list[activity_ingestion_schema.ActivityIngestionJobRead]:
     """Queue every importable file in the caller's bulk-import directory.
 
     Returns ``202``: the files are validated and queued in the request, but
@@ -183,7 +183,7 @@ def create_activity_with_bulk_import(
 @router.post(
     "/refresh",
     status_code=status.HTTP_202_ACCEPTED,
-    response_model=activity_ingestion_schema.ActivityIngestionJob,
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.PROVIDER_SYNC)
 def refresh_activities(
@@ -201,18 +201,13 @@ def refresh_activities(
         platform_providers.StorageProvider,
         Depends(core_dependencies.get_storage),
     ],
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Queue a sync of the last 24h from the linked providers (Strava/Garmin).
 
     Returns ``202`` with a job handle; poll
     ``GET /activities/ingestion-jobs/{job_id}`` for the outcome.
 
-    This used to be the one ``async def`` route in activities, awaiting the
-    provider clients inline. Everything synchronous on those paths — the
-    integration lookups, the per-activity dedup reads — therefore ran on the
-    event loop, where they stall every other request in the process instead of
-    occupying a single worker thread. Running the sync as a job removes that
-    class of bug rather than auditing for it: no provider code touches the loop
-    any more.
+    The sync runs as a job, so no provider call blocks a request thread or the
+    event loop.
     """
     return activity_ingestion_service.accept_refresh(token_user_id, storage, db)

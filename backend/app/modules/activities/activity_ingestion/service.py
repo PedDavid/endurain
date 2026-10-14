@@ -75,7 +75,7 @@ def accept_upload(
     db: Session,
     *,
     idempotency_key: str | None = None,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Stage an uploaded file and queue it for background import.
 
     The activity_ingestion_staging write happens before the row is created so a rejected file never
@@ -197,7 +197,7 @@ def _pending_view(
     job_id: str,
     kind: activity_ingestion_schema.IngestionJobKind,
     filename: str | None = None,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Build the pending response when the row cannot be re-read.
 
     Only reachable if the job completed and was pruned between the commit and
@@ -212,7 +212,7 @@ def _pending_view(
         A pending view of the job.
     """
     now = datetime.now(UTC)
-    return activity_ingestion_schema.ActivityIngestionJob(
+    return activity_ingestion_schema.ActivityIngestionJobRead(
         id=job_id,
         kind=kind,
         filename=filename,
@@ -226,7 +226,7 @@ def get_job(
     job_id: str,
     token_user_id: int,
     db: Session,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Return one of the caller's ingestion jobs.
 
     Args:
@@ -256,7 +256,7 @@ def accept_refresh(
     token_user_id: int,
     storage: platform_providers.StorageProvider,
     db: Session,
-) -> activity_ingestion_schema.ActivityIngestionJob:
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Queue a provider refresh for background execution.
 
     The route used to be the one ``async def`` in activities, awaiting the
@@ -312,9 +312,6 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         job_id: The ``activity_ingestion_jobs`` row to process.
         storage: The blob-storage provider, for discarding a staged upload.
 
-    Returns:
-        None.
-
     Raises:
         Exception: Whatever the provider sync raised, so the caller can retry.
     """
@@ -364,9 +361,6 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
     Args:
         job_id: The ``activity_upload_jobs`` row to process.
         storage: The blob-storage provider the upload was staged in.
-
-    Returns:
-        None.
 
     Raises:
         Exception: Whatever the import raised, so the caller can retry.
@@ -449,9 +443,6 @@ def fail_ingestion_job(
         storage: The blob-storage provider the staged upload lives in.
         staged_key: Storage key to discard, when the caller already knows it.
             Omitted by the dead-letter path, which reads it from the row.
-
-    Returns:
-        None.
     """
     try:
         with core_database.SessionLocal() as db:
@@ -501,9 +492,6 @@ def prune_expired_ingestion_jobs(
     Args:
         lock: The platform lock provider.
         clock: The platform clock provider.
-
-    Returns:
-        None.
     """
     retention_days = core_config.settings.JOBS_RETENTION_DAYS
     if retention_days <= 0:
@@ -537,9 +525,6 @@ def _warn_about_unowned_files(user_id: int) -> None:
 
     Args:
         user_id: The user whose import was triggered, used to name the target.
-
-    Returns:
-        None.
     """
     try:
         stranded = [
@@ -637,13 +622,13 @@ def start_bulk_import(
     user_id: int,
     storage: platform_providers.StorageProvider,
     db: Session,
-) -> list[activity_ingestion_schema.ActivityIngestionJob]:
+) -> list[activity_ingestion_schema.ActivityIngestionJobRead]:
     """Queue every importable file in a user's drop directory.
 
     Each user drops files into their own directory; scanning the shared root
     would import whatever anyone else left there and attribute it to this caller.
 
-    One :class:`~modules.activities.activity_ingestion.schema.ActivityIngestionJob`
+    One :class:`~modules.activities.activity_ingestion.schema.ActivityIngestionJobRead`
     is created per file and returned, so the caller polls
     ``GET /activities/ingestion-jobs/{job_id}`` for each one exactly as it does
     for a single upload. One handle per file rather than one per batch because
@@ -758,9 +743,6 @@ def _enqueue_bulk_import_files(
         storage: The blob-storage provider the files are staged in.
         db: The request's database session (the outbox rows are staged on it).
 
-    Returns:
-        None.
-
     Raises:
         Exception: Propagated from the outbox activity_ingestion_staging so the caller can fail the
             request instead of reporting a false success.
@@ -812,9 +794,6 @@ def process_all_files_sync(
         queued_files: ``(ingestion job id, file path)`` per file to process.
         import_initiated_time: ISO timestamp of when the bulk import was initiated.
         storage: The blob-storage provider the source files are retained in.
-
-    Returns:
-        None.
     """
     db = next(core_database.get_db())
     try:
@@ -868,9 +847,6 @@ def mark_bulk_import_job_processing(job_id: str | None) -> None:
     Args:
         job_id: The ``activity_ingestion_jobs`` row, or ``None`` for an event
             staged before per-file handles existed.
-
-    Returns:
-        None.
     """
     if job_id is None:
         return
@@ -885,9 +861,6 @@ def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) 
     Args:
         job_id: The ``activity_ingestion_jobs`` row, or ``None`` for a handle-less event.
         activity_ids: IDs of the activities the file produced.
-
-    Returns:
-        None.
     """
     if job_id is None:
         return
@@ -901,9 +874,6 @@ def mark_bulk_import_job_failed(job_id: str | None) -> None:
 
     Args:
         job_id: The ``activity_ingestion_jobs`` row, or ``None`` for a handle-less event.
-
-    Returns:
-        None.
     """
     if job_id is None:
         return

@@ -486,11 +486,7 @@ class FitParseState:
     is_temperature_set: bool = False
 
     def reset_record_cursor(self) -> None:
-        """Clear cursors that must not bridge across FIT sessions.
-
-        Returns:
-            None.
-        """
+        """Clear cursors that must not bridge across FIT sessions."""
         self.prev_latitude = None
         self.prev_longitude = None
         self.last_waypoint_time = None
@@ -560,9 +556,6 @@ def _handle_session_frame(frame, state: FitParseState) -> None:
     Args:
         frame: The decoded FIT session message.
         state: Mutable parse state for the current file.
-
-    Returns:
-        None.
     """
     (
         initial_latitude,
@@ -634,9 +627,6 @@ def _handle_split_frame(frame, state: FitParseState) -> None:
     Args:
         frame: The decoded FIT split message.
         state: Mutable parse state for the current file.
-
-    Returns:
-        None.
     """
     split_data = activity_file_import_fit_frames.parse_frame_split(frame)
     state.splits.append(dict(zip(_SPLIT_KEYS, split_data, strict=False)))
@@ -648,9 +638,6 @@ def _handle_split_summary_frame(frame, state: FitParseState) -> None:
     Args:
         frame: The decoded FIT split-summary message.
         state: Mutable parse state for the current file.
-
-    Returns:
-        None.
     """
     split_type, total_timer_time = activity_file_import_fit_frames.parse_frame_split_summary(frame)
     state.split_summary.append(
@@ -667,9 +654,6 @@ def _handle_record_frame(frame, state: FitParseState) -> None:
     Args:
         frame: The decoded FIT record message.
         state: Mutable parse state for the current file.
-
-    Returns:
-        None.
     """
     (
         latitude,
@@ -740,9 +724,6 @@ def _handle_monitoring_frame(frame, state: FitParseState, last_timestamp) -> Non
         frame: The decoded FIT monitoring message.
         state: Mutable parse state for the current file.
         last_timestamp: Timestamp of the previous monitoring frame.
-
-    Returns:
-        None.
     """
     steps, heart_rate = activity_file_import_fit_frames.parse_frame_monitoring(frame, last_timestamp)
     state.intraday_steps.extend(steps)
@@ -756,9 +737,6 @@ def _dispatch_data_message(frame, state: FitParseState, last_timestamp) -> None:
         frame: The decoded FIT data message.
         state: Mutable parse state for the current file.
         last_timestamp: Timestamp of the previous monitoring frame.
-
-    Returns:
-        None.
     """
     name = frame.name
     if name == "session":

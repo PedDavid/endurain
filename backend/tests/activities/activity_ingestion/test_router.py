@@ -21,7 +21,7 @@ def _upload_job(**overrides):
         "created_at": now,
         "updated_at": now,
     }
-    return activity_ingestion_schema.ActivityIngestionJob(**{**defaults, **overrides})
+    return activity_ingestion_schema.ActivityIngestionJobRead(**{**defaults, **overrides})
 
 
 class TestUploadRoute:

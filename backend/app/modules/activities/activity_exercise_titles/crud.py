@@ -17,7 +17,7 @@ logger = core_logger.get_logger(__name__)
 @core_decorators.handle_db_errors
 def get_activity_exercise_titles(
     db: Session,
-) -> list[activity_exercise_titles_schema.ActivityExerciseTitles]:
+) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
     """Retrieve all activity exercise titles.
 
     Args:
@@ -35,7 +35,7 @@ def get_activity_exercise_titles(
 
 @core_decorators.handle_db_errors
 def create_activity_exercise_titles(
-    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitles],
+    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
     db: Session,
 ) -> None:
     """Insert activity exercise titles, skipping existing entries.
@@ -43,9 +43,6 @@ def create_activity_exercise_titles(
     Args:
         activity_exercise_titles: Schemas to insert.
         db: Database session.
-
-    Returns:
-        None.
 
     Raises:
         ConflictError: On a duplicate (exercise_name, exercise_category) entry.

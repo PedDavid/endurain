@@ -34,7 +34,7 @@ def resolve_readable_parent(
     activity_id: int,
     requester_user_id: int,
     db: Session,
-) -> activity_schema.Activity | None:
+) -> activity_schema.ActivityRead | None:
     """Return the parent activity when an authenticated caller may see it at all.
 
     Unmasked, so the caller can read the ``hide_*`` flags it needs for its own
@@ -55,7 +55,7 @@ def resolve_readable_parent(
     )
 
 
-def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:
+def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Return the parent activity when it is publicly shareable.
 
     Enforces the server-wide ``public_shareable_links`` setting, ``visibility == 0``

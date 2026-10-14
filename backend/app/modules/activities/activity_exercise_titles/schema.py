@@ -3,7 +3,7 @@
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
 
-class ActivityExerciseTitles(BaseModel):
+class ActivityExerciseTitlesRead(BaseModel):
     """Schema describing an activity exercise title entry.
 
     Attributes:

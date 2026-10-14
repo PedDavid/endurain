@@ -12,9 +12,6 @@ def generate_missing_thumbnails() -> None:
 
     Scheduler-invoked, with no request to carry the providers or a session, so
     this entry point resolves the providers and opens the session.
-
-    Returns:
-        None.
     """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
@@ -22,11 +19,7 @@ def generate_missing_thumbnails() -> None:
 
 
 def regenerate_all_thumbnails() -> None:
-    """Delete and regenerate every activity thumbnail.
-
-    Returns:
-        None.
-    """
+    """Delete and regenerate every activity thumbnail."""
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
         activity_thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)
@@ -37,9 +30,6 @@ def sweep_orphaned_thumbnails() -> None:
 
     The storage-side net for the cleanup subscriber. Scheduler-invoked, so this
     entry point resolves the providers and opens the session.
-
-    Returns:
-        None.
     """
     platform = platform_runtime.get_active_platform()
     with platform.lock.try_acquire("thumbnail_sweep") as acquired:
@@ -70,11 +60,7 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
 
 
 def schedule_missing_thumbnail_generation() -> None:
-    """Queue one thumbnail reconciliation pass.
-
-    Returns:
-        None.
-    """
+    """Queue one thumbnail reconciliation pass."""
     core_scheduler.run_once(
         generate_missing_thumbnails,
         job_id="endurain_generate_missing_thumbnails_oneshot",

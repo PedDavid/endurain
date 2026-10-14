@@ -21,11 +21,11 @@ class TestReadPublicWorkoutSteps:
         "modules.activities.activity_workout_steps.public_router.activity_workout_steps_service.list_public_activity_workout_steps"
     )
     def test_success(self, mock_get, mock_db):
-        from modules.activities.activity_workout_steps.schema import ActivityWorkoutSteps
+        from modules.activities.activity_workout_steps.schema import ActivityWorkoutStepsRead
 
         client = TestClient(_build_app(mock_db))
         mock_get.return_value = ActivityWorkoutStepsPage.build(
-            [ActivityWorkoutSteps(id=1, activity_id=1, message_index=0, duration_type="active")], 1, 1, 200
+            [ActivityWorkoutStepsRead(id=1, activity_id=1, message_index=0, duration_type="active")], 1, 1, 200
         )
 
         response = client.get("/public/activities/1/workout-steps")

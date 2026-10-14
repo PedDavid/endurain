@@ -81,7 +81,7 @@ class TestCreateActivityReturnsTheReadModel:
 
         # The declared ``ActivityCore -> Activity`` signature is now honoured: a
         # freshly serialized read schema, not the caller's input handed back.
-        assert isinstance(created, activity_schema.Activity)
+        assert isinstance(created, activity_schema.ActivityRead)
         assert created.id is not None
         assert created.created_at is not None
         assert created.garminconnect_activity_id == 23749427619

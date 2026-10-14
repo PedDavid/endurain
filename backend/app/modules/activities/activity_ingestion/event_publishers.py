@@ -26,9 +26,6 @@ def publish_file_uploaded(job_id: str, user_id: int, db: Session, *, commit: Cal
         user_id: The uploading user's ID.
         db: The session the job row was created on.
         commit: Zero-arg commit callable that ends the caller's transaction.
-
-    Returns:
-        None.
     """
     payload = activity_ingestion_events.UploadedFilePayload(job_id=job_id)
     platform_publisher.publish_committing(
@@ -50,9 +47,6 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
         user_id: The requesting user's ID.
         db: The session the job row was created on.
         commit: Zero-arg commit callable that ends the caller's transaction.
-
-    Returns:
-        None.
     """
     payload = activity_ingestion_events.RefreshRequestedPayload(job_id=job_id)
     platform_publisher.publish_committing(
@@ -87,9 +81,6 @@ def publish_bulk_import_files(
         import_initiated_time: ISO timestamp of when the bulk import was initiated.
         db: The session the job rows were created on.
         commit: Zero-arg commit callable that ends the caller's transaction.
-
-    Returns:
-        None.
 
     Raises:
         Exception: Propagated from the outbox staging.

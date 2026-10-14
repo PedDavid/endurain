@@ -15,9 +15,9 @@ import modules.activities.activity_streams.integration_service as activity_strea
 import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
 
 
-def _new_activity() -> activity_schema.Activity:
+def _new_activity() -> activity_schema.ActivityRead:
     """Build a restored parent activity for contributor tests."""
-    return activity_schema.Activity(id=10, user_id=1, distance=0, name="Restored", activity_type=1)
+    return activity_schema.ActivityRead(id=10, user_id=1, distance=0, name="Restored", activity_type=1)
 
 
 @pytest.mark.parametrize(

@@ -36,9 +36,6 @@ def _store_laps(
         laps: Laps to store.
         activity_id: ID of the parent activity.
         db: Database session.
-
-    Returns:
-        None.
     """
     activity_laps_crud.create_activity_laps(laps, activity_id, db)
 
