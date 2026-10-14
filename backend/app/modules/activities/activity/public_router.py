@@ -1,6 +1,5 @@
 """FastAPI routes for the activities module (public, unauthenticated)."""
 
-from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import (
@@ -23,8 +22,7 @@ router = APIRouter()
     response_model=activity_schema.ActivityRead,
 )
 def read_public_activities_activity_from_id(
-    activity_id: int,
-    _validate_activity_id: Annotated[Callable, Depends(activity_dependencies.validate_activity_id)],
+    activity_id: activity_dependencies.ActivityId,
     db: Annotated[
         Session,
         Depends(core_database.get_db),

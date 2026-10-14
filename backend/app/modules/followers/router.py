@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, Query, Request, Security, status
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import core.dependencies as core_dependencies
 import core.pagination as core_pagination
 import core.rate_limit as core_rate_limit
 import modules.auth.dependencies as auth_dependencies
 import modules.followers.schema as followers_schema
 import modules.followers.service as followers_service
-import modules.users.users.dependencies as users_dependencies
 
 # Define the API router
 router = APIRouter()
@@ -23,8 +23,7 @@ router = APIRouter()
     response_model=followers_schema.FollowRelationshipPage,
 )
 def list_user_followers(
-    user_id: int,
-    _validate_user_id: Annotated[None, Depends(users_dependencies.validate_user_id)],
+    user_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
@@ -50,8 +49,7 @@ def list_user_followers(
     response_model=followers_schema.FollowRelationshipPage,
 )
 def list_user_following(
-    user_id: int,
-    _validate_user_id: Annotated[None, Depends(users_dependencies.validate_user_id)],
+    user_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
@@ -74,15 +72,14 @@ def list_user_following(
 
 @router.get(
     "/users/{user_id}/relationship",
-    response_model=followers_schema.RelationshipView,
+    response_model=followers_schema.RelationshipRead,
 )
 def read_user_relationship(
-    user_id: int,
-    _validate_user_id: Annotated[None, Depends(users_dependencies.validate_user_id)],
+    user_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-) -> followers_schema.RelationshipView:
+) -> followers_schema.RelationshipRead:
     """Return the authenticated user's relationship with ``user_id``, both directions.
 
     Reports the requester's outgoing follow of ``user_id`` and ``user_id``'s
@@ -117,18 +114,17 @@ def list_follow_requests(
 
 @router.post(
     "/users/{user_id}/followers",
-    response_model=followers_schema.FollowRelationship,
+    response_model=followers_schema.FollowRelationshipRead,
     status_code=status.HTTP_201_CREATED,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def follow_user(
     request: Request,
-    user_id: int,
-    _validate_user_id: Annotated[None, Depends(users_dependencies.validate_user_id)],
+    user_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-) -> followers_schema.FollowRelationship:
+) -> followers_schema.FollowRelationshipRead:
     """Add the authenticated user to ``user_id``'s followers.
 
     Always created pending: a follow takes effect only once the target accepts
@@ -139,7 +135,7 @@ def follow_user(
 
 @router.patch(
     "/follow-requests/{requester_user_id}",
-    response_model=followers_schema.FollowRelationship,
+    response_model=followers_schema.FollowRelationshipRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def accept_follow_request(
@@ -149,7 +145,7 @@ def accept_follow_request(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
-) -> followers_schema.FollowRelationship:
+) -> followers_schema.FollowRelationshipRead:
     """Accept the pending follow request from ``requester_user_id``.
 
     Accepting is the only transition this route writes; declining is ``DELETE``
@@ -194,9 +190,8 @@ def reject_follow_request(
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def delete_follow_relationship(
     request: Request,
-    user_id: int,
+    user_id: core_dependencies.PositiveId,
     follower_id: int,
-    _validate_user_id: Annotated[None, Depends(users_dependencies.validate_user_id)],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],

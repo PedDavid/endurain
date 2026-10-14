@@ -51,7 +51,7 @@ def _requester_may_view_network(target_user_id: int, requester_user_id: int, db:
 
 
 def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Session) -> None:
-    """Raise :class:`PermissionDeniedError` unless the requester may view the target's network.
+    """Raise :class:`NotFoundError` unless the requester may view the target's network.
 
     Args:
         target_user_id: The user whose network is being listed.
@@ -59,14 +59,15 @@ def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Se
         db: Database session.
 
     Raises:
-        PermissionDeniedError: When the requester may not view this network.
+        NotFoundError: When the requester may not view this network. A refusal answers like a
+            missing resource, so the endpoint cannot be used to probe a user's privacy.
     """
     if not _requester_may_view_network(target_user_id, requester_user_id, db):
         logger.warning(
             "Denied access to a user's follower network",
             extra=core_logger.context(requester_user_id=requester_user_id, target_user_id=target_user_id),
         )
-        raise core_exceptions.PermissionDeniedError("You do not have permission to view this user's followers")
+        raise core_exceptions.NotFoundError("User not found")
 
 
 def list_followers(
@@ -93,7 +94,7 @@ def list_followers(
         filter, not just this page.
 
     Raises:
-        PermissionDeniedError: When the requester may not view this network.
+        NotFoundError: When the requester may not view this network.
     """
     # Checked once here so the page and its total share a single authorisation
     # decision rather than each re-deriving it.
@@ -138,7 +139,7 @@ def list_following(
         filter, not just this page.
 
     Raises:
-        PermissionDeniedError: When the requester may not view this network.
+        NotFoundError: When the requester may not view this network.
     """
     _ensure_may_view_network(target_user_id, requester_user_id, db)
     effective_accepted_only = accepted_only or requester_user_id != target_user_id
@@ -227,14 +228,15 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
         db: Database session.
 
     Raises:
-        PermissionDeniedError: When the caller is not part of the relationship.
+        NotFoundError: When the caller is not part of the relationship; answered as a missing
+            relationship so it does not confirm one exists.
     """
     if caller_user_id not in (followee_id, follower_id):
         logger.warning(
             "Blocked an attempt to delete a follow relationship the caller is not part of",
             extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
         )
-        raise core_exceptions.PermissionDeniedError()
+        raise core_exceptions.NotFoundError("Follow relationship not found")
     followers_crud.delete_follower(follower_id, followee_id, db)
     db.commit()
     logger.info(
@@ -243,7 +245,7 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
     )
 
 
-def get_user_relationship(other_user_id: int, requester_user_id: int, db: Session) -> followers_schema.RelationshipView:
+def get_user_relationship(other_user_id: int, requester_user_id: int, db: Session) -> followers_schema.RelationshipRead:
     """Return the authenticated user's relationship with another user (both directions).
 
     Only ever reports relationships the requester is part of — their outgoing
@@ -261,10 +263,10 @@ def get_user_relationship(other_user_id: int, requester_user_id: int, db: Sessio
     """
     outgoing = followers_crud.get_follower_for_user_id_and_target_user_id(requester_user_id, other_user_id, db)
     incoming = followers_crud.get_follower_for_user_id_and_target_user_id(other_user_id, requester_user_id, db)
-    return followers_schema.RelationshipView(outgoing=outgoing, incoming=incoming)
+    return followers_schema.RelationshipRead(outgoing=outgoing, incoming=incoming)
 
 
-def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> followers_schema.FollowRelationship:
+def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> followers_schema.FollowRelationshipRead:
     """Create a follow request and publish ``follower.requested``.
 
     The CRUD row write is the source of truth; the notification is produced by the
@@ -301,7 +303,7 @@ def accept_follow_request(
     accepter_user_id: int,
     requester_user_id: int,
     db: Session,
-) -> followers_schema.FollowRelationship:
+) -> followers_schema.FollowRelationshipRead:
     """Accept a pending follow request and publish ``follower.accepted``.
 
     Args:

@@ -9,7 +9,7 @@
 
 | Exception | Status | Use when |
 | --- | --- | --- |
-| `NotFoundError` | 404 | Missing, or not visible to the caller (prefer 404 over 403 to avoid confirming existence) |
+| `NotFoundError` | 404 | Missing, or not visible to the caller (prefer 404 over 403 to avoid confirming existence; followers' private network and relationship deletes answer this way) |
 | `PermissionDeniedError` | 403 | Authenticated but not allowed |
 | `InvalidInputError` | 400 | Well-formed but semantically unusable |
 | `ConflictError` | 409 | Conflicts with current state (duplicates, races) |

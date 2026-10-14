@@ -57,7 +57,7 @@ rather than that its name is on a list. Ending a transaction (`commit`,
 | `serializers.py` | persistence | ORM ↔ schema transformation, both directions. Called by `crud` at its edges. |
 | `service.py` | application | Decides access, orchestrates, publishes events, owns transaction boundaries. |
 | `router.py` / `public_router.py` | transport | Validate, delegate to `service`, return. No domain rule. |
-| `dependencies.py` | transport | FastAPI DI (path-param resolution, scope checks). |
+| `dependencies.py` | transport | FastAPI DI and typed request-parameter aliases (`Annotated[int, Path(gt=0)]`, enums); validation is declared on the type, not raised by hand. |
 | `schema.py` | contract | Pydantic request/response shapes. Serialized to clients. |
 | `contracts.py` | contract | Inter-module DTOs and typed seams. Never serialized. |
 | `constants.py` | contract | Domain constants and mapping tables. |
@@ -567,9 +567,22 @@ one pattern. Recorded here so a review does not reopen them.
   has no such function and logs nothing. A file with no role logs only when it is
   listed with its reason in `_HELPERS_THAT_LOG`, and `console=True` is for
   bulk-import progress and migrations (`test_logging_rule.py`).
-- **Read models.** The schema a client receives is `<Thing>Read` (or
-  `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
-  share a name, and the OpenAPI component name is the schema's.
+- **Read models.** The schema a client receives as a response body is `<Thing>Read`
+  (or `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
+  share a name, and the OpenAPI component name is the schema's. A value object nested
+  inside a read model (`SummaryMetrics`, `DaySummary`) keeps its descriptive name.
+- **Request parameters.** A path or query parameter's constraint is part of its type
+  (`core.dependencies.PositiveId`, an enum for a closed set, `AfterValidator` for a
+  vocabulary lookup), so FastAPI validates it, answers with the validation problem
+  document and publishes the accepted values in OpenAPI. A `dependencies.py` does not
+  raise `HTTPException`, and a child router declares the shared alias
+  (`activity_dependencies.ActivityId`) on its own handlers rather than mounting a
+  dependency whose only job is to carry the parameter.
+- **Refusals answer 404.** Reading someone's follower network or deleting a follow
+  relationship you are not part of is answered as not found, the same as an activity
+  the caller cannot see, so an endpoint cannot be used to probe who exists or who
+  follows whom. `PermissionDeniedError` is for a caller who is entitled to know the
+  resource exists but may not change it.
 - **Collections.** A list a client receives is a `core.pagination.Page`; a
   collection that is absent is `[]`, never `None`. The two exceptions are the
   exercise-title reference table (`/all`, read whole by design) and the response

@@ -40,7 +40,7 @@ def get_all_followers_by_user_id(
     page_number: int = 1,
     num_records: int = 25,
     accepted_only: bool = False,
-) -> list[followers_schema.FollowRelationship]:
+) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of follower records where the user is being followed.
 
     Paginated rather than unbounded: a popular account's follower list would
@@ -71,7 +71,7 @@ def get_all_following_by_user_id(
     page_number: int = 1,
     num_records: int = 25,
     accepted_only: bool = False,
-) -> list[followers_schema.FollowRelationship]:
+) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of follow records where the user is the follower.
 
     Paginated for the same reason as :func:`get_all_followers_by_user_id`, and
@@ -100,7 +100,7 @@ def get_pending_requests_for_user_id(
     *,
     page_number: int = 1,
     num_records: int = 25,
-) -> list[followers_schema.FollowRelationship]:
+) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of pending follow requests addressed to a user.
 
     Args:
@@ -186,7 +186,7 @@ def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool
 
 def get_follower_for_user_id_and_target_user_id(
     user_id: int, target_user_id: int, db: Session
-) -> followers_schema.FollowRelationship | None:
+) -> followers_schema.FollowRelationshipRead | None:
     """Retrieve a single follow relationship between two users.
 
     Args:
@@ -243,7 +243,7 @@ def create_follower(
     user_id: int,
     target_user_id: int,
     db: Session,
-) -> followers_schema.FollowRelationship:
+) -> followers_schema.FollowRelationshipRead:
     """Stage a new follow request between two users.
 
     Flushes without committing: the service owns the transaction, and the
@@ -296,7 +296,7 @@ def accept_follower(
     user_id: int,
     target_user_id: int,
     db: Session,
-) -> followers_schema.FollowRelationship:
+) -> followers_schema.FollowRelationshipRead:
     """Stage the acceptance of a pending follow request from another user.
 
     Flushes without committing: the service owns the transaction, and the

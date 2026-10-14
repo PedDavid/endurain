@@ -1,6 +1,5 @@
 """Public activity stream endpoints."""
 
-from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 import core.database as core_database
 import core.exceptions as core_exceptions
 import core.pagination as core_pagination
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_streams.dependencies as activity_streams_dependencies
 import modules.activities.activity_streams.schema as activity_streams_schema
 import modules.activities.activity_streams.service as activity_streams_service
@@ -21,7 +21,7 @@ router = APIRouter()
     response_model=activity_streams_schema.ActivityStreamsPage,
 )
 def read_public_activities_streams_for_activity_all(
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     db: Annotated[
         Session,
         Depends(core_database.get_db),
@@ -42,12 +42,8 @@ def read_public_activities_streams_for_activity_all(
     response_model=activity_streams_schema.ActivityStreamsRead,
 )
 def read_public_activities_streams_for_activity_stream_type(
-    activity_id: int,
-    stream_type: int,
-    _validate_activity_stream_type: Annotated[
-        Callable,
-        Depends(activity_streams_dependencies.validate_activity_stream_type),
-    ],
+    activity_id: activity_dependencies.ActivityId,
+    stream_type: activity_streams_dependencies.StreamType,
     db: Annotated[
         Session,
         Depends(core_database.get_db),

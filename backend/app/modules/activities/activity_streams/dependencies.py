@@ -1,22 +1,12 @@
-"""Dependencies for activity stream validation."""
+"""Typed request parameters for the activity stream routers."""
 
-import core.dependencies as core_dependencies
+from typing import Annotated
 
+from fastapi import Path
 
-def validate_activity_stream_type(
-    stream_type: int,
-) -> None:
-    """Validate the activity stream type value.
+import modules.activities.activity_streams.constants as activity_streams_constants
 
-    Args:
-        stream_type: The stream type to validate.
-
-    Raises:
-        HTTPException: If stream type is not 1-7.
-    """
-    core_dependencies.validate_type(
-        type_value=stream_type,
-        min_value=1,
-        max_value=7,
-        message=("Invalid activity stream type"),
-    )
+#: A stream type taken from the path. The exposed types run from heart rate up to the map track.
+StreamType = Annotated[
+    int, Path(ge=activity_streams_constants.STREAM_TYPE_HR, le=activity_streams_constants.STREAM_TYPE_MAP)
+]

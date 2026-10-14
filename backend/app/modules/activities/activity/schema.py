@@ -212,7 +212,7 @@ class ActivitySportStats(BaseModel):
     calories: float = Field(default=0.0, ge=0)
 
 
-class ActivityStats(BaseModel):
+class ActivityStatsRead(BaseModel):
     """Per-sport aggregated stats for a timeframe (week/month).
 
     Attributes:
@@ -262,22 +262,7 @@ ActivityPage = core_pagination.Page[ActivityRead]
 ActivityFeedPage = core_pagination.CursorPage[ActivityRead]
 
 
-class ActivityMessageResponse(BaseModel):
-    """Generic message response for activity mutation endpoints.
-
-    Named for the module rather than called ``MessageResponse`` because FastAPI
-    keys its OpenAPI components by class name: two same-named models in different
-    modules are emitted as fully-qualified ``modules__..__MessageResponse``
-    schemas, which leaks the Python package layout into the generated client.
-
-    Attributes:
-        detail: Human-readable outcome of the operation.
-    """
-
-    detail: str
-
-
-class VisibilityUpdateResponse(BaseModel):
+class VisibilityUpdateRead(BaseModel):
     """Result of a bulk visibility change across a user's activities.
 
     Attributes:

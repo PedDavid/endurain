@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.pagination as core_pagination
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.activity_workout_steps.service as activity_workout_steps_service
 
@@ -18,7 +19,7 @@ router = APIRouter()
     response_model=activity_workout_steps_schema.ActivityWorkoutStepsPage,
 )
 def read_public_activity_workout_steps_all(
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.child_page_params)],
 ) -> activity_workout_steps_schema.ActivityWorkoutStepsPage:

@@ -11,11 +11,8 @@ import core.exceptions as core_exceptions
 
 def _build_app(mock_db):
     import core.database as core_db
-    import modules.activities.activity.dependencies as act_dep
     import modules.activities.activity.router as activity_router
     import modules.auth.dependencies as auth_deps
-    import modules.gears.gear.dependencies as gear_dep
-    import modules.users.users.dependencies as users_dep
 
     app = FastAPI()
     # Same boundary the production app registers, so a DomainError raised by the
@@ -31,12 +28,6 @@ def _build_app(mock_db):
         auth_deps.get_sub_from_access_token,
         auth_deps.get_user_id_from_auth,
         auth_deps.check_auth_scopes,
-        users_dep.validate_user_id,
-        act_dep.validate_activity_type,
-        act_dep.validate_sort_by,
-        act_dep.validate_sort_order,
-        act_dep.validate_activity_id,
-        gear_dep.validate_gear_id,
     ]:
         app.dependency_overrides[dep] = _mock
     app.dependency_overrides[core_db.get_db] = lambda: mock_db

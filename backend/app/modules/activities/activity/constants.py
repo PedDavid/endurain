@@ -5,6 +5,8 @@ dependencies, summaries, the file-import parsers) can import without pulling in
 the ingestion/parsing machinery.
 """
 
+from enum import StrEnum
+
 # Global Activity Type Mappings (ID to Name)
 ACTIVITY_ID_TO_NAME = {
     1: "Run",
@@ -125,7 +127,7 @@ VIRTUAL_ACTIVITY_TYPES = frozenset({3, 7})
 #: totals but not towards a goal for the same sport.
 #:
 #: Keys match the per-sport attribute names on
-#: :class:`~modules.activities.activity.schema.ActivityStats`.
+#: :class:`~modules.activities.activity.schema.ActivityStatsRead`.
 ACTIVITY_TYPES_BY_SPORT: dict[str, tuple[int, ...]] = {
     "run": (1, 2, 3, 34, 40),
     "bike": (4, 5, 6, 7, 27, 28, 29, 35, 36),
@@ -170,8 +172,22 @@ ACTIVITY_SORT_FIELDS: dict[str, tuple[str, ...]] = {
 #: The sort key applied when a request names none.
 DEFAULT_ACTIVITY_SORT_FIELD = "start_time"
 
-#: Accepted sort directions.
-ACTIVITY_SORT_ORDERS: tuple[str, ...] = ("asc", "desc")
+#: The sort keys a request may name, as an enum so FastAPI validates the query parameter and
+#: publishes the accepted values. Built from :data:`ACTIVITY_SORT_FIELDS`, which stays the one list.
+ActivitySortField = StrEnum("ActivitySortField", {key: key for key in ACTIVITY_SORT_FIELDS})
+
+
+class ActivitySortOrder(StrEnum):
+    """Accepted sort directions.
+
+    Attributes:
+        ASC: Ascending.
+        DESC: Descending.
+    """
+
+    ASC = "asc"
+    DESC = "desc"
+
 
 # Add specific variations found in define_activity_type
 ACTIVITY_NAME_TO_ID.update(

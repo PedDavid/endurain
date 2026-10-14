@@ -4,7 +4,11 @@ from typing import Annotated
 
 import jasil.providers as platform_providers
 import jasil.runtime as platform_runtime
-from fastapi import HTTPException, Query, status
+from fastapi import HTTPException, Path, Query, status
+
+#: A path-parameter id that must be positive. Declared on the parameter's type, so FastAPI rejects a
+#: bad value with the standard validation problem document and publishes the bound in OpenAPI.
+PositiveId = Annotated[int, Path(gt=0)]
 
 
 def get_storage() -> platform_providers.StorageProvider:

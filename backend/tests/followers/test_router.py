@@ -35,10 +35,10 @@ class TestGetUserFollowers:
     @patch("modules.followers.crud.count_followers_by_user_id")
     @patch("modules.followers.crud.get_all_followers_by_user_id")
     def test_self_success(self, mock_get, mock_count, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = [FollowRelationship(follower_id=3, followee_id=1, status="accepted")]
+        mock_get.return_value = [FollowRelationshipRead(follower_id=3, followee_id=1, status="accepted")]
         mock_count.return_value = 1
 
         # Requester (1) == target (1): always allowed.
@@ -54,10 +54,10 @@ class TestGetUserFollowers:
     @patch("modules.followers.crud.count_followers_by_user_id")
     @patch("modules.followers.crud.get_all_followers_by_user_id")
     def test_pagination_is_passed_through_and_next_is_derived(self, mock_get, mock_count, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = [FollowRelationship(follower_id=3, followee_id=1, status="accepted")]
+        mock_get.return_value = [FollowRelationshipRead(follower_id=3, followee_id=1, status="accepted")]
         mock_count.return_value = 40
 
         response = client.get(
@@ -79,23 +79,23 @@ class TestGetUserFollowers:
 
     @patch("modules.followers.crud.get_all_followers_by_user_id")
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
-    def test_stranger_forbidden(self, mock_rel, mock_get, mock_db):
+    def test_stranger_is_answered_not_found(self, mock_rel, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         mock_rel.return_value = None  # requester is not an accepted follower of the target
 
         response = client.get("/users/2/followers", headers={"Authorization": "Bearer x"})
-        assert response.status_code == 403
+        assert response.status_code == 404
         mock_get.assert_not_called()
 
     @patch("modules.followers.crud.count_followers_by_user_id")
     @patch("modules.followers.crud.get_all_followers_by_user_id")
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
     def test_accepted_follower_allowed(self, mock_rel, mock_get, mock_count, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
         # Requester (1) is an accepted follower of target (2).
-        mock_rel.return_value = FollowRelationship(follower_id=1, followee_id=2, status="accepted")
+        mock_rel.return_value = FollowRelationshipRead(follower_id=1, followee_id=2, status="accepted")
         mock_get.return_value = []
         mock_count.return_value = 0
 
@@ -107,10 +107,10 @@ class TestGetUserFollowing:
     @patch("modules.followers.crud.count_following_by_user_id")
     @patch("modules.followers.crud.get_all_following_by_user_id")
     def test_self_success(self, mock_get, mock_count, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = [FollowRelationship(follower_id=1, followee_id=2, status="accepted")]
+        mock_get.return_value = [FollowRelationshipRead(follower_id=1, followee_id=2, status="accepted")]
         mock_count.return_value = 1
 
         # Requester (1) == target (1): always allowed.
@@ -120,22 +120,22 @@ class TestGetUserFollowing:
 
     @patch("modules.followers.crud.get_all_following_by_user_id")
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
-    def test_stranger_forbidden(self, mock_rel, mock_get, mock_db):
+    def test_stranger_is_answered_not_found(self, mock_rel, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         mock_rel.return_value = None
 
         response = client.get("/users/2/following", headers={"Authorization": "Bearer x"})
-        assert response.status_code == 403
+        assert response.status_code == 404
         mock_get.assert_not_called()
 
 
 class TestReadUserRelationship:
     @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
     def test_success(self, mock_get, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = FollowRelationship(follower_id=1, followee_id=2, status="accepted")
+        mock_get.return_value = FollowRelationshipRead(follower_id=1, followee_id=2, status="accepted")
 
         response = client.get("/users/2/relationship", headers={"Authorization": "Bearer x"})
         assert response.status_code == 200
@@ -158,10 +158,10 @@ class TestReadUserRelationship:
 class TestFollowUser:
     @patch("modules.followers.service.follow_user")
     def test_success(self, mock_follow, mock_db):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_follow.return_value = FollowRelationship(follower_id=1, followee_id=2, status="pending")
+        mock_follow.return_value = FollowRelationshipRead(follower_id=1, followee_id=2, status="pending")
 
         response = client.post("/users/2/followers", headers={"Authorization": "Bearer x"})
         assert response.status_code == 201
@@ -173,10 +173,10 @@ class TestListFollowRequests:
     @patch("modules.followers.crud.get_pending_requests_for_user_id")
     def test_lists_only_the_callers_requests(self, mock_get, mock_count, mock_db):
         """There is no user id in the path, so no other inbox is addressable."""
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = [FollowRelationship(follower_id=3, followee_id=1, status="pending")]
+        mock_get.return_value = [FollowRelationshipRead(follower_id=3, followee_id=1, status="pending")]
         mock_count.return_value = 1
 
         response = client.get("/follow-requests", headers={"Authorization": "Bearer x"})
@@ -194,7 +194,7 @@ class TestAcceptFollowRequest:
 
         # The response must be the row as persisted, not one built from the
         # request body — a fabricated body could claim a state the DB lacks.
-        mock_accept.return_value = followers_schema.FollowRelationship(
+        mock_accept.return_value = followers_schema.FollowRelationshipRead(
             follower_id=2, followee_id=1, status=followers_constants.FollowStatus.ACCEPTED
         )
         client = TestClient(_build_app(mock_db))
@@ -270,7 +270,7 @@ class TestDeleteFollowRelationship:
 
         response = client.delete("/users/2/followers/3", headers={"Authorization": "Bearer x"})
 
-        assert response.status_code == 403
+        assert response.status_code == 404
 
 
 class TestRemovedCountEndpoints:

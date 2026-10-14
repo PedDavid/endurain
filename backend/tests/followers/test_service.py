@@ -10,10 +10,10 @@ class TestNetworkPrivacy:
     @patch("modules.followers.service.followers_crud")
     def test_non_owner_can_only_read_accepted_relationships(self, mock_crud, method_name):
         from modules.followers import service
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
 
         db = MagicMock()
-        mock_crud.get_follower_for_user_id_and_target_user_id.return_value = FollowRelationship(
+        mock_crud.get_follower_for_user_id_and_target_user_id.return_value = FollowRelationshipRead(
             follower_id=1,
             followee_id=2,
             status="accepted",
@@ -54,11 +54,11 @@ class TestFollowUser:
     @patch("modules.followers.service.followers_event_publishers")
     @patch("modules.followers.service.followers_crud")
     def test_creates_and_publishes(self, mock_crud, mock_pub):
-        from modules.followers.schema import FollowRelationship
+        from modules.followers.schema import FollowRelationshipRead
         from modules.followers.service import follow_user
 
         db = MagicMock()
-        mock_crud.create_follower.return_value = FollowRelationship(follower_id=1, followee_id=2, status="pending")
+        mock_crud.create_follower.return_value = FollowRelationshipRead(follower_id=1, followee_id=2, status="pending")
 
         result = follow_user(1, 2, db)
 
@@ -123,7 +123,7 @@ class TestDeleteRelationship:
         db = MagicMock()
         with (
             patch("modules.followers.service.followers_crud") as crud,
-            pytest.raises(core_exceptions.PermissionDeniedError),
+            pytest.raises(core_exceptions.NotFoundError),
         ):
             delete_relationship(2, 3, 1, db)
 

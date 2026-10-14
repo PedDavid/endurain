@@ -16,7 +16,7 @@ import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.pagination as core_pagination
 import core.rate_limit as core_rate_limit
-import modules.activities.activity_media.dependencies as activity_media_dependencies
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_media.schema as activity_media_schema
 import modules.activities.activity_media.service as activity_media_service
 import modules.auth.dependencies as auth_dependencies
@@ -30,7 +30,7 @@ router = APIRouter()
     response_model=activity_media_schema.ActivityMediaPage,
 )
 def read_activities_media_user(
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[
         int,
@@ -61,7 +61,7 @@ def read_activities_media_user(
 def upload_media(
     request: Request,
     file: UploadFile,
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[
         Callable,
         Security(auth_dependencies.check_scopes, scopes=["activities:write"]),
@@ -108,9 +108,8 @@ def upload_media(
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def delete_activity_media(
     request: Request,
-    activity_id: int,
-    media_id: int,
-    _validate_id: Annotated[Callable, Depends(activity_media_dependencies.validate_media_id)],
+    activity_id: activity_dependencies.ActivityId,
+    media_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
     token_user_id: Annotated[
         int,

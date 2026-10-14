@@ -45,7 +45,7 @@ export function mapFollowStatus(dto: FollowerDto | null): FollowStatus {
  * @throws {HttpError} When the request fails.
  */
 export async function fetchFollowers(userId: number, signal?: AbortSignal): Promise<FollowEdge[]> {
-  const page = await apiFetch<Schemas['Page_FollowRelationship_']>(
+  const page = await apiFetch<Schemas['Page_FollowRelationshipRead_']>(
     `/followers/users/${userId}/followers?num_records=${MAX_PAGE_SIZE}`,
     { signal },
   )
@@ -65,7 +65,7 @@ export async function fetchFollowers(userId: number, signal?: AbortSignal): Prom
  * @throws {HttpError} When the request fails.
  */
 export async function fetchFollowing(userId: number, signal?: AbortSignal): Promise<FollowEdge[]> {
-  const page = await apiFetch<Schemas['Page_FollowRelationship_']>(
+  const page = await apiFetch<Schemas['Page_FollowRelationshipRead_']>(
     `/followers/users/${userId}/following?num_records=${MAX_PAGE_SIZE}`,
     { signal },
   )
@@ -86,7 +86,7 @@ export async function fetchFollowing(userId: number, signal?: AbortSignal): Prom
 export async function fetchFollowersCount(userId: number, signal?: AbortSignal): Promise<number> {
   // `total` on the page envelope describes the same filter, so the dedicated
   // count endpoint (a bare JSON number, and a second round trip) is gone.
-  const page = await apiFetch<Schemas['Page_FollowRelationship_']>(
+  const page = await apiFetch<Schemas['Page_FollowRelationshipRead_']>(
     `/followers/users/${userId}/followers?accepted_only=true&num_records=1`,
     { signal },
   )
@@ -102,7 +102,7 @@ export async function fetchFollowersCount(userId: number, signal?: AbortSignal):
  * @throws {HttpError} When the request fails.
  */
 export async function fetchFollowingCount(userId: number, signal?: AbortSignal): Promise<number> {
-  const page = await apiFetch<Schemas['Page_FollowRelationship_']>(
+  const page = await apiFetch<Schemas['Page_FollowRelationshipRead_']>(
     `/followers/users/${userId}/following?accepted_only=true&num_records=1`,
     { signal },
   )

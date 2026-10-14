@@ -122,7 +122,7 @@ def get_weekly_summary(
     db: Session,
     *,
     activity_type: str | None = None,
-) -> activity_summary_schema.WeeklySummaryResponse:
+) -> activity_summary_schema.WeeklySummaryRead:
     """Get weekly activity summary for a user.
 
     Args:
@@ -194,7 +194,7 @@ def get_weekly_summary(
         else:
             breakdown.append(activity_summary_schema.DaySummary(day_of_week=day_index))
 
-    return activity_summary_schema.WeeklySummaryResponse(
+    return activity_summary_schema.WeeklySummaryRead(
         total_distance=overall.total_distance,
         total_duration=overall.total_duration,
         total_elevation_gain=(overall.total_elevation_gain),
@@ -218,7 +218,7 @@ def get_monthly_summary(
     db: Session,
     *,
     activity_type: str | None = None,
-) -> activity_summary_schema.MonthlySummaryResponse:
+) -> activity_summary_schema.MonthlySummaryRead:
     """Get monthly activity summary for a user.
 
     Args:
@@ -279,7 +279,7 @@ def get_monthly_summary(
         overall.total_calories += ws.total_calories
         overall.activity_count += ws.activity_count
 
-    return activity_summary_schema.MonthlySummaryResponse(
+    return activity_summary_schema.MonthlySummaryRead(
         total_distance=overall.total_distance,
         total_duration=overall.total_duration,
         total_elevation_gain=(overall.total_elevation_gain),
@@ -302,7 +302,7 @@ def get_yearly_summary(
     db: Session,
     *,
     activity_type: str | None = None,
-) -> activity_summary_schema.YearlySummaryResponse:
+) -> activity_summary_schema.YearlySummaryRead:
     """Get yearly activity summary for a user.
 
     Args:
@@ -365,7 +365,7 @@ def get_yearly_summary(
         else:
             breakdown.append(activity_summary_schema.MonthSummary(month_number=i))
 
-    return activity_summary_schema.YearlySummaryResponse(
+    return activity_summary_schema.YearlySummaryRead(
         total_distance=overall.total_distance,
         total_duration=overall.total_duration,
         total_elevation_gain=(overall.total_elevation_gain),
@@ -387,7 +387,7 @@ def get_lifetime_summary(
     db: Session,
     *,
     activity_type: str | None = None,
-) -> activity_summary_schema.LifetimeSummaryResponse:
+) -> activity_summary_schema.LifetimeSummaryRead:
     """Get lifetime activity summary for a user.
 
     Args:
@@ -454,7 +454,7 @@ def get_lifetime_summary(
         )
 
     if totals:
-        return activity_summary_schema.LifetimeSummaryResponse(
+        return activity_summary_schema.LifetimeSummaryRead(
             total_distance=float(totals.total_distance),
             total_duration=float(totals.total_duration),
             total_elevation_gain=float(totals.total_elevation_gain),
@@ -473,7 +473,7 @@ def get_lifetime_summary(
             ),
         )
 
-    return activity_summary_schema.LifetimeSummaryResponse(
+    return activity_summary_schema.LifetimeSummaryRead(
         total_distance=0.0,
         total_duration=0.0,
         total_elevation_gain=0.0,

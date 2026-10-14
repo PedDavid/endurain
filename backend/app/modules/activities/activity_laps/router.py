@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.pagination as core_pagination
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_laps.schema as activity_laps_schema
 import modules.activities.activity_laps.service as activity_laps_service
 import modules.auth.dependencies as auth_dependencies
@@ -20,7 +21,7 @@ router = APIRouter()
     response_model=activity_laps_schema.ActivityLapsPage,
 )
 def read_activities_laps_for_activity_all(
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     _check_scopes: Annotated[
         Callable,
         Security(auth_dependencies.check_scopes, scopes=["activities:read"]),

@@ -21,7 +21,7 @@ export type ActivityExerciseTitleDto = Schemas['ActivityExerciseTitlesRead']
  * Used by the home dashboard's distance/time/calories summary. The wire shape is
  * already clean (sport-keyed, numeric defaults), so the domain model reuses it.
  */
-export type ActivityStats = Schemas['ActivityStats']
+export type ActivityStats = Schemas['ActivityStatsRead']
 
 /** Aggregated distance (m), time (s), and calories (kcal) for one sport. */
 export type ActivitySportStats = Schemas['ActivitySportStats']

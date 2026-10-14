@@ -83,6 +83,22 @@ class TestRouteConventions:
 
         assert offenders == [], "Add a @core_rate_limit.limiter.limit(<tier>) to:\n  " + "\n  ".join(offenders)
 
+    def test_dependencies_declare_constraints_on_types(self):
+        """A parameter's constraint is its type; ``dependencies`` does not raise ``HTTPException`` by hand.
+
+        A hand-written validator shows up in no OpenAPI schema and answers with its own body, so
+        the generated client cannot type the parameter and a bad value looks different per module.
+        """
+        offenders = [
+            path.relative_to(_ROOT).as_posix()
+            for path in files_with_role(_CONVERTED, "dependencies")
+            if "HTTPException" in path.read_text()
+        ]
+
+        assert offenders == [], "Declare the constraint with Path/Query/AfterValidator instead:\n  " + "\n  ".join(
+            offenders
+        )
+
 
 class TestSignatureConventions:
     def test_db_is_the_last_required_positional_parameter(self):

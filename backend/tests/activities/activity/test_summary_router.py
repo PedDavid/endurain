@@ -61,9 +61,9 @@ class TestReadWeeklySummary:
     @patch(f"{_SERVICE}.activity_summary_crud.get_weekly_summary")
     def test_weekly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
-        from modules.activities.activity.summary_schema import WeeklySummaryResponse
+        from modules.activities.activity.summary_schema import WeeklySummaryRead
 
-        mock_get.return_value = WeeklySummaryResponse(breakdown=[], type_breakdown=None)
+        mock_get.return_value = WeeklySummaryRead(breakdown=[], type_breakdown=None)
 
         response = client.get(
             "/activities/summaries?period=week&date=2024-01-15",
@@ -76,10 +76,10 @@ class TestReadWeeklySummary:
         assert mock_get.call_args.kwargs["first_day_of_week"] == "sunday"
 
     def test_week_is_the_default_period(self, mock_db):
-        from modules.activities.activity.summary_schema import WeeklySummaryResponse
+        from modules.activities.activity.summary_schema import WeeklySummaryRead
 
         with patch(f"{_SERVICE}.activity_summary_crud.get_weekly_summary") as mock_get:
-            mock_get.return_value = WeeklySummaryResponse(breakdown=[], type_breakdown=None)
+            mock_get.return_value = WeeklySummaryRead(breakdown=[], type_breakdown=None)
             response = TestClient(_build_app(mock_db)).get(
                 "/activities/summaries",
                 headers={"Authorization": "Bearer x"},
@@ -107,9 +107,9 @@ class TestReadMonthlySummary:
     @patch(f"{_SERVICE}.activity_summary_crud.get_monthly_summary")
     def test_monthly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
-        from modules.activities.activity.summary_schema import MonthlySummaryResponse
+        from modules.activities.activity.summary_schema import MonthlySummaryRead
 
-        mock_get.return_value = MonthlySummaryResponse(breakdown=[], type_breakdown=None)
+        mock_get.return_value = MonthlySummaryRead(breakdown=[], type_breakdown=None)
 
         response = client.get(
             "/activities/summaries?period=month&date=2024-01-15",
@@ -125,9 +125,9 @@ class TestReadYearlySummary:
     @patch(f"{_SERVICE}.activity_summary_crud.get_yearly_summary")
     def test_yearly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
-        from modules.activities.activity.summary_schema import YearlySummaryResponse
+        from modules.activities.activity.summary_schema import YearlySummaryRead
 
-        mock_get.return_value = YearlySummaryResponse(breakdown=[], type_breakdown=None)
+        mock_get.return_value = YearlySummaryRead(breakdown=[], type_breakdown=None)
 
         response = client.get(
             "/activities/summaries?period=year&year=2024",
@@ -138,9 +138,9 @@ class TestReadYearlySummary:
 
     @patch(f"{_SERVICE}.activity_summary_crud.get_yearly_summary")
     def test_year_defaults_to_the_anchor_year(self, mock_get, mock_db):
-        from modules.activities.activity.summary_schema import YearlySummaryResponse
+        from modules.activities.activity.summary_schema import YearlySummaryRead
 
-        mock_get.return_value = YearlySummaryResponse(breakdown=[], type_breakdown=None)
+        mock_get.return_value = YearlySummaryRead(breakdown=[], type_breakdown=None)
 
         response = TestClient(_build_app(mock_db)).get(
             "/activities/summaries?period=year",
@@ -154,9 +154,9 @@ class TestReadLifetimeSummary:
     @patch(f"{_SERVICE}.activity_summary_crud.get_lifetime_summary")
     def test_lifetime_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
-        from modules.activities.activity.summary_schema import LifetimeSummaryResponse
+        from modules.activities.activity.summary_schema import LifetimeSummaryRead
 
-        mock_get.return_value = LifetimeSummaryResponse(breakdown=[], type_breakdown=None)
+        mock_get.return_value = LifetimeSummaryRead(breakdown=[], type_breakdown=None)
 
         response = client.get(
             "/activities/summaries?period=lifetime",

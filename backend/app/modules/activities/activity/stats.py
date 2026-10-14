@@ -21,16 +21,16 @@ _SPORT_BY_ACTIVITY_TYPE: dict[int, str] = {
 
 def calculate_activity_stats(
     activities: list[activity_schema.ActivityRead],
-) -> activity_schema.ActivityStats:
+) -> activity_schema.ActivityStatsRead:
     """Aggregate distance (m), time (s), and calories per sport type.
 
     Args:
         activities: List of Activity schema objects for the timeframe.
 
     Returns:
-        ActivityStats with per-sport distance, time, and calories totals.
+        ActivityStatsRead with per-sport distance, time, and calories totals.
     """
-    stats = activity_schema.ActivityStats()
+    stats = activity_schema.ActivityStatsRead()
 
     if activities is None:
         return stats

@@ -195,13 +195,8 @@ export interface paths {
          *     Returns ``202`` with a job handle; poll
          *     ``GET /activities/ingestion-jobs/{job_id}`` for the outcome.
          *
-         *     This used to be the one ``async def`` route in activities, awaiting the
-         *     provider clients inline. Everything synchronous on those paths — the
-         *     integration lookups, the per-activity dedup reads — therefore ran on the
-         *     event loop, where they stall every other request in the process instead of
-         *     occupying a single worker thread. Running the sync as a job removes that
-         *     class of bug rather than auditing for it: no provider code touches the loop
-         *     any more.
+         *     The sync runs as a job, so no provider call blocks a request thread or the
+         *     event loop.
          */
         post: operations["refresh_activities_api_v1_activities_refresh_post"];
         delete?: never;
@@ -345,9 +340,7 @@ export interface paths {
          * Delete Activity
          * @description Delete one of the authenticated user's activities.
          *
-         *     Answers ``204`` with no body, like every other delete in the API. It used to
-         *     return ``200`` with a confirmation sentence, which is a representation of
-         *     nothing: the resource is gone, and the status already says so.
+         *     Answers ``204`` with no body: the resource is gone, and the status says so.
          */
         delete: operations["delete_activity_api_v1_activities__activity_id__delete"];
         options?: never;
@@ -3861,8 +3854,7 @@ export interface paths {
          *
          *     Answers 404 when the activity does not exist *or* is not public — the two are
          *     deliberately indistinguishable so this unauthenticated endpoint cannot be
-         *     used to enumerate which activity ids exist. It previously returned
-         *     ``200 null``, which is neither a resource nor an error.
+         *     used to enumerate which activity ids exist.
          */
         get: operations["read_public_activities_activity_from_id_api_v1_public_activities__activity_id__get"];
         put?: never;
@@ -5269,8 +5261,8 @@ export interface components {
          *
          *     ``start_time`` crosses the API as a timezone-aware UTC instant, matching the
          *     parent activity. Clients localize it for display using that activity's
-         *     ``timezone`` — the server no longer ships a pre-formatted wall clock, which
-         *     carried no offset and so could not be converted or round-tripped.
+         *     ``timezone``; a pre-formatted wall clock would carry no offset and so could
+         *     not be converted or round-tripped.
          *
          *     Attributes:
          *         id: Lap primary key.
@@ -5515,8 +5507,8 @@ export interface components {
          *
          *     ``start_time`` crosses the API as a timezone-aware UTC instant, matching the
          *     parent activity. Clients localize it for display using that activity's
-         *     ``timezone`` — the server no longer ships a pre-formatted wall clock, which
-         *     carried no offset and so could not be converted or round-tripped.
+         *     ``timezone``; a pre-formatted wall clock would carry no offset and so could
+         *     not be converted or round-tripped.
          *
          *     Attributes:
          *         id: Activity set primary key.
@@ -5547,6 +5539,21 @@ export interface components {
             weight?: number | null;
         };
         /**
+         * ActivitySortField
+         * @enum {string}
+         */
+        ActivitySortField: "type" | "name" | "location" | "start_time" | "duration" | "distance" | "pace" | "calories" | "elevation" | "average_hr";
+        /**
+         * ActivitySortOrder
+         * @description Accepted sort directions.
+         *
+         *     Attributes:
+         *         ASC: Ascending.
+         *         DESC: Descending.
+         * @enum {string}
+         */
+        ActivitySortOrder: "asc" | "desc";
+        /**
          * ActivitySportStats
          * @description Aggregated stats for a single sport over a timeframe.
          *
@@ -5573,7 +5580,7 @@ export interface components {
             time: number;
         };
         /**
-         * ActivityStats
+         * ActivityStatsRead
          * @description Per-sport aggregated stats for a timeframe (week/month).
          *
          *     Attributes:
@@ -5593,7 +5600,7 @@ export interface components {
          *         snowshoeing: Stats for snowshoeing activities.
          *         inline_skating: Stats for inline skating activities.
          */
-        ActivityStats: {
+        ActivityStatsRead: {
             bike?: components["schemas"]["ActivitySportStats"];
             hike?: components["schemas"]["ActivitySportStats"];
             inline_skating?: components["schemas"]["ActivitySportStats"];
@@ -6061,7 +6068,7 @@ export interface components {
          */
         FastingType: "16:8" | "18:6" | "20:4" | "OMAD" | "24h" | "36h" | "48h" | "72h" | "custom";
         /**
-         * FollowRelationship
+         * FollowRelationshipRead
          * @description Serialized representation of a follow relationship.
          *
          *     Attributes:
@@ -6069,7 +6076,7 @@ export interface components {
          *         followee_id: The user being followed.
          *         status: Whether the request is pending or accepted.
          */
-        FollowRelationship: {
+        FollowRelationshipRead: {
             /** Followee Id */
             followee_id: number;
             /** Follower Id */
@@ -9011,14 +9018,14 @@ export interface components {
             url: string;
         };
         /**
-         * LifetimeSummaryResponse
+         * LifetimeSummaryRead
          * @description Lifetime summary with yearly breakdowns.
          *
          *     Attributes:
          *         breakdown: List of yearly summaries.
          *         type_breakdown: Optional breakdown by type.
          */
-        LifetimeSummaryResponse: {
+        LifetimeSummaryRead: {
             /**
              * Activity Count
              * @description Number of activities
@@ -9334,14 +9341,14 @@ export interface components {
             total_elevation_gain: number;
         };
         /**
-         * MonthlySummaryResponse
+         * MonthlySummaryRead
          * @description Monthly summary with weekly breakdowns.
          *
          *     Attributes:
          *         breakdown: List of weekly summaries.
          *         type_breakdown: Optional breakdown by type.
          */
-        MonthlySummaryResponse: {
+        MonthlySummaryRead: {
             /**
              * Activity Count
              * @description Number of activities
@@ -9506,10 +9513,10 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** Page[FollowRelationship] */
-        Page_FollowRelationship_: {
+        /** Page[FollowRelationshipRead] */
+        Page_FollowRelationshipRead_: {
             /** Items */
-            items: components["schemas"]["FollowRelationship"][];
+            items: components["schemas"]["FollowRelationshipRead"][];
             /** Next */
             next?: number | null;
             /** Num Records */
@@ -9689,16 +9696,16 @@ export interface components {
             username?: string | null;
         };
         /**
-         * RelationshipView
+         * RelationshipRead
          * @description The authenticated user's relationship with another user, both directions.
          *
          *     Attributes:
          *         outgoing: The authenticated user's follow of the other user, if any.
          *         incoming: The other user's follow of the authenticated user, if any.
          */
-        RelationshipView: {
-            incoming?: components["schemas"]["FollowRelationship"] | null;
-            outgoing?: components["schemas"]["FollowRelationship"] | null;
+        RelationshipRead: {
+            incoming?: components["schemas"]["FollowRelationshipRead"] | null;
+            outgoing?: components["schemas"]["FollowRelationshipRead"] | null;
         };
         /**
          * ServerSettingsEdit
@@ -11853,14 +11860,14 @@ export interface components {
             username: string;
         };
         /**
-         * VisibilityUpdateResponse
+         * VisibilityUpdateRead
          * @description Result of a bulk visibility change across a user's activities.
          *
          *     Attributes:
          *         detail: Human-readable outcome of the operation.
          *         updated: Number of activities whose visibility changed.
          */
-        VisibilityUpdateResponse: {
+        VisibilityUpdateRead: {
             /** Detail */
             detail: string;
             /** Updated */
@@ -11926,14 +11933,14 @@ export interface components {
             week_number: number;
         };
         /**
-         * WeeklySummaryResponse
+         * WeeklySummaryRead
          * @description Weekly summary with daily breakdowns.
          *
          *     Attributes:
          *         breakdown: List of daily summaries.
          *         type_breakdown: Optional breakdown by type.
          */
-        WeeklySummaryResponse: {
+        WeeklySummaryRead: {
             /**
              * Activity Count
              * @description Number of activities
@@ -12020,14 +12027,14 @@ export interface components {
             year_number: number;
         };
         /**
-         * YearlySummaryResponse
+         * YearlySummaryRead
          * @description Yearly summary with monthly breakdowns.
          *
          *     Attributes:
          *         breakdown: List of monthly summaries.
          *         type_breakdown: Optional breakdown by type.
          */
-        YearlySummaryResponse: {
+        YearlySummaryRead: {
             /**
              * Activity Count
              * @description Number of activities
@@ -12215,11 +12222,10 @@ export interface operations {
                 start_date?: string | null;
                 end_date?: string | null;
                 name?: string | null;
-                sort_by?: string | null;
-                sort_order?: string | null;
+                sort_by?: components["schemas"]["ActivitySortField"] | null;
+                sort_order?: components["schemas"]["ActivitySortOrder"] | null;
                 page_number?: number | null;
                 num_records?: number | null;
-                activity_type?: number | null;
             };
             header?: never;
             path?: never;
@@ -12275,7 +12281,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VisibilityUpdateResponse"];
+                    "application/json": components["schemas"]["VisibilityUpdateRead"];
                 };
             };
             /** @description Validation Error */
@@ -12534,7 +12540,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WeeklySummaryResponse"] | components["schemas"]["MonthlySummaryResponse"] | components["schemas"]["YearlySummaryResponse"] | components["schemas"]["LifetimeSummaryResponse"];
+                    "application/json": components["schemas"]["WeeklySummaryRead"] | components["schemas"]["MonthlySummaryRead"] | components["schemas"]["YearlySummaryRead"] | components["schemas"]["LifetimeSummaryRead"];
                 };
             };
             /** @description Validation Error */
@@ -12642,11 +12648,10 @@ export interface operations {
                 start_date?: string | null;
                 end_date?: string | null;
                 name?: string | null;
-                sort_by?: string | null;
-                sort_order?: string | null;
+                sort_by?: components["schemas"]["ActivitySortField"] | null;
+                sort_order?: components["schemas"]["ActivitySortOrder"] | null;
                 page_number?: number | null;
                 num_records?: number | null;
-                activity_type?: number | null;
             };
             header?: never;
             path: {
@@ -12706,7 +12711,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityStats"];
+                    "application/json": components["schemas"]["ActivityStatsRead"];
                 };
             };
             /** @description Validation Error */
@@ -13487,7 +13492,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_FollowRelationship_"];
+                    "application/json": components["schemas"]["Page_FollowRelationshipRead_"];
                 };
             };
             /** @description Validation Error */
@@ -13569,7 +13574,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FollowRelationship"];
+                    "application/json": components["schemas"]["FollowRelationshipRead"];
                 };
             };
             /** @description Validation Error */
@@ -13613,7 +13618,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_FollowRelationship_"];
+                    "application/json": components["schemas"]["Page_FollowRelationshipRead_"];
                 };
             };
             /** @description Validation Error */
@@ -13653,7 +13658,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FollowRelationship"];
+                    "application/json": components["schemas"]["FollowRelationshipRead"];
                 };
             };
             /** @description Validation Error */
@@ -13736,7 +13741,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Page_FollowRelationship_"];
+                    "application/json": components["schemas"]["Page_FollowRelationshipRead_"];
                 };
             };
             /** @description Validation Error */
@@ -13776,7 +13781,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RelationshipView"];
+                    "application/json": components["schemas"]["RelationshipRead"];
                 };
             };
             /** @description Validation Error */

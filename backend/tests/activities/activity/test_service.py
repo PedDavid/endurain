@@ -77,7 +77,7 @@ class TestPeriodStats:
         import modules.activities.activity.schema as schema
         from modules.activities.activity import service
 
-        assert isinstance(service.week_stats(1, 1, MagicMock()), schema.ActivityStats)
+        assert isinstance(service.week_stats(1, 1, MagicMock()), schema.ActivityStatsRead)
 
     @patch("modules.activities.activity.service.activity_stats.calculate_activity_stats", return_value="stats")
     @patch("modules.activities.activity.service.get_activities_in_timeframe", return_value=[MagicMock()])
@@ -91,7 +91,7 @@ class TestPeriodStats:
         import modules.activities.activity.schema as schema
         from modules.activities.activity import service
 
-        assert isinstance(service.month_stats(1, 1, MagicMock()), schema.ActivityStats)
+        assert isinstance(service.month_stats(1, 1, MagicMock()), schema.ActivityStatsRead)
 
 
 class TestListUserActivitiesPaginated:

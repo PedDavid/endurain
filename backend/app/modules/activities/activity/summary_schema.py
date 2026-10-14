@@ -120,7 +120,7 @@ class TypeBreakdownItem(SummaryMetrics):
     )
 
 
-class WeeklySummaryResponse(SummaryMetrics):
+class WeeklySummaryRead(SummaryMetrics):
     """Weekly summary with daily breakdowns.
 
     Attributes:
@@ -138,7 +138,7 @@ class WeeklySummaryResponse(SummaryMetrics):
     )
 
 
-class MonthlySummaryResponse(SummaryMetrics):
+class MonthlySummaryRead(SummaryMetrics):
     """Monthly summary with weekly breakdowns.
 
     Attributes:
@@ -156,7 +156,7 @@ class MonthlySummaryResponse(SummaryMetrics):
     )
 
 
-class YearlySummaryResponse(SummaryMetrics):
+class YearlySummaryRead(SummaryMetrics):
     """Yearly summary with monthly breakdowns.
 
     Attributes:
@@ -174,7 +174,7 @@ class YearlySummaryResponse(SummaryMetrics):
     )
 
 
-class LifetimeSummaryResponse(SummaryMetrics):
+class LifetimeSummaryRead(SummaryMetrics):
     """Lifetime summary with yearly breakdowns.
 
     Attributes:
@@ -193,4 +193,4 @@ class LifetimeSummaryResponse(SummaryMetrics):
 
 
 #: What the summary route returns: one shape per requested period.
-SummaryResponse = WeeklySummaryResponse | MonthlySummaryResponse | YearlySummaryResponse | LifetimeSummaryResponse
+SummaryResponse = WeeklySummaryRead | MonthlySummaryRead | YearlySummaryRead | LifetimeSummaryRead

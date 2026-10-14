@@ -187,7 +187,7 @@ def week_stats(
     db: Session,
     *,
     anchor: date | None = None,
-) -> activity_schema.ActivityStats:
+) -> activity_schema.ActivityStatsRead:
     """Aggregate per-sport stats for a user's current-week activities.
 
     Args:
@@ -203,7 +203,7 @@ def week_stats(
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
         return activity_stats.calculate_activity_stats(activities)
-    return activity_schema.ActivityStats()
+    return activity_schema.ActivityStatsRead()
 
 
 def month_stats(
@@ -212,7 +212,7 @@ def month_stats(
     db: Session,
     *,
     anchor: date | None = None,
-) -> activity_schema.ActivityStats:
+) -> activity_schema.ActivityStatsRead:
     """Aggregate per-sport stats for a user's current-month activities.
 
     Args:
@@ -228,7 +228,7 @@ def month_stats(
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
         return activity_stats.calculate_activity_stats(activities)
-    return activity_schema.ActivityStats()
+    return activity_schema.ActivityStatsRead()
 
 
 def period_stats(
@@ -238,7 +238,7 @@ def period_stats(
     db: Session,
     *,
     anchor: date | None = None,
-) -> activity_schema.ActivityStats:
+) -> activity_schema.ActivityStatsRead:
     """Aggregate per-sport stats for a user's ``week`` or ``month`` (default week).
 
     Args:

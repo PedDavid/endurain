@@ -6,7 +6,7 @@ import core.pagination as core_pagination
 import modules.followers.constants as followers_constants
 
 
-class FollowRelationship(BaseModel):
+class FollowRelationshipRead(BaseModel):
     """Serialized representation of a follow relationship.
 
     Attributes:
@@ -60,7 +60,7 @@ class FollowRequestAccept(BaseModel):
         return value
 
 
-class RelationshipView(BaseModel):
+class RelationshipRead(BaseModel):
     """The authenticated user's relationship with another user, both directions.
 
     Attributes:
@@ -70,11 +70,11 @@ class RelationshipView(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 
-    outgoing: FollowRelationship | None = None
-    incoming: FollowRelationship | None = None
+    outgoing: FollowRelationshipRead | None = None
+    incoming: FollowRelationshipRead | None = None
 
 
 #: One page of follow relationships. Aliases the shared
 #: :class:`core.pagination.Page` so the follower lists return the same envelope
 #: the activities lists do.
-FollowRelationshipPage = core_pagination.Page[FollowRelationship]
+FollowRelationshipPage = core_pagination.Page[FollowRelationshipRead]
