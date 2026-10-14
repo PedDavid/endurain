@@ -132,7 +132,7 @@ export function mapActivity(dto: ActivityDto): Activity {
     stravaActivityId: dto.strava_activity_id ?? null,
     garminActivityId: dto.garminconnect_activity_id ?? null,
 
-    mapThumbnailPath: dto.map_thumbnail_path ?? null,
+    mapThumbnailUrl: dto.map_thumbnail_url ?? null,
 
     privacy: {
       hideStartTime: dto.hide_start_time ?? false,

@@ -29,6 +29,7 @@ import modules.activities.activity.crud as activity_crud
 import modules.activities.activity.event_publishers as activity_event_publishers
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity.stats as activity_stats
+import modules.activities.contributor_registry as activities_contributor_registry
 import modules.followers.integration_service as followers_integration
 import modules.server_settings.integration_service as server_settings_integration
 import modules.users.users.integration_service as users_integration
@@ -294,6 +295,29 @@ def count_user_activities(
     )
 
 
+def _with_thumbnail_urls(
+    activities: list[activity_schema.ActivityRead],
+) -> list[activity_schema.ActivityRead]:
+    """Set each activity's client-facing thumbnail URL from its stored key.
+
+    The URL is a signed capability, so it is minted only for activities a client
+    receives, after visibility masking has cleared the key of a hidden map.
+    Resolved through the registry because the thumbnail package derives its work
+    from the activity row and so may not be imported from here.
+
+    Args:
+        activities: Masked activities about to be returned to a client.
+
+    Returns:
+        The same activities, with ``map_thumbnail_url`` set where there is a key.
+    """
+    for activity in activities:
+        activity.map_thumbnail_url = activities_contributor_registry.resolve_thumbnail_url(
+            activity.map_thumbnail_path, activity.id
+        )
+    return activities
+
+
 def list_gear_activities(
     user_id: int,
     gear_id: int,
@@ -462,7 +486,7 @@ def page_user_activities(
         user_is_owner=(user_id == requester_user_id),
         followee_ids=_followees_of(requester_user_id, db),
     )
-    return activity_schema.ActivityPage.build(items, total, page_number, num_records)
+    return activity_schema.ActivityPage.build(_with_thumbnail_urls(items), total, page_number, num_records)
 
 
 def scroll_following_feed(
@@ -489,7 +513,7 @@ def scroll_following_feed(
     entries = activity_crud.get_following_feed_after(followee_ids, after, num_records + 1, db)
     has_more = len(entries) > num_records
     page_entries = entries[:num_records]
-    items = [entry.activity for entry in page_entries]
+    items = _with_thumbnail_urls([entry.activity for entry in page_entries])
     next_cursor = (
         core_pagination.encode_cursor(page_entries[-1].cursor_start_time, page_entries[-1].cursor_id)
         if has_more and page_entries
@@ -529,7 +553,7 @@ def page_gear_activities(
     """
     items = list_gear_activities(user_id, gear_id, db, page_number=page_number, num_records=num_records)
     total = _count_gear_activities(user_id, gear_id, db)
-    return activity_schema.ActivityPage.build(items, total, page_number, num_records)
+    return activity_schema.ActivityPage.build(_with_thumbnail_urls(items), total, page_number, num_records)
 
 
 # ---------------------------------------------------------------------------
@@ -575,7 +599,7 @@ def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activ
             extra=core_logger.context(activity_id=activity_id, requester_user_id=requester_user_id),
         )
         raise core_exceptions.NotFoundError(f"Activity {activity_id} not found")
-    return activity
+    return _with_thumbnail_urls([activity])[0]
 
 
 def get_public_activity(activity_id: int, db: Session) -> activity_schema.ActivityRead:
@@ -596,7 +620,7 @@ def get_public_activity(activity_id: int, db: Session) -> activity_schema.Activi
     activity = activity_crud.get_activity_by_id_if_is_public(activity_id, db)
     if activity is None:
         raise core_exceptions.NotFoundError("Activity not found")
-    return activity
+    return _with_thumbnail_urls([activity])[0]
 
 
 def edit_activity(
@@ -657,7 +681,7 @@ def edit_activity(
         "Edited an activity",
         extra=core_logger.context(activity_id=activity_id, user_id=user_id, changed_fields=sorted(changed_fields)),
     )
-    return updated
+    return _with_thumbnail_urls([updated])[0]
 
 
 def bulk_edit_activities(

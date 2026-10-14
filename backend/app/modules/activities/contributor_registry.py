@@ -121,8 +121,8 @@ def resolve_thumbnail_url(key: str | None, activity_id: int) -> str | None:
     """Return the servable URL for an activity's stored thumbnail key.
 
     The seam that keeps the root ``activity`` package from importing
-    ``activity_thumbnail``. Serializing an activity has to turn the stored key
-    into a URL, but the thumbnail subsystem derives its work *from* the activity
+    ``activity_thumbnail``. Returning an activity to a client has to turn the
+    stored key into a URL, but the thumbnail subsystem derives its work *from* the activity
     row, so the root cannot import it without a cycle. The root states the
     question; whichever package can answer it registers itself at composition
     time.

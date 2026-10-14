@@ -266,10 +266,11 @@ export interface Activity {
   garminActivityId: number | null
 
   /**
-   * Path to the pre-rendered static map thumbnail, when one exists. The home
+   * Servable URL of the pre-rendered static map thumbnail, when one exists and
+   * the viewer may see the map. The home
    * feed renders this lightweight image instead of mounting a live map per card.
    */
-  mapThumbnailPath: string | null
+  mapThumbnailUrl: string | null
 
   privacy: ActivityPrivacy
 }

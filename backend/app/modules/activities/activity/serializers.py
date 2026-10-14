@@ -22,7 +22,6 @@ import core.timezone as core_timezone
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.models as activity_models
 import modules.activities.activity.schema as activity_schema
-import modules.activities.contributor_registry as activities_contributor_registry
 
 
 def to_read_schema(
@@ -38,20 +37,7 @@ def to_read_schema(
     Returns:
         An Activity schema.
     """
-    schema = activity_schema.ActivityRead.model_validate(activity)
-
-    # The DB stores the thumbnail's storage key; resolve it to a servable URL
-    # (a signed, token-gated app route locally, or a presigned URL for object
-    # storage). Asked of the registry rather than the thumbnail package, which
-    # derives its work from this row and so may not be imported from here.
-    # Visibility masking below strips this for non-owners of a hidden map, so
-    # only permitted viewers ever receive the signed token.
-    schema.map_thumbnail_path = activities_contributor_registry.resolve_thumbnail_url(
-        activity.map_thumbnail_path,
-        activity.id,
-    )
-
-    return schema
+    return activity_schema.ActivityRead.model_validate(activity)
 
 
 def apply_visibility_mask(
@@ -94,8 +80,8 @@ def apply_visibility_mask(
     if schema.hide_map:
         # The map thumbnail is a rendered picture of the route, so hide_map must
         # suppress it for non-owners (the GPS map stream is masked separately via
-        # activity_streams.service). Without this a non-owner would still receive the
-        # thumbnail URL in the serialized activity despite the privacy flag.
+        # activity_streams.service). The service derives the thumbnail URL from this
+        # key, so clearing it here means a non-owner never receives one.
         schema.map_thumbnail_path = None
     return schema
 

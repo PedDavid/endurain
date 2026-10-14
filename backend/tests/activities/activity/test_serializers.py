@@ -28,14 +28,12 @@ def _activity_orm_stub():
 
 
 class TestSerializeActivity:
-    @patch("modules.activities.activity.serializers.activities_contributor_registry")
     @patch("modules.activities.activity.serializers.activity_schema.ActivityRead")
-    def test_serialize_basic(self, mock_schema_cls, mock_registry):
+    def test_serialize_basic(self, mock_schema_cls):
         from modules.activities.activity.serializers import to_read_schema
 
         mock_schema = MagicMock()
         mock_schema_cls.model_validate.return_value = mock_schema
-        mock_registry.resolve_thumbnail_url.return_value = "/activity_thumbnails/1.webp"
 
         activity = MagicMock()
         activity.timezone = "Europe/Lisbon"
@@ -43,16 +41,14 @@ class TestSerializeActivity:
 
         result = to_read_schema(activity)
 
-        assert result.map_thumbnail_path == "/activity_thumbnails/1.webp"
-        mock_registry.resolve_thumbnail_url.assert_called_once_with("1.webp", activity.id)
+        # The key stays a key: turning it into a URL is the service's job.
+        assert result is mock_schema
         mock_schema_cls.model_validate.assert_called_once_with(activity)
 
-    @patch("modules.activities.activity.serializers.activities_contributor_registry")
-    def test_datetimes_are_aware_utc_instants(self, mock_registry):
+    def test_datetimes_are_aware_utc_instants(self):
         """The API emits real instants; localizing for display is the client's job."""
         from modules.activities.activity.serializers import to_read_schema
 
-        mock_registry.resolve_thumbnail_url.return_value = None
         activity = _activity_orm_stub()
 
         result = to_read_schema(activity)
@@ -212,3 +208,13 @@ class TestApplyVisibilityMask:
         apply_visibility_mask(schema, is_owner=True)
 
         assert schema.start_time == datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
+
+
+class TestThumbnailKeyIsServerSide:
+    def test_the_stored_key_is_never_serialized(self):
+        from modules.activities.activity.schema import ActivityRead
+
+        activity = ActivityRead(id=1, distance=0, name="Run", activity_type=1, map_thumbnail_path="1.webp")
+
+        assert activity.map_thumbnail_path == "1.webp"
+        assert "map_thumbnail_path" not in activity.model_dump()

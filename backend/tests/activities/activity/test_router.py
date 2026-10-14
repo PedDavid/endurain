@@ -128,7 +128,7 @@ class TestListOwnActivities:
             patch("modules.activities.activity.service.activity_crud.get_user_activities_with_pagination") as m,
             patch("modules.activities.activity.service.activity_crud.count_user_activities", return_value=0),
         ):
-            m.return_value = None
+            m.return_value = []
             resp = TestClient(_build_app(mock_db)).get("/activities", headers={"Authorization": "Bearer x"})
 
             assert resp.status_code == 200

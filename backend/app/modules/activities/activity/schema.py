@@ -188,11 +188,15 @@ class ActivityRead(ActivityBase):
     Attributes:
         id: Unique activity identifier, assigned on insert.
         map_thumbnail_path: Storage key of the generated map thumbnail, written
-            by the thumbnail subsystem reacting to ``activity.created``.
+            by the thumbnail subsystem reacting to ``activity.created``. Server-side
+            only: it is excluded from serialization, so a client never receives it.
+        map_thumbnail_url: The servable, token-gated URL of the thumbnail, set by
+            the service layer for a viewer allowed to see the map.
     """
 
     id: int = Field(ge=1)
-    map_thumbnail_path: str | None = Field(default=None, max_length=500)
+    map_thumbnail_path: str | None = Field(default=None, max_length=500, exclude=True)
+    map_thumbnail_url: str | None = None
     version: int | None = Field(default=None, ge=1)
 
 

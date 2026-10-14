@@ -242,9 +242,10 @@ class TestAnchoredPeriodBounds:
 class TestEditPublishesUpdated:
     """An edit is a domain fact: without it consumers can only see create/delete."""
 
+    @patch("modules.activities.activity.service.activities_contributor_registry")
     @patch("modules.activities.activity.service.activity_event_publishers")
     @patch("modules.activities.activity.service.activity_crud")
-    def test_single_edit_publishes_only_the_fields_the_client_sent(self, mock_crud, mock_publishers):
+    def test_single_edit_publishes_only_the_fields_the_client_sent(self, mock_crud, mock_publishers, _registry):
         import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
 
@@ -256,9 +257,10 @@ class TestEditPublishesUpdated:
             5, 1, db, commit=db.commit, changed_fields=["name"]
         )
 
+    @patch("modules.activities.activity.service.activities_contributor_registry")
     @patch("modules.activities.activity.service.activity_event_publishers")
     @patch("modules.activities.activity.service.activity_crud")
-    def test_single_edit_lets_the_publisher_own_the_commit(self, mock_crud, mock_publishers):
+    def test_single_edit_lets_the_publisher_own_the_commit(self, mock_crud, mock_publishers, _registry):
         """Staged, not committed, so the outbox row joins the same transaction."""
         import modules.activities.activity.schema as activity_schema
         from modules.activities.activity import service
@@ -379,3 +381,28 @@ class TestScrollFollowingFeed:
         assert feed.call_args.args[0] == [9, 10]
         assert page.items == []
         assert page.next_cursor is None
+
+
+class TestWithThumbnailUrls:
+    """The thumbnail URL is minted from the stored key at the service edge."""
+
+    @patch("modules.activities.activity.service.activities_contributor_registry")
+    def test_sets_the_url_from_the_key(self, mock_registry):
+        from modules.activities.activity import service
+
+        mock_registry.resolve_thumbnail_url.return_value = "/activities/7/thumbnail?t=abc"
+        activity = SimpleNamespace(id=7, map_thumbnail_path="7.webp", map_thumbnail_url=None)
+
+        result = service._with_thumbnail_urls([activity])
+
+        assert result[0].map_thumbnail_url == "/activities/7/thumbnail?t=abc"
+        mock_registry.resolve_thumbnail_url.assert_called_once_with("7.webp", 7)
+
+    @patch("modules.activities.activity.service.activities_contributor_registry")
+    def test_a_masked_key_yields_no_url(self, mock_registry):
+        from modules.activities.activity import service
+
+        mock_registry.resolve_thumbnail_url.return_value = None
+        activity = SimpleNamespace(id=7, map_thumbnail_path=None, map_thumbnail_url="stale")
+
+        assert service._with_thumbnail_urls([activity])[0].map_thumbnail_url is None

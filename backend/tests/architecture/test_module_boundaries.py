@@ -264,13 +264,7 @@ _OUTBOUND_SURFACE_STEMS = frozenset({"identity_service"})
 
 #: Layer-rule exceptions as ``{(importer, imported): reason}``, in dotted paths
 #: rooted at ``app``. Every entry is a deliberate seam; anything else fails.
-_LAYER_EXCEPTIONS: dict[tuple[str, str], str] = {
-    ("modules.activities.activity.serializers", "modules.activities.contributor_registry"): (
-        "The activity row is serialized with its thumbnail URL, which the thumbnail package derives "
-        "from that row. The root asks this registry and composition installs the answer, so "
-        "activity never imports its child."
-    ),
-}
+_LAYER_EXCEPTIONS: dict[tuple[str, str], str] = {}
 
 #: Top-level modules that sit below another, as ``{module: modules it may not import}``.
 _MUST_NOT_IMPORT: dict[str, tuple[str, ...]] = {

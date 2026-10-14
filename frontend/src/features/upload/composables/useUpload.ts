@@ -204,7 +204,7 @@ async function backfillMissingThumbnails(
         )
       ).filter((activity): activity is Activity => activity !== null)
 
-      const ready = refreshed.filter((activity) => activity.mapThumbnailPath !== null)
+      const ready = refreshed.filter((activity) => activity.mapThumbnailUrl !== null)
       if (ready.length > 0) {
         patchUserFeed(queryClient, ready)
         const readyIds = ready.map((activity) => activity.id)
@@ -291,7 +291,7 @@ export function useUploadActivityFileMutation() {
       // card until the next full reload. Deliberately not awaited: the upload is
       // already done, and the mutation must resolve so the UI placeholder clears.
       const awaitingThumbnail = created
-        .filter((activity) => activity.mapThumbnailPath === null)
+        .filter((activity) => activity.mapThumbnailUrl === null)
         .map((activity) => activity.id)
       if (awaitingThumbnail.length > 0) {
         void backfillMissingThumbnails(queryClient, awaitingThumbnail)

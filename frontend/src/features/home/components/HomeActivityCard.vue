@@ -117,11 +117,11 @@ const metricVisibility = computed(() => buildMetricVisibility(props.activity, pr
  * (presigned) URL for remote object storage; `getBackendAssetUrl` handles both.
  */
 const thumbnailUrl = computed(() => {
-  const path = props.activity.mapThumbnailPath
-  if (!path || !canViewField(props.activity, 'hideMap', props.currentUserId)) {
+  const url = props.activity.mapThumbnailUrl
+  if (!url || !canViewField(props.activity, 'hideMap', props.currentUserId)) {
     return null
   }
-  return getBackendAssetUrl(path)
+  return getBackendAssetUrl(url)
 })
 
 /**

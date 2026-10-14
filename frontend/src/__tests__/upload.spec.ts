@@ -276,22 +276,22 @@ describe('replaceActivitiesInFeed', () => {
     const data = feed([[makeActivity({ id: 1 })], [makeActivity({ id: 2 })]])
 
     const result = replaceActivitiesInFeed(data, [
-      makeActivity({ id: 2, mapThumbnailPath: '2.webp' }),
+      makeActivity({ id: 2, mapThumbnailUrl: '/api/v1/activities/2/thumbnail?t=x' }),
     ])
 
     expect(result?.pages[0]?.map((activity) => activity.id)).toEqual([1])
-    expect(result?.pages[1]?.[0]?.mapThumbnailPath).toBe('2.webp')
+    expect(result?.pages[1]?.[0]?.mapThumbnailUrl).toBe('/api/v1/activities/2/thumbnail?t=x')
   })
 
   it('leaves rows it has no replacement for untouched', () => {
     const data = feed([[makeActivity({ id: 1 }), makeActivity({ id: 2 })]])
 
     const result = replaceActivitiesInFeed(data, [
-      makeActivity({ id: 2, mapThumbnailPath: '2.webp' }),
+      makeActivity({ id: 2, mapThumbnailUrl: '/api/v1/activities/2/thumbnail?t=x' }),
     ])
 
-    expect(result?.pages[0]?.[0]?.mapThumbnailPath).toBeNull()
-    expect(result?.pages[0]?.[1]?.mapThumbnailPath).toBe('2.webp')
+    expect(result?.pages[0]?.[0]?.mapThumbnailUrl).toBeNull()
+    expect(result?.pages[0]?.[1]?.mapThumbnailUrl).toBe('/api/v1/activities/2/thumbnail?t=x')
   })
 
   it('returns the value untouched when there is nothing cached', () => {

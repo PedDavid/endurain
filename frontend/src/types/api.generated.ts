@@ -5377,7 +5377,10 @@ export interface components {
          *     Attributes:
          *         id: Unique activity identifier, assigned on insert.
          *         map_thumbnail_path: Storage key of the generated map thumbnail, written
-         *             by the thumbnail subsystem reacting to ``activity.created``.
+         *             by the thumbnail subsystem reacting to ``activity.created``. Server-side
+         *             only: it is excluded from serialization, so a client never receives it.
+         *         map_thumbnail_url: The servable, token-gated URL of the thumbnail, set by
+         *             the service layer for a viewer allowed to see the map.
          */
         ActivityRead: {
             /** User Id */
@@ -5493,8 +5496,8 @@ export interface components {
             total_cycles?: number | null;
             /** Id */
             id: number;
-            /** Map Thumbnail Path */
-            map_thumbnail_path?: string | null;
+            /** Map Thumbnail Url */
+            map_thumbnail_url?: string | null;
             /** Version */
             version?: number | null;
         };

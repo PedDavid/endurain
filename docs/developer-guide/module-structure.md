@@ -404,7 +404,7 @@ it rather than the platform importing it. Three worked examples live in the tree
 | Ingestion needed to pull from Strava and Garmin | Providers call `activity_ingestion.integration_service.register_activity_provider`; the private registry names no provider. |
 | Bulk import needed Strava-export semantics | `BulkImportSource` is a base class; `modules.strava.bulk_import_source.StravaBulkImportSource` subclasses it. |
 | Activity ingestion/profile restore needed child records | Each child returns typed contributor objects from `integration_service`; `app/module_registry.py` installs them in `activities.contributor_registry`. |
-| Serializing an activity needed its thumbnail's URL | `activity` asks `contributor_registry.resolve_thumbnail_url`; `activity_thumbnail` registers the resolver at composition time. |
+| Returning an activity needed its thumbnail's URL | `activity.service` asks `contributor_registry.resolve_thumbnail_url` for each activity it hands a client; `activity_thumbnail` registers the resolver at composition time. The stored key never leaves the server. |
 
 The shape is always the same: the lower layer owns the *seam* (a registry, a base
 class, a protocol), the higher layer owns the *implementation*, and a composition
