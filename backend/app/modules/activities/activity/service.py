@@ -397,21 +397,6 @@ def list_user_activities_paginated(
     return activities
 
 
-def _require_feed_owner(user_id: int, requester_user_id: int) -> None:
-    """Enforce that the requester is reading their own following feed (OWASP A01 / IDOR).
-
-    Args:
-        user_id: ID of the user.
-        requester_user_id: The authenticated caller.
-    """
-    if user_id != requester_user_id:
-        logger.warning(
-            "Blocked following-feed access for a feed the caller does not own",
-            extra=core_logger.context(requester_user_id=requester_user_id, user_id=user_id),
-        )
-        raise core_exceptions.PermissionDeniedError()
-
-
 # ---------------------------------------------------------------------------
 # Paged reads
 #
@@ -480,7 +465,6 @@ def page_user_activities(
 
 
 def scroll_following_feed(
-    user_id: int,
     requester_user_id: int,
     cursor: str | None,
     num_records: int,
@@ -489,8 +473,7 @@ def scroll_following_feed(
     """Return one keyset slice of the requester's following feed.
 
     Args:
-        user_id: The feed owner (must be the requester).
-        requester_user_id: The authenticated caller.
+        requester_user_id: The authenticated caller, whose feed is returned.
         cursor: Opaque cursor from the previous slice, or ``None`` to start.
         num_records: Slice size.
         db: Database session.
@@ -498,7 +481,6 @@ def scroll_following_feed(
     Returns:
         The slice plus the cursor for the next one.
     """
-    _require_feed_owner(user_id, requester_user_id)
     followee_ids = followers_integration.list_accepted_followee_ids(requester_user_id, db)
     after = core_pagination.decode_cursor(cursor) if cursor else None
     # Over-fetch by one: the extra row proves another slice exists without a

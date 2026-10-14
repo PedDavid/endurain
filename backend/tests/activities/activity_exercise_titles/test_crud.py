@@ -1,11 +1,5 @@
-from unittest.mock import MagicMock, patch
-
-import pytest
-from sqlalchemy.exc import IntegrityError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
-
-import core.exceptions as core_exceptions
 
 
 class TestGetExerciseTitles:
@@ -33,57 +27,32 @@ class TestGetAllExerciseTitles:
 
 
 class TestCreateExerciseTitle:
+    @staticmethod
+    def _sql(db):
+        from sqlalchemy.dialects import postgresql
+
+        statement = db.execute.call_args.args[0]
+        return str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+
     def test_empty_input(self, mock_db):
         import modules.activities.activity_exercise_titles.crud as crud
 
         crud.create_activity_exercise_titles([], mock_db)
-        mock_db.add_all.assert_not_called()
+        mock_db.execute.assert_not_called()
 
-    @patch("modules.activities.activity_exercise_titles.crud.tuple_")
-    @patch("modules.activities.activity_exercise_titles.crud.select")
-    @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
-    def test_all_existing(self, mock_model_cls, mock_select, mock_tuple, mock_db):
-        import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
-
-        titles = [
-            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=1, wkt_step_name="Run"),
-        ]
-        mock_db.execute.return_value.all.return_value = [(1, 1)]
-        crud.create_activity_exercise_titles(titles, mock_db)
-        mock_db.add_all.assert_not_called()
-
-    @patch("modules.activities.activity_exercise_titles.crud.tuple_")
-    @patch("modules.activities.activity_exercise_titles.crud.select")
-    @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
-    def test_new_entries(self, mock_model_cls, mock_select, mock_tuple, mock_db):
+    def test_skips_existing_pairs_in_the_database(self, mock_db):
+        """Repeats in the batch and rows from a concurrent import are skipped, not raised."""
         import modules.activities.activity_exercise_titles.crud as crud
         from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
 
         titles = [
             ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
+            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
         ]
-        mock_db.execute.return_value.all.return_value = []
-        mock_instance = MagicMock()
-        mock_model_cls.return_value = mock_instance
         crud.create_activity_exercise_titles(titles, mock_db)
-        mock_db.add_all.assert_called_once_with([mock_instance])
-        mock_db.flush.assert_called_once()
+
+        sql = self._sql(mock_db)
+        assert "INSERT INTO activity_exercise_titles" in sql
+        assert "ON CONFLICT ON CONSTRAINT uq_activity_exercise_titles_category_name DO NOTHING" in sql
+        assert sql.count("'Sprint'") == 2
         mock_db.commit.assert_not_called()
-
-    @patch("modules.activities.activity_exercise_titles.crud.tuple_")
-    @patch("modules.activities.activity_exercise_titles.crud.select")
-    @patch("modules.activities.activity_exercise_titles.crud.activity_exercise_titles_models.ActivityExerciseTitles")
-    def test_integrity_error(self, mock_model_cls, mock_select, mock_tuple, mock_db):
-        import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
-
-        titles = [
-            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
-        ]
-        mock_db.execute.return_value.all.return_value = []
-        mock_model_cls.return_value = MagicMock()
-        mock_db.flush.side_effect = IntegrityError("stmt", "params", "orig")
-        with pytest.raises(core_exceptions.ConflictError) as e:
-            crud.create_activity_exercise_titles(titles, mock_db)
-        assert e.value.status_code == 409

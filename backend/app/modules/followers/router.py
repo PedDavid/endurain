@@ -134,19 +134,19 @@ def follow_user(
 
 
 @router.patch(
-    "/follow-requests/{requester_user_id}",
+    "/follow-requests/{follower_id}",
     response_model=followers_schema.FollowRelationshipRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def accept_follow_request(
     request: Request,
-    requester_user_id: int,
+    follower_id: int,
     accept: followers_schema.FollowRequestAccept,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
 ) -> followers_schema.FollowRelationshipRead:
-    """Accept the pending follow request from ``requester_user_id``.
+    """Accept the pending follow request from ``follower_id``.
 
     Accepting is the only transition this route writes; declining is ``DELETE``
     on the same path, because it removes the request rather than moving it to a
@@ -156,30 +156,30 @@ def accept_follow_request(
     Returns the row as persisted rather than one assembled from the request, so
     the response cannot claim a state the database does not hold.
     """
-    return followers_service.accept_follow_request(token_user_id, requester_user_id, db)
+    return followers_service.accept_follow_request(token_user_id, follower_id, db)
 
 
 @router.delete(
-    "/follow-requests/{requester_user_id}",
+    "/follow-requests/{follower_id}",
     response_model=None,
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def reject_follow_request(
     request: Request,
-    requester_user_id: int,
+    follower_id: int,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
 ) -> None:
-    """Decline the pending follow request from ``requester_user_id``.
+    """Decline the pending follow request from ``follower_id``.
 
     Distinct from removing an accepted follower: this refuses access that was
     never granted, which is a different decision even though the row is the same.
     Scoped to pending requests, so removing an accepted follower goes through the
     relationship route rather than arriving here by accident.
     """
-    followers_service.reject_follow_request(token_user_id, requester_user_id, db)
+    followers_service.reject_follow_request(token_user_id, follower_id, db)
 
 
 @router.delete(

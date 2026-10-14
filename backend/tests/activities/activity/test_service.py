@@ -358,3 +358,24 @@ class TestCrossModuleWrites:
         mock_publishers.publish_activities_deleted.assert_called_once_with(
             [1, 2], 7, db, commit=db.commit, source="api:test"
         )
+
+
+class TestScrollFollowingFeed:
+    def test_reads_only_the_callers_followees(self):
+        from modules.activities.activity.service import scroll_following_feed
+
+        with (
+            patch(
+                "modules.activities.activity.service.followers_integration.list_accepted_followee_ids",
+                return_value=[9, 10],
+            ) as followees,
+            patch(
+                "modules.activities.activity.service.activity_crud.get_following_feed_after", return_value=[]
+            ) as feed,
+        ):
+            page = scroll_following_feed(7, None, 25, MagicMock())
+
+        followees.assert_called_once_with(7, ANY)
+        assert feed.call_args.args[0] == [9, 10]
+        assert page.items == []
+        assert page.next_cursor is None

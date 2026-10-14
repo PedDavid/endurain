@@ -19,21 +19,3 @@ def to_read_schema(
         An ActivityExerciseTitles schema instance.
     """
     return activity_exercise_titles_schema.ActivityExerciseTitlesRead.model_validate(orm_title)
-
-
-def to_orm(
-    title: activity_exercise_titles_schema.ActivityExerciseTitlesRead,
-) -> activity_exercise_titles_models.ActivityExerciseTitles:
-    """Build an ORM row from a title schema.
-
-    Args:
-        title: The exercise title schema to persist.
-
-    Returns:
-        An unsaved ActivityExerciseTitles ORM instance.
-    """
-    return activity_exercise_titles_models.ActivityExerciseTitles(
-        exercise_category=title.exercise_category,
-        exercise_name=title.exercise_name,
-        wkt_step_name=title.wkt_step_name,
-    )

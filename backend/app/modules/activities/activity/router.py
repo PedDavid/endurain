@@ -97,7 +97,6 @@ def list_following_feed(
     """List a keyset slice of the authenticated user's following feed."""
     return activity_service.scroll_following_feed(
         token_user_id,
-        token_user_id,
         cursor,
         num_records or core_pagination.DEFAULT_NUM_RECORDS,
         db,

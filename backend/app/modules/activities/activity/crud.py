@@ -125,11 +125,11 @@ def _visible_to_requester_condition(followee_ids: Sequence[int] | None):
         SQLAlchemy condition limiting rows to public or accepted
         follower-visible activities.
     """
-    visibility_conditions = [activity_models.Activity.visibility == 0]
+    visibility_conditions = [activity_models.Activity.visibility == activity_constants.ActivityVisibilityLevel.PUBLIC]
     if followee_ids:
         visibility_conditions.append(
             and_(
-                activity_models.Activity.visibility == 1,
+                activity_models.Activity.visibility == activity_constants.ActivityVisibilityLevel.FOLLOWERS,
                 activity_models.Activity.user_id.in_(followee_ids),
             )
         )
@@ -842,7 +842,7 @@ def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_s
         Activity schema or None when not public / not found.
     """
     stmt = select(activity_models.Activity).where(
-        activity_models.Activity.visibility == 0,
+        activity_models.Activity.visibility == activity_constants.ActivityVisibilityLevel.PUBLIC,
         activity_models.Activity.is_hidden.is_(False),
         _is_not_live_strava_api_activity(),
         activity_models.Activity.id == activity_id,

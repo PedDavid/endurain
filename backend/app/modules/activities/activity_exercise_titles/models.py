@@ -1,6 +1,6 @@
 """SQLAlchemy ORM model for activity exercise titles."""
 
-from sqlalchemy import String
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
@@ -17,6 +17,13 @@ class ActivityExerciseTitles(Base):
     """
 
     __tablename__ = "activity_exercise_titles"
+    __table_args__ = (
+        UniqueConstraint(
+            "exercise_category",
+            "exercise_name",
+            name="uq_activity_exercise_titles_category_name",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     exercise_category: Mapped[int] = mapped_column(nullable=False, comment="Exercise category")

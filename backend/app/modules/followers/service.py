@@ -186,7 +186,7 @@ def list_pending_requests(
     return followers_schema.FollowRelationshipPage.build(items, total, page_number, num_records)
 
 
-def reject_follow_request(target_user_id: int, requester_user_id: int, db: Session) -> None:
+def reject_follow_request(requester_user_id: int, follower_id: int, db: Session) -> None:
     """Decline a pending follow request addressed to the caller.
 
     Distinct from :func:`delete_relationship`, which severs an already-accepted
@@ -196,24 +196,22 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
     silently through here.
 
     Args:
-        target_user_id: The authenticated user declining the request.
-        requester_user_id: The user whose pending request is declined.
+        requester_user_id: The authenticated user declining the request.
+        follower_id: The user whose pending request is declined.
         db: Database session.
 
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    followers_crud.delete_follower(
-        requester_user_id, target_user_id, db, status=followers_constants.FollowStatus.PENDING
-    )
+    followers_crud.delete_follower(follower_id, requester_user_id, db, status=followers_constants.FollowStatus.PENDING)
     db.commit()
     logger.info(
         "Follow request rejected",
-        extra=core_logger.context(target_user_id=target_user_id, requester_user_id=requester_user_id),
+        extra=core_logger.context(requester_user_id=requester_user_id, follower_id=follower_id),
     )
 
 
-def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int, db: Session) -> None:
+def delete_relationship(followee_id: int, follower_id: int, requester_user_id: int, db: Session) -> None:
     """Delete a follow relationship on behalf of either party.
 
     One operation instead of separate unfollow/remove-follower endpoints: the
@@ -224,24 +222,28 @@ def delete_relationship(followee_id: int, follower_id: int, caller_user_id: int,
     Args:
         followee_id: The user being followed.
         follower_id: The user doing the following.
-        caller_user_id: The authenticated caller, who must be one of the two.
+        requester_user_id: The authenticated caller, who must be one of the two.
         db: Database session.
 
     Raises:
         NotFoundError: When the caller is not part of the relationship; answered as a missing
             relationship so it does not confirm one exists.
     """
-    if caller_user_id not in (followee_id, follower_id):
+    if requester_user_id not in (followee_id, follower_id):
         logger.warning(
             "Blocked an attempt to delete a follow relationship the caller is not part of",
-            extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
+            extra=core_logger.context(
+                requester_user_id=requester_user_id, followee_id=followee_id, follower_id=follower_id
+            ),
         )
         raise core_exceptions.NotFoundError("Follow relationship not found")
     followers_crud.delete_follower(follower_id, followee_id, db)
     db.commit()
     logger.info(
         "Deleted a follow relationship",
-        extra=core_logger.context(caller_user_id=caller_user_id, followee_id=followee_id, follower_id=follower_id),
+        extra=core_logger.context(
+            requester_user_id=requester_user_id, followee_id=followee_id, follower_id=follower_id
+        ),
     )
 
 
@@ -300,15 +302,15 @@ def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> fol
 
 
 def accept_follow_request(
-    accepter_user_id: int,
     requester_user_id: int,
+    follower_id: int,
     db: Session,
 ) -> followers_schema.FollowRelationshipRead:
     """Accept a pending follow request and publish ``follower.accepted``.
 
     Args:
-        accepter_user_id: The authenticated user accepting the request.
-        requester_user_id: The user whose pending request is being accepted.
+        requester_user_id: The authenticated user accepting the request.
+        follower_id: The user whose pending request is being accepted.
         db: Database session.
 
     Returns:
@@ -317,10 +319,10 @@ def accept_follow_request(
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    relationship = followers_crud.accept_follower(accepter_user_id, requester_user_id, db)
-    followers_event_publishers.publish_follower_accepted(accepter_user_id, requester_user_id, db, commit=db.commit)
+    relationship = followers_crud.accept_follower(requester_user_id, follower_id, db)
+    followers_event_publishers.publish_follower_accepted(requester_user_id, follower_id, db, commit=db.commit)
     logger.info(
         "Follow request accepted",
-        extra=core_logger.context(accepter_user_id=accepter_user_id, requester_user_id=requester_user_id),
+        extra=core_logger.context(requester_user_id=requester_user_id, follower_id=follower_id),
     )
     return relationship

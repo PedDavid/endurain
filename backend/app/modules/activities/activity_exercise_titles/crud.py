@@ -1,16 +1,12 @@
 """Activity exercise titles CRUD operations."""
 
-from sqlalchemy import select, tuple_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
-import core.logger as core_logger
 import modules.activities.activity_exercise_titles.models as activity_exercise_titles_models
 import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
 import modules.activities.activity_exercise_titles.serializers as activity_exercise_titles_serializers
-
-logger = core_logger.get_logger(__name__)
 
 
 def get_activity_exercise_titles(
@@ -32,45 +28,31 @@ def create_activity_exercise_titles(
     activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
     db: Session,
 ) -> None:
-    """Insert activity exercise titles, skipping existing entries.
+    """Stage activity exercise titles, skipping pairs that already exist.
+
+    The ``(exercise_category, exercise_name)`` unique constraint decides what is
+    skipped, so repeats within the batch and rows inserted by a concurrent import
+    are dropped rather than failing the caller's transaction.
 
     Args:
         activity_exercise_titles: Schemas to insert.
         db: Database session.
-
-    Raises:
-        ConflictError: On a duplicate (exercise_name, exercise_category) entry.
     """
     if not activity_exercise_titles:
         return
 
-    model = activity_exercise_titles_models.ActivityExerciseTitles
-
-    incoming_keys = {(t.exercise_name, t.exercise_category) for t in activity_exercise_titles}
-
-    existing_stmt = select(model.exercise_name, model.exercise_category).where(
-        tuple_(model.exercise_name, model.exercise_category).in_(incoming_keys)
-    )
-    existing_keys = set(db.execute(existing_stmt).all())
-
-    new_entries = [
-        activity_exercise_titles_serializers.to_orm(t)
-        for t in activity_exercise_titles
-        if (t.exercise_name, t.exercise_category) not in existing_keys
-    ]
-
-    if not new_entries:
-        return
-
-    try:
-        db.add_all(new_entries)
-        db.flush()
-    except IntegrityError as integrity_error:
-        logger.warning(
-            "Activity exercise title insert conflicted on (exercise_name, exercise_category)",
-            exc_info=integrity_error,
-            extra=core_logger.context(attempted=len(new_entries)),
+    stmt = (
+        insert(activity_exercise_titles_models.ActivityExerciseTitles)
+        .values(
+            [
+                {
+                    "exercise_category": title.exercise_category,
+                    "exercise_name": title.exercise_name,
+                    "wkt_step_name": title.wkt_step_name,
+                }
+                for title in activity_exercise_titles
+            ]
         )
-        raise core_exceptions.ConflictError(
-            "Duplicate entry error. Check if (exercise_name, exercise_category) is unique"
-        ) from integrity_error
+        .on_conflict_do_nothing(constraint="uq_activity_exercise_titles_category_name")
+    )
+    db.execute(stmt)

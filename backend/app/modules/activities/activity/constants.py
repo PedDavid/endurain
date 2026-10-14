@@ -5,7 +5,22 @@ dependencies, summaries, the file-import parsers) can import without pulling in
 the ingestion/parsing machinery.
 """
 
-from enum import StrEnum
+from enum import IntEnum, StrEnum
+
+
+class ActivityVisibilityLevel(IntEnum):
+    """Who may see an activity, as stored in ``activities.visibility``.
+
+    Attributes:
+        PUBLIC: Anyone, including unauthenticated viewers of public links.
+        FOLLOWERS: Accepted followers of the owner.
+        PRIVATE: The owner only.
+    """
+
+    PUBLIC = 0
+    FOLLOWERS = 1
+    PRIVATE = 2
+
 
 # Global Activity Type Mappings (ID to Name)
 ACTIVITY_ID_TO_NAME = {
