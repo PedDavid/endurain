@@ -6,7 +6,7 @@ This package owns *all* knowledge of source formats (``.gpx`` / ``.tcx`` / ``.fi
 * :mod:`contracts` — what a file came from (upload / Garmin / bulk import), and the
   metadata that source carries.
 * :mod:`pipeline_service` — the one shared path: validate, parse, enrich, store, retain.
-* :mod:`upload_entry` / :mod:`bulk_entry_service` — the two entry points, which differ
+* :mod:`upload_entry_service` / :mod:`bulk_entry_service` — the two entry points, which differ
   only in how the file arrives and what happens when it fails.
 * :mod:`enrichment_service` — re-attaches owner privacy defaults, gear and provider ids
   to an activity the (pure) parsers produced.

@@ -389,6 +389,7 @@ def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None
 
 def backfill_missing_hr_zones(
     db: Session,
+    *,
     batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> int:
     """Score HR streams that carry no zone breakdown yet (reconciliation net).

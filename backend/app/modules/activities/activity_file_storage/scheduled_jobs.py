@@ -6,6 +6,7 @@ import core.database as core_database
 import core.logger as core_logger
 import core.scheduler as core_scheduler
 import modules.activities.activity.integration_service as activity_integration
+import modules.activities.activity_file_storage.constants as activity_file_storage_constants
 import modules.activities.activity_file_storage.files as activity_file_storage_files
 import modules.activities.orphan_sweep as activities_orphan_sweep
 
@@ -32,7 +33,7 @@ def sweep_orphaned_activity_files() -> None:
         with core_database.SessionLocal() as db:
             removed = activities_orphan_sweep.sweep_orphaned_blobs(
                 platform.storage,
-                activity_file_storage_files.ACTIVITY_FILE_STORAGE_AREA,
+                activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA,
                 lambda ids: activity_integration.filter_existing_activity_ids(ids, db),
                 activity_file_storage_files.activity_id_of_processed_key,
                 prefix="processed/",

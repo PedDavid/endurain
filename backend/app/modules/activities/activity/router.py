@@ -32,7 +32,7 @@ import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity.service as activity_service
 import modules.auth.dependencies as auth_dependencies
-import modules.gears.gear.dependencies as gears_dependencies
+import modules.gears.gear.dependencies as gear_dependencies
 import modules.users.users.dependencies as users_dependencies
 
 # Define the API router
@@ -114,7 +114,7 @@ def list_following_feed(
 )
 def list_gear_activities(
     gear_id: int,
-    _validate_gear_id: Annotated[Callable, Depends(gears_dependencies.validate_gear_id)],
+    _validate_gear_id: Annotated[Callable, Depends(gear_dependencies.validate_gear_id)],
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
@@ -153,7 +153,7 @@ def read_user_activity_stats(
     ] = None,
 ) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current ``week`` or ``month``."""
-    return activity_service.period_stats(user_id, period, token_user_id, db, anchor_date)
+    return activity_service.period_stats(user_id, period, token_user_id, db, anchor=anchor_date)
 
 
 @router.get(
@@ -282,7 +282,7 @@ def edit_activity(
     a stale tag is refused with 412 rather than silently overwriting whoever
     saved in between.
     """
-    activity = activity_service.edit_activity(activity_id, token_user_id, activity_attributes, db, if_match)
+    activity = activity_service.edit_activity(activity_id, token_user_id, activity_attributes, db, if_match=if_match)
     if activity.version is not None:
         response.headers["ETag"] = core_etag.format_etag(activity.version)
     return activity

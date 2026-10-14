@@ -17,17 +17,17 @@ from sqlalchemy.orm import Session
 
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.background as activity_ingestion_background
-import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.provider_registry as provider_registry
+import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
+import modules.activities.activity_ingestion.provider_registry as activity_ingestion_provider_registry
 
 #: Where a file came from, and the metadata that source carries. Re-exported so a
 #: provider names one module rather than reaching for the package internals.
-UploadSource = ingestion_contracts.UploadSource
-GarminSource = ingestion_contracts.GarminSource
-BulkImportSource = ingestion_contracts.BulkImportSource
-IngestionSource = ingestion_contracts.IngestionSource
-build_import_record = ingestion_contracts.build_import_record
+UploadSource = activity_ingestion_contracts.UploadSource
+GarminSource = activity_ingestion_contracts.GarminSource
+BulkImportSource = activity_ingestion_contracts.BulkImportSource
+IngestionSource = activity_ingestion_contracts.IngestionSource
+build_import_record = activity_ingestion_contracts.build_import_record
 
 
 def ingest_activity_file(
@@ -35,7 +35,7 @@ def ingest_activity_file(
     file_path: str,
     db: Session,
     *,
-    source: ingestion_contracts.IngestionSource,
+    source: activity_ingestion_contracts.IngestionSource,
 ) -> list[activity_schema.Activity] | None:
     """Validate one on-disk activity file and persist the activities it yields.
 
@@ -57,12 +57,12 @@ def ingest_activity_file(
         The stored activities, or ``None`` when the file could not be parsed or
         persisted.
     """
-    return bulk_entry_service.store_activity_file(
+    return activity_ingestion_bulk_entry_service.store_activity_file(
         user_id, file_path, platform_runtime.get_active_platform().storage, db, source=source
     )
 
 
-def register_activity_provider(name: str, fetch_window: ingestion_contracts.FetchWindow) -> None:
+def register_activity_provider(name: str, fetch_window: activity_ingestion_contracts.FetchWindow) -> None:
     """Register an external provider's activity-fetch implementation.
 
     Args:
@@ -72,7 +72,9 @@ def register_activity_provider(name: str, fetch_window: ingestion_contracts.Fetc
     Returns:
         None.
     """
-    provider_registry.register(provider_registry.ActivityProvider(name, fetch_window))
+    activity_ingestion_provider_registry.register(
+        activity_ingestion_provider_registry.ActivityProvider(name, fetch_window)
+    )
 
 
 def shutdown_background_ingestion(*, wait: bool = False) -> None:

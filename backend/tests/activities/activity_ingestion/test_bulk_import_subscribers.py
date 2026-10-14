@@ -47,7 +47,7 @@ class TestPublishBulkImportFile:
         db = MagicMock()
         with (
             patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing") as publish,
-            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.activity_ingestion_staging, "stage_file", return_value="k1"),
         ):
             ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
@@ -74,7 +74,7 @@ class TestPublishBulkImportFile:
         db = MagicMock()
         with (
             patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing") as publish,
-            patch.object(ingestion_service.staging, "stage_file", side_effect=["k1", "k2"]) as stage,
+            patch.object(ingestion_service.activity_ingestion_staging, "stage_file", side_effect=["k1", "k2"]) as stage,
         ):
             ingestion_service._enqueue_bulk_import_files(
                 [("job-1", "/tmp/x.gpx"), ("job-2", "/tmp/y.fit")], 3, "2026-07-21", "storage", db
@@ -108,9 +108,9 @@ class TestPublishBulkImportFile:
         db = MagicMock()
         with (
             patch.object(ingestion_event_publishers.platform_publisher, "publish_many_committing"),
-            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
-            patch.object(ingestion_service.staging, "settle") as settle,
-            patch.object(ingestion_service.staging, "unstage") as unstage,
+            patch.object(ingestion_service.activity_ingestion_staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.activity_ingestion_staging, "settle") as settle,
+            patch.object(ingestion_service.activity_ingestion_staging, "unstage") as unstage,
         ):
             ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
 
@@ -126,9 +126,9 @@ class TestPublishBulkImportFile:
                 "publish_many_committing",
                 side_effect=RuntimeError("outbox down"),
             ),
-            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
-            patch.object(ingestion_service.staging, "settle") as settle,
-            patch.object(ingestion_service.staging, "unstage") as unstage,
+            patch.object(ingestion_service.activity_ingestion_staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.activity_ingestion_staging, "settle") as settle,
+            patch.object(ingestion_service.activity_ingestion_staging, "unstage") as unstage,
             pytest.raises(RuntimeError),
         ):
             ingestion_service._enqueue_bulk_import_files([("job-1", "/tmp/x.gpx")], 3, "2026-07-21", "storage", db)
@@ -140,7 +140,7 @@ class TestPublishBulkImportFile:
         """This event *is* the work: a swallowed failure would silently drop the import."""
         db = MagicMock()
         with (
-            patch.object(ingestion_service.staging, "stage_file", return_value="k1"),
+            patch.object(ingestion_service.activity_ingestion_staging, "stage_file", return_value="k1"),
             patch.object(
                 ingestion_event_publishers.platform_publisher,
                 "publish_many_committing",
@@ -158,13 +158,15 @@ class TestProcessBulkImportFileForEvent:
         ctx.__enter__ = MagicMock(return_value=materialized)
         ctx.__exit__ = MagicMock(return_value=False)
         with (
-            patch.object(bulk_import_subscribers.staging, "materialized", return_value=ctx),
-            patch.object(bulk_import_subscribers.staging, "discard") as discard,
-            patch.object(bulk_import_subscribers.staging, "move_to_errors") as move,
+            patch.object(bulk_import_subscribers.activity_ingestion_staging, "materialized", return_value=ctx),
+            patch.object(bulk_import_subscribers.activity_ingestion_staging, "discard") as discard,
+            patch.object(bulk_import_subscribers.activity_ingestion_staging, "move_to_errors") as move,
             patch.object(bulk_import_subscribers.core_database, "SessionLocal"),
-            patch.object(bulk_import_subscribers, "ingestion_service") as jobs,
+            patch.object(bulk_import_subscribers, "activity_ingestion_service") as jobs,
             patch.object(
-                bulk_import_subscribers.bulk_entry_service, "store_bulk_import_file", side_effect=store
+                bulk_import_subscribers.activity_ingestion_bulk_entry_service,
+                "store_bulk_import_file",
+                side_effect=store,
             ) as run,
         ):
             error = None

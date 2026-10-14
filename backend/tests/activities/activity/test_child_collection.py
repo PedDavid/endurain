@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import core.pagination as core_pagination
 import modules.activities.activity.child_collection as child_collection
 
-_GATE = "modules.activities.activity.child_collection.activity_child_access"
+_GATE = "modules.activities.activity.child_collection.activity_child_access_service"
 
 
 def _collection(fetch=None, count=None):

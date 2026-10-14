@@ -1,8 +1,8 @@
 """Public parser-registry operations for activity files."""
 
-import modules.activities.activity_file_import.registry as parser_registry
+import modules.activities.activity_file_import.registry as activity_file_import_registry
 
-FileParser = parser_registry.FileParser
+FileParser = activity_file_import_registry.FileParser
 
 
 def get_parser(file_extension: str) -> FileParser | None:
@@ -14,7 +14,7 @@ def get_parser(file_extension: str) -> FileParser | None:
     Returns:
         The parser, or None when the extension is unsupported.
     """
-    return parser_registry.get_parser(file_extension)
+    return activity_file_import_registry.get_parser(file_extension)
 
 
 def supported_extensions() -> tuple[str, ...]:
@@ -23,4 +23,4 @@ def supported_extensions() -> tuple[str, ...]:
     Returns:
         The accepted extensions.
     """
-    return parser_registry.supported_extensions()
+    return activity_file_import_registry.supported_extensions()

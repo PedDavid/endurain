@@ -3,7 +3,7 @@
 import jasil.runtime as platform_runtime
 
 import core.scheduler as core_scheduler
-import modules.activities.activity_ingestion.service as ingestion_service
+import modules.activities.activity_ingestion.service as activity_ingestion_service
 
 
 def prune_expired_ingestion_jobs() -> None:
@@ -16,7 +16,7 @@ def prune_expired_ingestion_jobs() -> None:
         None.
     """
     platform = platform_runtime.get_active_platform()
-    ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)
+    activity_ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:

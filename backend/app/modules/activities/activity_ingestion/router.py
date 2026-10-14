@@ -2,7 +2,7 @@
 
 These endpoints stay under the ``/activities`` prefix but live here (not in
 ``activity/router.py``) because they drive the format/provider-aware ingestion flows:
-file parsing via :mod:`~modules.activities.activity_ingestion.upload_entry` and live
+file parsing via :mod:`~modules.activities.activity_ingestion.upload_entry_service` and live
 provider sync via the Strava/Garmin clients. Keeping them here leaves the activities
 core router fully parser- and provider-agnostic (enforced by the import-linter contract
 ``activities-parsing-boundary``).
@@ -29,7 +29,7 @@ import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
-import modules.activities.activity_ingestion.service as ingestion_service
+import modules.activities.activity_ingestion.service as activity_ingestion_service
 import modules.auth.dependencies as auth_dependencies
 
 # Bulk import endpoint (JWT auth)
@@ -99,7 +99,7 @@ def create_activity_with_uploaded_file(
     query parameter). Requires the
     ``activities:upload`` scope.
     """
-    return ingestion_service.accept_upload(
+    return activity_ingestion_service.accept_upload(
         token_user_id,
         file.filename,
         partial(core_file_uploads.save_validated_upload_sync, file),
@@ -140,7 +140,7 @@ def get_activity_ingestion_job(
     found rather than forbidden, so the endpoint does not confirm that an id
     exists.
     """
-    return ingestion_service.get_job(job_id, token_user_id, db)
+    return activity_ingestion_service.get_job(job_id, token_user_id, db)
 
 
 @router.post(
@@ -177,7 +177,7 @@ def create_activity_with_bulk_import(
     Fails with a processing error if the directory cannot be read or the jobs
     cannot be queued.
     """
-    return ingestion_service.start_bulk_import(token_user_id, storage, db)
+    return activity_ingestion_service.start_bulk_import(token_user_id, storage, db)
 
 
 @router.post(
@@ -215,4 +215,4 @@ def refresh_activities(
     class of bug rather than auditing for it: no provider code touches the loop
     any more.
     """
-    return ingestion_service.accept_refresh(token_user_id, storage, db)
+    return activity_ingestion_service.accept_refresh(token_user_id, storage, db)

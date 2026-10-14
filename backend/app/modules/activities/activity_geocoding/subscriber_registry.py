@@ -5,7 +5,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
 import modules.activities.activity_geocoding.scheduled_jobs as activity_geocoding_scheduled_jobs
-import modules.activities.activity_geocoding.subscribers as geocoding_subscribers
+import modules.activities.activity_geocoding.subscribers as activity_geocoding_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
@@ -17,7 +17,7 @@ def register_bus_subscribers(events: EventBusProvider) -> None:
     Returns:
         None.
     """
-    geocoding_subscribers.register_geocoding_subscribers(events)
+    activity_geocoding_subscribers.register_geocoding_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
@@ -29,12 +29,12 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
     Returns:
         None.
     """
-    geocoding_subscribers.register_geocoding_durable_handlers(registry)
+    activity_geocoding_subscribers.register_geocoding_durable_handlers(registry)
 
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        geocoding_subscribers.GEOCODING_SUBSCRIBER_ID,
+        activity_geocoding_subscribers.GEOCODING_SUBSCRIBER_ID,
         activity_geocoding_scheduled_jobs.run_missing_location_backfill,
     ),
 )

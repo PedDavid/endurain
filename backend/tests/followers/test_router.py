@@ -189,12 +189,13 @@ class TestListFollowRequests:
 class TestAcceptFollowRequest:
     @patch("modules.followers.service.accept_follow_request")
     def test_accept(self, mock_accept, mock_db):
+        import modules.followers.constants as followers_constants
         import modules.followers.schema as followers_schema
 
         # The response must be the row as persisted, not one built from the
         # request body — a fabricated body could claim a state the DB lacks.
         mock_accept.return_value = followers_schema.FollowRelationship(
-            follower_id=2, followee_id=1, status=followers_schema.FollowStatus.ACCEPTED
+            follower_id=2, followee_id=1, status=followers_constants.FollowStatus.ACCEPTED
         )
         client = TestClient(_build_app(mock_db))
 

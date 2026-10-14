@@ -227,6 +227,7 @@ def get_all_activities_for_migration(
 def get_user_activities(
     user_id: int,
     db: Session,
+    *,
     activity_type: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -283,6 +284,7 @@ def get_user_activities(
 def count_user_activities(
     user_id: int,
     db: Session,
+    *,
     activity_type: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -367,6 +369,7 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
 def get_user_activities_with_pagination(
     user_id: int,
     db: Session,
+    *,
     page_number: int = 1,
     num_records: int = 5,
     activity_type: int | None = None,
@@ -466,6 +469,7 @@ def get_user_activities_per_timeframe(
     start: datetime,
     end: datetime,
     db: Session,
+    *,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
 ) -> list[activity_schema.Activity] | None:
@@ -517,6 +521,7 @@ def get_user_activities_per_timeframe_and_activity_types(
     start: datetime,
     end: datetime,
     db: Session,
+    *,
     user_is_owner: bool = False,
     followee_ids: Sequence[int] | None = None,
     exclude_hidden: bool = False,
@@ -810,7 +815,7 @@ def sum_gear_usage_by_window(
 
 @core_decorators.handle_db_errors
 def get_activity_by_id_from_user_id_or_has_visibility(
-    activity_id: int, user_id: int, db: Session, followee_ids: Sequence[int] | None = None
+    activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
 ) -> activity_schema.Activity | None:
     """Get an activity by ID if owned or visible to the user.
 
@@ -845,7 +850,7 @@ def get_activity_by_id_from_user_id_or_has_visibility(
 
 @core_decorators.handle_db_errors
 def get_viewable_activity_by_id_for_user(
-    activity_id: int, user_id: int, db: Session, followee_ids: Sequence[int] | None = None
+    activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
 ) -> activity_schema.Activity | None:
     """Return an activity (unmasked) iff the user may view it — child-resource authz gate.
 
@@ -1381,6 +1386,7 @@ def update_activity_location(
 @core_decorators.handle_db_errors
 def get_activities_missing_location(
     db: Session,
+    *,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
     """Return references to activities that have no resolved location.
@@ -1433,6 +1439,7 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
 @core_decorators.handle_db_errors
 def get_activities_with_thumbnail(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
@@ -1471,6 +1478,7 @@ def get_activities_with_thumbnail(
 @core_decorators.handle_db_errors
 def get_activities_without_thumbnail(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
@@ -1510,6 +1518,7 @@ def get_activities_without_thumbnail(
 @core_decorators.handle_db_errors
 def get_activities_with_legacy_thumbnail_path(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:

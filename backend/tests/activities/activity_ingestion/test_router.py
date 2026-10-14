@@ -29,7 +29,7 @@ class TestUploadRoute:
         db = MagicMock()
         file = MagicMock()
         job = _upload_job()
-        with patch.object(router.ingestion_service, "accept_upload") as accept:
+        with patch.object(router.activity_ingestion_service, "accept_upload") as accept:
             accept.return_value = job
             result = router.create_activity_with_uploaded_file(
                 request=MagicMock(),
@@ -50,7 +50,7 @@ class TestUploadRoute:
 
     def test_the_idempotency_key_is_optional(self):
         db = MagicMock()
-        with patch.object(router.ingestion_service, "accept_upload", return_value=_upload_job()) as accept:
+        with patch.object(router.activity_ingestion_service, "accept_upload", return_value=_upload_job()) as accept:
             router.create_activity_with_uploaded_file(
                 request=MagicMock(),
                 token_user_id=7,
@@ -79,7 +79,7 @@ class TestUploadRoute:
         app.dependency_overrides[auth_dependencies.check_auth_scopes] = lambda: None
 
         with patch.object(
-            router.ingestion_service,
+            router.activity_ingestion_service,
             "accept_upload",
             return_value=_upload_job(),
         ) as accept:
@@ -101,7 +101,9 @@ class TestUploadRoute:
         db = MagicMock()
         with (
             patch.object(
-                router.ingestion_service, "get_job", side_effect=core_exceptions.NotFoundError("Upload job not found")
+                router.activity_ingestion_service,
+                "get_job",
+                side_effect=core_exceptions.NotFoundError("Upload job not found"),
             ) as get_job,
             pytest.raises(core_exceptions.NotFoundError),
         ):
@@ -119,7 +121,7 @@ class TestUploadRoute:
     def test_status_route_returns_the_job(self):
         db = MagicMock()
         job = _upload_job()
-        with patch.object(router.ingestion_service, "get_job", return_value=job):
+        with patch.object(router.activity_ingestion_service, "get_job", return_value=job):
             result = router.get_activity_ingestion_job(
                 job_id="job-1",
                 token_user_id=7,
@@ -136,7 +138,7 @@ class TestBulkImportRouteDelegates:
     def test_delegates_to_the_service_and_returns_the_job_handles(self):
         db = MagicMock()
         jobs = [MagicMock(), MagicMock()]
-        with patch.object(router.ingestion_service, "start_bulk_import", return_value=jobs) as start:
+        with patch.object(router.activity_ingestion_service, "start_bulk_import", return_value=jobs) as start:
             result = router.create_activity_with_bulk_import(
                 request=MagicMock(), token_user_id=3, _check_scopes=None, db=db, storage="storage"
             )
@@ -149,7 +151,9 @@ class TestBulkImportRouteDelegates:
     def test_a_service_failure_is_not_swallowed(self):
         """The route must not answer 202 for files that were never queued."""
         with (
-            patch.object(router.ingestion_service, "start_bulk_import", side_effect=core_exceptions.ProcessingError()),
+            patch.object(
+                router.activity_ingestion_service, "start_bulk_import", side_effect=core_exceptions.ProcessingError()
+            ),
             pytest.raises(core_exceptions.ProcessingError),
         ):
             router.create_activity_with_bulk_import(

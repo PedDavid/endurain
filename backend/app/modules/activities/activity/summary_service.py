@@ -1,6 +1,6 @@
 """Application-layer orchestration for activity summaries.
 
-Sits between the thin route and :mod:`summary_crud`, matching the layering the rest of
+Sits between the thin route and :mod:`activity_summary_crud`, matching the layering the rest of
 the activities module uses: the route validates and delegates, this module
 resolves the anchor day, picks the bucket strategy, and returns a schema. It
 raises the transport-agnostic domain errors in :mod:`core.exceptions` rather
@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.timezone as core_timezone
-import modules.activities.activity.summary_crud as summary_crud
-import modules.activities.activity.summary_schema as summary_schema
+import modules.activities.activity.summary_crud as activity_summary_crud
+import modules.activities.activity.summary_schema as activity_summary_schema
 import modules.users.users.integration_service as users_integration
 
 logger = core_logger.get_logger(__name__)
@@ -74,7 +74,7 @@ def build_summary(
     anchor: date | None = None,
     target_year: int | None = None,
     activity_type: str | None = None,
-) -> summary_schema.SummaryResponse:
+) -> activity_summary_schema.SummaryResponse:
     """Build the activity summary for one period.
 
     Args:
@@ -118,7 +118,7 @@ def build_summary(
         user = users_integration.get_user(user_id, db)
         if user is None:
             raise core_exceptions.NotFoundError("User not found")
-        return summary_crud.get_weekly_summary(
+        return activity_summary_crud.get_weekly_summary(
             db=db,
             user_id=user_id,
             target_date=today,
@@ -130,7 +130,7 @@ def build_summary(
         user = users_integration.get_user(user_id, db)
         if user is None:
             raise core_exceptions.NotFoundError("User not found")
-        return summary_crud.get_monthly_summary(
+        return activity_summary_crud.get_monthly_summary(
             db=db,
             user_id=user_id,
             target_date=today.replace(day=1),
@@ -139,14 +139,14 @@ def build_summary(
         )
 
     if period == "year":
-        return summary_crud.get_yearly_summary(
+        return activity_summary_crud.get_yearly_summary(
             db=db,
             user_id=user_id,
             year=_resolve_year(target_year, today),
             activity_type=activity_type,
         )
 
-    return summary_crud.get_lifetime_summary(
+    return activity_summary_crud.get_lifetime_summary(
         db=db,
         user_id=user_id,
         activity_type=activity_type,

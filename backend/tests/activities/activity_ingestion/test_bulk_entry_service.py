@@ -19,7 +19,9 @@ class TestStoreBulkImportFile:
 
     def test_delegates_to_the_pipeline_as_a_bulk_import(self):
         with patch.object(
-            bulk_entry_service.pipeline, "validate_prepare_and_store_file", return_value=["activity"]
+            bulk_entry_service.activity_ingestion_pipeline_service,
+            "validate_prepare_and_store_file",
+            return_value=["activity"],
         ) as helper:
             result = bulk_entry_service.store_bulk_import_file(3, "/tmp/x.gpx", "2026-07-21T00:00:00", "storage", "db")
 
@@ -33,7 +35,9 @@ class TestStoreBulkImportFile:
     def test_propagates_failure_instead_of_swallowing(self):
         with (
             patch.object(
-                bulk_entry_service.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")
+                bulk_entry_service.activity_ingestion_pipeline_service,
+                "validate_prepare_and_store_file",
+                side_effect=ValueError("boom"),
             ),
             pytest.raises(ValueError),
         ):
@@ -44,7 +48,11 @@ class TestStoreActivityFile:
     """The swallowing entry used by the Garmin sync and the Strava bulk import."""
 
     def test_returns_the_created_activities(self):
-        with patch.object(bulk_entry_service.pipeline, "validate_prepare_and_store_file", return_value=["activity"]):
+        with patch.object(
+            bulk_entry_service.activity_ingestion_pipeline_service,
+            "validate_prepare_and_store_file",
+            return_value=["activity"],
+        ):
             result = bulk_entry_service.store_activity_file(
                 3, "/tmp/x.gpx", "storage", "db", source=sources.GarminSource()
             )
@@ -54,7 +62,9 @@ class TestStoreActivityFile:
     def test_returns_none_on_failure(self):
         db = MagicMock()
         with patch.object(
-            bulk_entry_service.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")
+            bulk_entry_service.activity_ingestion_pipeline_service,
+            "validate_prepare_and_store_file",
+            side_effect=ValueError("boom"),
         ):
             result = bulk_entry_service.store_activity_file(
                 3, "/tmp/x.gpx", "storage", db, source=sources.GarminSource()
@@ -69,7 +79,9 @@ class TestStoreActivityFile:
         # its own extracted file instead.
         with (
             patch.object(
-                bulk_entry_service.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")
+                bulk_entry_service.activity_ingestion_pipeline_service,
+                "validate_prepare_and_store_file",
+                side_effect=ValueError("boom"),
             ),
             patch.object(bulk_entry_service, "_move_failed_file_to_error_directory") as move,
         ):
@@ -84,7 +96,9 @@ class TestStoreActivityFile:
 
         with (
             patch.object(
-                bulk_entry_service.pipeline, "validate_prepare_and_store_file", side_effect=ValueError("boom")
+                bulk_entry_service.activity_ingestion_pipeline_service,
+                "validate_prepare_and_store_file",
+                side_effect=ValueError("boom"),
             ),
             patch.object(bulk_entry_service, "_move_failed_file_to_error_directory") as move,
         ):
@@ -119,8 +133,8 @@ class TestProcessAllFilesSync:
     def test_processes_every_file_with_the_same_import_time(self):
         with (
             patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(ingestion_service, "ingestion_crud"),
-            patch.object(ingestion_service.bulk_entry_service, "store_activity_file") as store,
+            patch.object(ingestion_service, "activity_ingestion_crud"),
+            patch.object(ingestion_service.activity_ingestion_bulk_entry_service, "store_activity_file") as store,
         ):
             ingestion_service.process_all_files_sync(
                 7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"
@@ -137,8 +151,12 @@ class TestProcessAllFilesSync:
         created = MagicMock(id=11)
         with (
             patch.object(ingestion_service.core_database, "get_db", return_value=iter([MagicMock()])),
-            patch.object(ingestion_service, "ingestion_crud") as jobs,
-            patch.object(ingestion_service.bulk_entry_service, "store_activity_file", side_effect=[[created], None]),
+            patch.object(ingestion_service, "activity_ingestion_crud") as jobs,
+            patch.object(
+                ingestion_service.activity_ingestion_bulk_entry_service,
+                "store_activity_file",
+                side_effect=[[created], None],
+            ),
         ):
             ingestion_service.process_all_files_sync(
                 7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"

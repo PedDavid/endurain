@@ -31,11 +31,11 @@ from jasil.jobs.registry import JobHandlerRegistry
 import core.config as core_config
 import core.database as core_database
 import core.logger as core_logger
-import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
-import modules.activities.activity_ingestion.events as ingestion_events
+import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.events as activity_ingestion_events
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
-import modules.activities.activity_ingestion.service as ingestion_service
-import modules.activities.activity_ingestion.staging as staging
+import modules.activities.activity_ingestion.service as activity_ingestion_service
+import modules.activities.activity_ingestion.staging as activity_ingestion_staging
 
 logger = core_logger.get_logger(__name__)
 
@@ -74,13 +74,13 @@ def process_uploaded_file_for_event(event: Event) -> None:
     Returns:
         None.
     """
-    payload = platform_event_versioning.parse_payload(ingestion_events.UploadedFilePayload, event)
+    payload = platform_event_versioning.parse_payload(activity_ingestion_events.UploadedFilePayload, event)
     storage = platform_runtime.get_active_platform().storage
     try:
-        ingestion_service.run_upload_job(payload.job_id, storage)
+        activity_ingestion_service.run_upload_job(payload.job_id, storage)
     except Exception as err:
         if _is_final_attempt(event):
-            ingestion_service.fail_ingestion_job(
+            activity_ingestion_service.fail_ingestion_job(
                 payload.job_id,
                 activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
                 storage,
@@ -107,13 +107,13 @@ def process_refresh_requested_for_event(event: Event) -> None:
     Returns:
         None.
     """
-    payload = platform_event_versioning.parse_payload(ingestion_events.RefreshRequestedPayload, event)
+    payload = platform_event_versioning.parse_payload(activity_ingestion_events.RefreshRequestedPayload, event)
     storage = platform_runtime.get_active_platform().storage
     try:
-        ingestion_service.run_refresh_job(payload.job_id, storage)
+        activity_ingestion_service.run_refresh_job(payload.job_id, storage)
     except Exception as err:
         if _is_final_attempt(event):
-            ingestion_service.fail_ingestion_job(
+            activity_ingestion_service.fail_ingestion_job(
                 payload.job_id,
                 activity_ingestion_schema.IngestionJobErrorCode.PROVIDER_UNAVAILABLE,
                 storage,
@@ -149,11 +149,11 @@ def process_bulk_import_file_for_event(event: Event) -> None:
     Returns:
         None.
     """
-    payload = platform_event_versioning.parse_payload(ingestion_events.BulkImportFilePayload, event)
+    payload = platform_event_versioning.parse_payload(activity_ingestion_events.BulkImportFilePayload, event)
     storage = platform_runtime.get_active_platform().storage
-    ingestion_service.mark_bulk_import_job_processing(payload.job_id)
+    activity_ingestion_service.mark_bulk_import_job_processing(payload.job_id)
     try:
-        with staging.materialized(payload.storage_key, payload.filename, storage) as file_path:
+        with activity_ingestion_staging.materialized(payload.storage_key, payload.filename, storage) as file_path:
             if file_path is None:
                 # Already imported and discarded: a duplicate delivery, not a
                 # failure. Raising would retry until the job dead-lettered.
@@ -165,11 +165,11 @@ def process_bulk_import_file_for_event(event: Event) -> None:
                 )
                 return
             with core_database.SessionLocal() as db:
-                activities = bulk_entry_service.store_bulk_import_file(
+                activities = activity_ingestion_bulk_entry_service.store_bulk_import_file(
                     payload.user_id, file_path, payload.import_initiated_time, storage, db
                 )
-        staging.discard(payload.storage_key, storage)
-        ingestion_service.mark_bulk_import_job_completed(
+        activity_ingestion_staging.discard(payload.storage_key, storage)
+        activity_ingestion_service.mark_bulk_import_job_completed(
             payload.job_id, [activity.id for activity in activities or [] if activity.id is not None]
         )
         logger.debug(
@@ -180,8 +180,8 @@ def process_bulk_import_file_for_event(event: Event) -> None:
         # ``retry_count`` is the (claim-incremented) attempt number; when it has
         # reached the ceiling this failure dead-letters the job.
         if _is_final_attempt(event):
-            staging.move_to_errors(payload.storage_key, payload.user_id, payload.filename, storage)
-            ingestion_service.mark_bulk_import_job_failed(payload.job_id)
+            activity_ingestion_staging.move_to_errors(payload.storage_key, payload.user_id, payload.filename, storage)
+            activity_ingestion_service.mark_bulk_import_job_failed(payload.job_id)
         else:
             logger.warning(
                 "Bulk-import file failed; the job will be retried",
@@ -206,17 +206,17 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
         None.
     """
     registry.register(
-        ingestion_events.ACTIVITY_FILE_UPLOADED,
+        activity_ingestion_events.ACTIVITY_FILE_UPLOADED,
         UPLOADED_FILE_SUBSCRIBER_ID,
         process_uploaded_file_for_event,
     )
     registry.register(
-        ingestion_events.ACTIVITY_REFRESH_REQUESTED,
+        activity_ingestion_events.ACTIVITY_REFRESH_REQUESTED,
         REFRESH_REQUESTED_SUBSCRIBER_ID,
         process_refresh_requested_for_event,
     )
     registry.register(
-        ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
+        activity_ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
         BULK_IMPORT_FILE_SUBSCRIBER_ID,
         process_bulk_import_file_for_event,
     )

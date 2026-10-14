@@ -9,11 +9,7 @@ from fastapi import HTTPException, Query, status
 
 import core.dependencies as core_dependencies
 import core.logger as core_logger
-from modules.activities.activity.constants import (
-    ACTIVITY_ID_TO_NAME,
-    ACTIVITY_SORT_FIELDS,
-    ACTIVITY_SORT_ORDERS,
-)
+import modules.activities.activity.constants as activity_constants
 
 logger = core_logger.get_logger(__name__)
 
@@ -45,7 +41,7 @@ def validate_activity_type(activity_type: int | None = Query(None)) -> None:
     Raises:
         HTTPException: 422 when the type is not a known activity type.
     """
-    if activity_type not in ACTIVITY_ID_TO_NAME and activity_type is not None:
+    if activity_type not in activity_constants.ACTIVITY_ID_TO_NAME and activity_type is not None:
         logger.debug(
             "Rejected activity list request with an unknown activity type",
             extra=core_logger.context(activity_type=activity_type),
@@ -69,7 +65,7 @@ def validate_sort_by(sort_by: str | None = Query(None)) -> None:
     Raises:
         HTTPException: 422 when the field is not an allowed sort field.
     """
-    if sort_by is not None and sort_by not in ACTIVITY_SORT_FIELDS:
+    if sort_by is not None and sort_by not in activity_constants.ACTIVITY_SORT_FIELDS:
         logger.debug(
             "Rejected activity list request with an unsupported sort field",
             extra=core_logger.context(sort_by=sort_by),
@@ -93,7 +89,7 @@ def validate_sort_order(sort_order: str | None = Query(None)) -> None:
     Raises:
         HTTPException: 422 when the direction is not an allowed sort order.
     """
-    if sort_order is not None and sort_order not in ACTIVITY_SORT_ORDERS:
+    if sort_order is not None and sort_order not in activity_constants.ACTIVITY_SORT_ORDERS:
         logger.debug(
             "Rejected activity list request with an unsupported sort order",
             extra=core_logger.context(sort_order=sort_order),

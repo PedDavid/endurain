@@ -89,13 +89,13 @@ def get_activities_in_timeframe(
         ),
     )
     if is_owner:
-        return activity_crud.get_user_activities_per_timeframe(user_id, start, end, db, True)
+        return activity_crud.get_user_activities_per_timeframe(user_id, start, end, db, user_is_owner=True)
     return activity_crud.get_user_activities_per_timeframe(
         user_id,
         start,
         end,
         db,
-        False,
+        user_is_owner=False,
         followee_ids=_followees_of(requester_user_id, db),
     )
 
@@ -128,6 +128,7 @@ def _anchor_date(anchor: date | None, requester_user_id: int, db: Session) -> da
 def _week_bounds(
     requester_user_id: int,
     db: Session,
+    *,
     week_number: int = 0,
     anchor: date | None = None,
 ) -> tuple[datetime, datetime]:
@@ -158,6 +159,7 @@ def _week_bounds(
 def _month_bounds(
     requester_user_id: int,
     db: Session,
+    *,
     anchor: date | None = None,
 ) -> tuple[datetime, datetime]:
     """Return the (start, end) of the calendar month containing the anchor day.
@@ -184,6 +186,7 @@ def week_stats(
     user_id: int,
     requester_user_id: int,
     db: Session,
+    *,
     anchor: date | None = None,
 ) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current-week activities.
@@ -197,7 +200,7 @@ def week_stats(
     Returns:
         The aggregated stats.
     """
-    start, end = _week_bounds(requester_user_id, db, 0, anchor)
+    start, end = _week_bounds(requester_user_id, db, week_number=0, anchor=anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
         return activity_stats.calculate_activity_stats(activities)
@@ -208,6 +211,7 @@ def month_stats(
     user_id: int,
     requester_user_id: int,
     db: Session,
+    *,
     anchor: date | None = None,
 ) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's current-month activities.
@@ -221,7 +225,7 @@ def month_stats(
     Returns:
         The aggregated stats.
     """
-    start, end = _month_bounds(requester_user_id, db, anchor)
+    start, end = _month_bounds(requester_user_id, db, anchor=anchor)
     activities = get_activities_in_timeframe(user_id, start, end, requester_user_id, db)
     if activities:
         return activity_stats.calculate_activity_stats(activities)
@@ -233,6 +237,7 @@ def period_stats(
     period: str,
     requester_user_id: int,
     db: Session,
+    *,
     anchor: date | None = None,
 ) -> activity_schema.ActivityStats:
     """Aggregate per-sport stats for a user's ``week`` or ``month`` (default week).
@@ -253,8 +258,8 @@ def period_stats(
         extra=core_logger.context(user_id=user_id, period=period, requester_user_id=requester_user_id, anchor=anchor),
     )
     if period == "month":
-        return month_stats(user_id, requester_user_id, db, anchor)
-    return week_stats(user_id, requester_user_id, db, anchor)
+        return month_stats(user_id, requester_user_id, db, anchor=anchor)
+    return week_stats(user_id, requester_user_id, db, anchor=anchor)
 
 
 def count_user_activities(
@@ -582,7 +587,7 @@ def get_activity(activity_id: int, requester_user_id: int, db: Session) -> activ
             to enumerate activity ids.
     """
     activity = activity_crud.get_activity_by_id_from_user_id_or_has_visibility(
-        activity_id, requester_user_id, db, _followees_of(requester_user_id, db)
+        activity_id, requester_user_id, db, followee_ids=_followees_of(requester_user_id, db)
     )
     if activity is None:
         logger.debug(
@@ -619,6 +624,7 @@ def edit_activity(
     user_id: int,
     activity_attributes: activity_schema.ActivityEdit,
     db: Session,
+    *,
     if_match: str | None = None,
 ) -> activity_schema.Activity:
     """Apply partial updates to one of the user's activities.

@@ -26,7 +26,7 @@ from typing import Any
 from pydantic import Field, field_validator
 
 import core.timezone as core_timezone
-from modules.activities.activity.schema import Activity, ActivityBase
+import modules.activities.activity.schema as activity_schema
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ class ActivityFeedEntry:
         cursor_id: Raw activity id used to break start-time ties.
     """
 
-    activity: Activity
+    activity: activity_schema.Activity
     cursor_start_time: datetime
     cursor_id: int
 
@@ -142,7 +142,7 @@ class GearUsageWindow:
     end_date: date | None = None
 
 
-class ActivityCore(ActivityBase):
+class ActivityCore(activity_schema.ActivityBase):
     """Strict ingestion *input* schema.
 
     Extends :class:`~modules.activities.activity.schema.ActivityBase` — the

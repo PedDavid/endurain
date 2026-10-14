@@ -39,15 +39,16 @@ import core.file_uploads as core_file_uploads
 import core.hashing as core_hashing
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.pipeline_service as pipeline
+import modules.activities.activity_file_storage.constants as activity_file_storage_constants
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
+import modules.activities.activity_ingestion.pipeline_service as activity_ingestion_pipeline_service
 
 logger = core_logger.get_logger(__name__)
 
 # Domain-owned storage namespace for uploads awaiting their parse. The staging
 # hierarchy belongs in the key because JASIL storage areas are single path
 # components.
-UPLOAD_STAGING_STORAGE_AREA = "activity_files"
+UPLOAD_STAGING_STORAGE_AREA = activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA
 _UPLOAD_STAGING_KEY_PREFIX = "upload_staging"
 
 
@@ -265,13 +266,13 @@ def process_staged_upload(
 
         _, file_base_name = os.path.split(file_path)
 
-        created_activities = pipeline.store_activities_from_file(
+        created_activities = activity_ingestion_pipeline_service.store_activities_from_file(
             token_user_id,
             file_path,
             file_extension,
             file_base_name,
             db,
-            source=ingestion_contracts.UploadSource(),
+            source=activity_ingestion_contracts.UploadSource(),
             storage=storage,
         )
         discard_staged_upload(staged_key, storage)

@@ -36,7 +36,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os, "listdir", return_value=["a.gpx", "b.fit"]),
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
-            patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
+            patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(
                 bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
@@ -69,7 +69,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os, "listdir", return_value=["a.gpx"]),
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
-            patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
+            patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(
                 bulk_import_service,
                 "_enqueue_bulk_import_files",
@@ -88,7 +88,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os, "listdir", return_value=["a.gpx"]),
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
-            patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
+            patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(
                 bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
@@ -112,7 +112,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.os, "listdir", return_value=["notes.txt"]),
             patch.object(bulk_import_service.os.path, "isfile", return_value=True),
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
-            patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
+            patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
         ):

@@ -3,7 +3,7 @@
 from pydantic import BaseModel, ConfigDict, StrictInt, field_validator
 
 import core.pagination as core_pagination
-from modules.followers.constants import FollowStatus
+import modules.followers.constants as followers_constants
 
 
 class FollowRelationship(BaseModel):
@@ -19,7 +19,7 @@ class FollowRelationship(BaseModel):
 
     follower_id: StrictInt
     followee_id: StrictInt
-    status: FollowStatus
+    status: followers_constants.FollowStatus
 
 
 class FollowRequestAccept(BaseModel):
@@ -39,11 +39,11 @@ class FollowRequestAccept(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    status: FollowStatus
+    status: followers_constants.FollowStatus
 
     @field_validator("status")
     @classmethod
-    def _only_accept(cls, value: FollowStatus) -> FollowStatus:
+    def _only_accept(cls, value: followers_constants.FollowStatus) -> followers_constants.FollowStatus:
         """Reject any status other than ``accepted``.
 
         Args:
@@ -55,7 +55,7 @@ class FollowRequestAccept(BaseModel):
         Raises:
             ValueError: If the status is not ``accepted``.
         """
-        if value is not FollowStatus.ACCEPTED:
+        if value is not followers_constants.FollowStatus.ACCEPTED:
             raise ValueError("a follow request can only be accepted; DELETE it to decline")
         return value
 

@@ -31,15 +31,15 @@ import core.database as core_database
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
-import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.crud as ingestion_crud
+import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
+import modules.activities.activity_ingestion.crud as activity_ingestion_crud
 import modules.activities.activity_ingestion.dispatch as activity_ingestion_dispatch
-import modules.activities.activity_ingestion.event_publishers as ingestion_event_publishers
-import modules.activities.activity_ingestion.refresh_entry as refresh_entry
+import modules.activities.activity_ingestion.event_publishers as activity_ingestion_event_publishers
+import modules.activities.activity_ingestion.refresh_entry_service as activity_ingestion_refresh_entry_service
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
-import modules.activities.activity_ingestion.staging as staging
-import modules.activities.activity_ingestion.upload_entry as upload_entry
+import modules.activities.activity_ingestion.staging as activity_ingestion_staging
+import modules.activities.activity_ingestion.upload_entry_service as activity_ingestion_upload_entry_service
 
 logger = core_logger.get_logger(__name__)
 
@@ -70,7 +70,7 @@ def _error_code_for(error: Exception) -> activity_ingestion_schema.IngestionJobE
 def accept_upload(
     token_user_id: int,
     filename: str | None,
-    save_upload: upload_entry.UploadSaver,
+    save_upload: activity_ingestion_upload_entry_service.UploadSaver,
     storage: platform_providers.StorageProvider,
     db: Session,
     *,
@@ -78,7 +78,7 @@ def accept_upload(
 ) -> activity_ingestion_schema.ActivityIngestionJob:
     """Stage an uploaded file and queue it for background import.
 
-    The staging write happens before the row is created so a rejected file never
+    The activity_ingestion_staging write happens before the row is created so a rejected file never
     leaves a job behind. The row and the event are then committed together, so a
     crash between them cannot produce a job nobody will ever run.
 
@@ -111,15 +111,17 @@ def accept_upload(
         ConflictError: When the key was already used for different content.
         DomainError: When the shared upload validators reject the payload.
     """
-    received = upload_entry.receive_upload(filename, save_upload, fingerprint=idempotency_key is not None)
+    received = activity_ingestion_upload_entry_service.receive_upload(
+        filename, save_upload, fingerprint=idempotency_key is not None
+    )
 
     if idempotency_key:
-        prior = ingestion_crud.get_job_for_idempotency(
+        prior = activity_ingestion_crud.get_job_for_idempotency(
             idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
         )
         if prior is not None:
             replayed, fingerprint = prior
-            upload_entry.discard_received_upload(received)
+            activity_ingestion_upload_entry_service.discard_received_upload(received)
             if fingerprint != received.fingerprint:
                 raise core_exceptions.ConflictError("This Idempotency-Key was already used for a different file")
             logger.info(
@@ -128,16 +130,16 @@ def accept_upload(
             )
             return replayed
 
-    staged_key = upload_entry.store_received_upload(received, storage)
+    staged_key = activity_ingestion_upload_entry_service.store_received_upload(received, storage)
     job_id = str(uuid.uuid4())
 
     try:
-        ingestion_crud.create_ingestion_job(
+        activity_ingestion_crud.create_ingestion_job(
             job_id,
             token_user_id,
             activity_ingestion_schema.IngestionJobKind.UPLOAD,
             db,
-            # ``filename`` is non-None here: staging rejects a missing one.
+            # ``filename`` is non-None here: activity_ingestion_staging rejects a missing one.
             filename=str(filename),
             staged_key=staged_key,
             idempotency_key=idempotency_key,
@@ -145,19 +147,21 @@ def accept_upload(
         )
         # Durable profile: staged in the transactional outbox on this session
         # and committed with the job row, then relayed into a retryable
-        # processing_jobs row. A staging failure propagates, so the caller gets
+        # processing_jobs row. A activity_ingestion_staging failure propagates, so the caller gets
         # a 500 rather than a 202 for an upload that was never queued.
         activity_ingestion_dispatch.commit_or_publish(
             db,
-            lambda commit: ingestion_event_publishers.publish_file_uploaded(job_id, token_user_id, db, commit=commit),
+            publish=lambda commit: activity_ingestion_event_publishers.publish_file_uploaded(
+                job_id, token_user_id, db, commit=commit
+            ),
         )
     except IntegrityError:
         # Two requests carrying the same key raced past the check above. The
         # constraint is what actually decides; the loser reports the winner's job.
-        upload_entry.discard_staged_upload(staged_key, storage)
+        activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
         db.rollback()
         prior = (
-            ingestion_crud.get_job_for_idempotency(
+            activity_ingestion_crud.get_job_for_idempotency(
                 idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
             )
             if idempotency_key
@@ -172,7 +176,7 @@ def accept_upload(
     except Exception:
         # The row is gone (or never committed), so nothing will consume the
         # staged bytes.
-        upload_entry.discard_staged_upload(staged_key, storage)
+        activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
         raise
 
     # No durable worker drains the queue on the local profile, so the parse runs
@@ -184,7 +188,7 @@ def accept_upload(
         "Activity upload accepted for background import",
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
-    return ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
+    return activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
         job_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, str(filename)
     )
 
@@ -238,7 +242,7 @@ def get_job(
             someone else is reported as missing rather than forbidden, so the
             endpoint does not confirm that an id exists.
     """
-    job = ingestion_crud.get_ingestion_job(job_id, token_user_id, db)
+    job = activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db)
     if job is None:
         logger.debug(
             "Ingestion job read resolved to nothing for this caller",
@@ -272,7 +276,7 @@ def accept_refresh(
     """
     job_id = str(uuid.uuid4())
 
-    ingestion_crud.create_ingestion_job(
+    activity_ingestion_crud.create_ingestion_job(
         job_id,
         token_user_id,
         activity_ingestion_schema.IngestionJobKind.REFRESH,
@@ -280,7 +284,9 @@ def accept_refresh(
     )
     activity_ingestion_dispatch.commit_or_publish(
         db,
-        lambda commit: ingestion_event_publishers.publish_refresh_requested(job_id, token_user_id, db, commit=commit),
+        publish=lambda commit: activity_ingestion_event_publishers.publish_refresh_requested(
+            job_id, token_user_id, db, commit=commit
+        ),
     )
     activity_ingestion_dispatch.run_in_background(run_refresh_job, job_id, storage)
 
@@ -288,7 +294,7 @@ def accept_refresh(
         "Provider refresh accepted for background sync",
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
-    return ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
+    return activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
         job_id, activity_ingestion_schema.IngestionJobKind.REFRESH
     )
 
@@ -313,16 +319,16 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         Exception: Whatever the provider sync raised, so the caller can retry.
     """
     with core_database.SessionLocal() as db:
-        owner = ingestion_crud.get_job_owner(job_id, db)
+        owner = activity_ingestion_crud.get_job_owner(job_id, db)
         if owner is None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
-        ingestion_crud.mark_processing(job_id, db)
+        activity_ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
     with core_database.SessionLocal() as db:
         try:
-            activities = asyncio.run(refresh_entry.sync_linked_providers(owner, db))
+            activities = asyncio.run(activity_ingestion_refresh_entry_service.sync_linked_providers(owner, db))
         except Exception:
             if not activity_ingestion_dispatch.worker_retries():
                 # Nothing will retry, so leave the caller a terminal state
@@ -333,7 +339,7 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
             raise
 
         activity_ids = [activity.id for activity in activities if activity.id is not None]
-        ingestion_crud.mark_completed(job_id, activity_ids, db)
+        activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
         logger.info(
             "Refresh job synced provider activities",
@@ -366,7 +372,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         Exception: Whatever the import raised, so the caller can retry.
     """
     with core_database.SessionLocal() as db:
-        work_item = ingestion_crud.get_job_work_item(job_id, db)
+        work_item = activity_ingestion_crud.get_job_work_item(job_id, db)
         if work_item is None:
             # Already consumed — a retry after the import succeeded, or a job
             # whose row was pruned. Nothing to do, and re-running would be wrong.
@@ -376,12 +382,12 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             )
             return
         user_id, staged_key = work_item
-        ingestion_crud.mark_processing(job_id, db)
+        activity_ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
     with core_database.SessionLocal() as db:
         try:
-            created = upload_entry.process_staged_upload(user_id, staged_key, storage, db)
+            created = activity_ingestion_upload_entry_service.process_staged_upload(user_id, staged_key, storage, db)
         except (
             core_exceptions.UnsupportedFormatError,
             core_exceptions.InvalidInputError,
@@ -408,7 +414,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         # id-less entry would only mean the client cannot refresh that one row.
         activity_ids = [activity.id for activity in created or [] if activity.id is not None]
         if not activity_ids:
-            ingestion_crud.mark_failed(
+            activity_ingestion_crud.mark_failed(
                 job_id,
                 activity_ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND,
                 db,
@@ -419,7 +425,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
                 extra=core_logger.context(user_id=user_id, job_id=job_id),
             )
             return
-        ingestion_crud.mark_completed(job_id, activity_ids, db)
+        activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
         logger.info(
             "Upload job imported activities",
@@ -450,9 +456,9 @@ def fail_ingestion_job(
     try:
         with core_database.SessionLocal() as db:
             if staged_key is None:
-                work_item = ingestion_crud.get_job_work_item(job_id, db)
+                work_item = activity_ingestion_crud.get_job_work_item(job_id, db)
                 staged_key = work_item[1] if work_item else None
-            ingestion_crud.mark_failed(job_id, error_code, db)
+            activity_ingestion_crud.mark_failed(job_id, error_code, db)
             db.commit()
     except Exception as err:
         # Never mask the original failure with a bookkeeping one.
@@ -465,7 +471,7 @@ def fail_ingestion_job(
     # After the row is terminal, so a crash in between leaves a readable blob
     # rather than a job pointing at bytes that are gone.
     if staged_key is not None:
-        upload_entry.discard_staged_upload(staged_key, storage)
+        activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
 
 
 # Single-runner lock name: the deletes are idempotent, but the lock keeps the
@@ -509,7 +515,7 @@ def prune_expired_ingestion_jobs(
             return
         cutoff = clock.now() - timedelta(days=retention_days)
         with core_database.SessionLocal() as db:
-            deleted = ingestion_crud.delete_jobs_before(cutoff, db)
+            deleted = activity_ingestion_crud.delete_jobs_before(cutoff, db)
             db.commit()
 
     if deleted:
@@ -590,7 +596,7 @@ def _collect_importable_files(user_id: int, bulk_import_dir: str) -> list[str]:
             )
             continue
 
-        # Everything downstream opens this path (validation, then staging), so a
+        # Everything downstream opens this path (validation, then activity_ingestion_staging), so a
         # symlink dropped here would import whatever it points at, anywhere on
         # the server's filesystem. Only entries that resolve to themselves inside
         # the user's own directory are imported.
@@ -651,7 +657,7 @@ def start_bulk_import(
     in-process worker (local) or the worker fleet (distributed) — a crash
     mid-import no longer drops in-flight files, and a failing file retries then
     dead-letters (moved to the import-error dir) instead of vanishing on the
-    first error. A staging failure propagates, so the caller is told the files
+    first error. A activity_ingestion_staging failure propagates, so the caller is told the files
     were never queued rather than being handed a 202. With durable jobs off
     there is no worker to drain the queue, so the background thread pool owned by
     :mod:`~modules.activities.activity_ingestion.background` runs them instead.
@@ -687,7 +693,7 @@ def start_bulk_import(
         # visible from the moment the 202 is returned.
         jobs = [
             (
-                ingestion_crud.create_ingestion_job(
+                activity_ingestion_crud.create_ingestion_job(
                     str(uuid.uuid4()),
                     user_id,
                     activity_ingestion_schema.IngestionJobKind.BULK_IMPORT,
@@ -737,7 +743,7 @@ def _enqueue_bulk_import_files(
     reconciliation-net exempt (a dead-lettered file is recovered by re-adding it
     to the bulk-import directory, not by a sweeper). A swallowed publish failure
     would therefore mean the file is silently never imported while the route still
-    answers 202, so a staging failure propagates.
+    answers 202, so a activity_ingestion_staging failure propagates.
 
     Staging the whole batch in one transaction also replaces a
     one-commit-per-file loop, so enqueuing a large export is a single commit
@@ -756,7 +762,7 @@ def _enqueue_bulk_import_files(
         None.
 
     Raises:
-        Exception: Propagated from the outbox staging so the caller can fail the
+        Exception: Propagated from the outbox activity_ingestion_staging so the caller can fail the
             request instead of reporting a false success.
     """
     # Staged here, in the request thread, because this is the only place
@@ -765,9 +771,9 @@ def _enqueue_bulk_import_files(
     staged: list[tuple[str, str, str]] = []
     try:
         for job_id, file_path in queued_files:
-            staged.append((job_id, staging.stage_file(user_id, file_path, storage), file_path))
+            staged.append((job_id, activity_ingestion_staging.stage_file(user_id, file_path, storage), file_path))
 
-        ingestion_event_publishers.publish_bulk_import_files(
+        activity_ingestion_event_publishers.publish_bulk_import_files(
             [(job_id, key, os.path.basename(file_path)) for job_id, key, file_path in staged],
             user_id,
             import_initiated_time,
@@ -777,11 +783,11 @@ def _enqueue_bulk_import_files(
     except Exception:
         # Nothing will import these blobs, and the caller gets a 500. Drop them
         # and leave the dropped files alone so the user can simply retry.
-        staging.unstage([key for _, key, _ in staged], storage)
+        activity_ingestion_staging.unstage([key for _, key, _ in staged], storage)
         raise
 
     # Only now are the jobs durable, so consuming the originals is safe.
-    staging.settle([(key, file_path) for _, key, file_path in staged], user_id)
+    activity_ingestion_staging.settle([(key, file_path) for _, key, file_path in staged], user_id)
     logger.info(
         "Bulk import: enqueued durable file jobs",
         extra=core_logger.context(user_id=user_id, file_count=len(queued_files)),
@@ -824,14 +830,14 @@ def process_all_files_sync(
                     user_id=user_id,
                 ),
             )
-            ingestion_crud.mark_processing(job_id, db)
+            activity_ingestion_crud.mark_processing(job_id, db)
             db.commit()
-            activities = bulk_entry_service.store_activity_file(
+            activities = activity_ingestion_bulk_entry_service.store_activity_file(
                 user_id,
                 file_path,
                 storage,
                 db,
-                source=ingestion_contracts.BulkImportSource(
+                source=activity_ingestion_contracts.BulkImportSource(
                     import_initiated_time=import_initiated_time, user_id=user_id
                 ),
             )
@@ -839,11 +845,11 @@ def process_all_files_sync(
             # is the only signal that this file failed. Nothing retries here, so
             # the state recorded is terminal either way.
             if activities is None:
-                ingestion_crud.mark_failed(
+                activity_ingestion_crud.mark_failed(
                     job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
                 )
             else:
-                ingestion_crud.mark_completed(
+                activity_ingestion_crud.mark_completed(
                     job_id, [activity.id for activity in activities if activity.id is not None], db
                 )
             db.commit()
@@ -869,7 +875,7 @@ def mark_bulk_import_job_processing(job_id: str | None) -> None:
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_crud.mark_processing(job_id, db)
+        activity_ingestion_crud.mark_processing(job_id, db)
         db.commit()
 
 
@@ -886,7 +892,7 @@ def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) 
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_crud.mark_completed(job_id, activity_ids, db)
+        activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
 
 
@@ -902,5 +908,7 @@ def mark_bulk_import_job_failed(job_id: str | None) -> None:
     if job_id is None:
         return
     with core_database.SessionLocal() as db:
-        ingestion_crud.mark_failed(job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db)
+        activity_ingestion_crud.mark_failed(
+            job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
+        )
         db.commit()

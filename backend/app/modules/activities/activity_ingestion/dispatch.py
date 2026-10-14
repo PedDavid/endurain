@@ -33,7 +33,7 @@ def worker_retries() -> bool:
     return core_config.settings.JOBS_ENABLED
 
 
-def commit_or_publish(db: Session, publish: Callable[[Callable[[], None]], None]) -> None:
+def commit_or_publish(db: Session, *, publish: Callable[[Callable[[], None]], None]) -> None:
     """Make a staged job row durable and, on the durable profile, hand it to the worker.
 
     Args:

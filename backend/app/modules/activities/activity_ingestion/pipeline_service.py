@@ -1,6 +1,6 @@
 """The ingestion pipeline: validate -> parse -> enrich -> store -> retain.
 
-One path, shared by every source. The entry points in :mod:`upload_entry` and
+One path, shared by every source. The entry points in :mod:`upload_entry_service` and
 :mod:`bulk_entry_service` differ only in how they obtain the file and what they do when
 this fails; everything between a validated file on disk and persisted activities
 lives here.
@@ -36,8 +36,8 @@ import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_file_import.integration_service as activity_file_import_integration
 import modules.activities.activity_file_storage.integration_service as activity_file_storage_integration
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.enrichment_service as enrichment_service
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
+import modules.activities.activity_ingestion.enrichment_service as activity_ingestion_enrichment_service
 import modules.activities.contributor_registry as activities_contributor_registry
 import modules.users.users.integration_service as users_integration
 
@@ -150,7 +150,7 @@ def store_activities_from_file(
     file_base_name: str,
     db: Session,
     *,
-    source: ingestion_contracts.IngestionSource,
+    source: activity_ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
     garmin_connect_activity_id: str | None = None,
 ) -> list[activity_schema.Activity] | None:
@@ -195,9 +195,11 @@ def store_activities_from_file(
     if user_privacy_settings is None:
         raise core_exceptions.NotFoundError("User privacy settings not found")
 
-    garmin_source = source if isinstance(source, ingestion_contracts.GarminSource) else None
-    bulk_source = source if isinstance(source, ingestion_contracts.BulkImportSource) else None
-    activity_name = source.activity_name if not isinstance(source, ingestion_contracts.BulkImportSource) else None
+    garmin_source = source if isinstance(source, activity_ingestion_contracts.GarminSource) else None
+    bulk_source = source if isinstance(source, activity_ingestion_contracts.BulkImportSource) else None
+    activity_name = (
+        source.activity_name if not isinstance(source, activity_ingestion_contracts.BulkImportSource) else None
+    )
 
     # CPU-bound + sync I/O parsing (gpxpy, geopy, timezonefinder). This runs
     # directly: every entry point reaches here on a worker thread (a sync route
@@ -255,7 +257,7 @@ def store_activities_from_file(
     for parsed in parsed_file.activities:
         # Re-attach owner privacy defaults, gear, and Garmin ids before the
         # bulk-import metadata can override the gear.
-        enrichment_service.enrich_parsed_activity(
+        activity_ingestion_enrichment_service.enrich_parsed_activity(
             parsed.activity,
             user_id=token_user_id,
             user_privacy_settings=user_privacy_settings,
@@ -296,7 +298,7 @@ def store_activities_from_file(
 
 
 def _finish_bulk_import_file(
-    source: ingestion_contracts.BulkImportSource,
+    source: activity_ingestion_contracts.BulkImportSource,
     created_activities: list[activity_schema.Activity],
     file_base_name: str,
     db: Session,
@@ -339,7 +341,7 @@ def validate_prepare_and_store_file(
     file_path: str,
     db: Session,
     *,
-    source: ingestion_contracts.IngestionSource,
+    source: activity_ingestion_contracts.IngestionSource,
     storage: platform_providers.StorageProvider,
 ) -> list[activity_schema.Activity] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
@@ -388,7 +390,7 @@ def validate_prepare_and_store_file(
     _, file_base_name = os.path.split(file_path)
 
     garmin_connect_activity_id = None
-    if isinstance(source, ingestion_contracts.GarminSource):
+    if isinstance(source, activity_ingestion_contracts.GarminSource):
         garmin_connect_activity_id = os.path.basename(file_path).split("_")[0]
 
     if file_extension == ".gz":

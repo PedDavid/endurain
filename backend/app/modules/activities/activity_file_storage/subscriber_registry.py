@@ -5,7 +5,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
 import modules.activities.activity_file_storage.scheduled_jobs as activity_file_storage_scheduled_jobs
-import modules.activities.activity_file_storage.subscribers as file_subscribers
+import modules.activities.activity_file_storage.subscribers as activity_file_storage_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
@@ -17,7 +17,7 @@ def register_bus_subscribers(events: EventBusProvider) -> None:
     Returns:
         None.
     """
-    file_subscribers.register_activity_file_cleanup_subscribers(events)
+    activity_file_storage_subscribers.register_activity_file_cleanup_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
@@ -29,12 +29,12 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
     Returns:
         None.
     """
-    file_subscribers.register_activity_file_cleanup_durable_handlers(registry)
+    activity_file_storage_subscribers.register_activity_file_cleanup_durable_handlers(registry)
 
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        file_subscribers.ACTIVITY_FILE_CLEANUP_SUBSCRIBER_ID,
+        activity_file_storage_subscribers.ACTIVITY_FILE_CLEANUP_SUBSCRIBER_ID,
         activity_file_storage_scheduled_jobs.sweep_orphaned_activity_files,
     ),
 )

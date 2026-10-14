@@ -50,7 +50,9 @@ def resolve_readable_parent(
         The activity, or ``None`` when it does not exist or is not visible.
     """
     followee_ids = followers_integration.list_accepted_followee_ids(requester_user_id, db)
-    return activity_crud.get_viewable_activity_by_id_for_user(activity_id, requester_user_id, db, followee_ids)
+    return activity_crud.get_viewable_activity_by_id_for_user(
+        activity_id, requester_user_id, db, followee_ids=followee_ids
+    )
 
 
 def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:

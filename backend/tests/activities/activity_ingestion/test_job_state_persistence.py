@@ -89,7 +89,9 @@ class TestUploadJob:
         created = [SimpleNamespace(id=11), SimpleNamespace(id=12)]
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
-            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=created),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service, "process_staged_upload", return_value=created
+            ),
         ):
             ingestion_jobs.run_upload_job("job-1", "storage")
 
@@ -103,7 +105,9 @@ class TestUploadJob:
         _add_job(factory)
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
-            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", return_value=[]),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service, "process_staged_upload", return_value=[]
+            ),
         ):
             ingestion_jobs.run_upload_job("job-1", "storage")
 
@@ -122,7 +126,9 @@ class TestUploadJob:
 
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
-            patch.object(ingestion_jobs.upload_entry, "process_staged_upload", side_effect=_import),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service, "process_staged_upload", side_effect=_import
+            ),
         ):
             ingestion_jobs.run_upload_job("job-1", "storage")
 
@@ -153,7 +159,9 @@ class TestRefreshJob:
 
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
-            patch.object(ingestion_jobs.refresh_entry, "sync_linked_providers", side_effect=_sync),
+            patch.object(
+                ingestion_jobs.activity_ingestion_refresh_entry_service, "sync_linked_providers", side_effect=_sync
+            ),
         ):
             ingestion_jobs.run_refresh_job("job-1", "storage")
 
@@ -207,7 +215,7 @@ class TestSynchronousBulkImport:
         with (
             patch.object(ingestion_jobs.core_database, "get_db", return_value=iter([db])),
             patch.object(
-                ingestion_jobs.bulk_entry_service,
+                ingestion_jobs.activity_ingestion_bulk_entry_service,
                 "store_activity_file",
                 side_effect=[[SimpleNamespace(id=31)], None],
             ),

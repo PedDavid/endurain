@@ -19,7 +19,7 @@ job runs wherever it is claimed.
 from dataclasses import dataclass
 
 import core.logger as core_logger
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
 
 logger = core_logger.get_logger(__name__)
 
@@ -34,7 +34,7 @@ class ActivityProvider:
     """
 
     name: str
-    fetch_window: ingestion_contracts.FetchWindow
+    fetch_window: activity_ingestion_contracts.FetchWindow
 
 
 _providers: dict[str, ActivityProvider] = {}

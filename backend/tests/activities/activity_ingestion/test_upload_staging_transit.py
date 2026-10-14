@@ -9,7 +9,7 @@ import pytest
 from starlette.datastructures import UploadFile
 
 import core.config as core_config
-import modules.activities.activity_ingestion.upload_entry as upload_entry
+import modules.activities.activity_ingestion.upload_entry_service as upload_entry_service
 
 
 def _skip_validator(coro):
@@ -21,10 +21,10 @@ def _skip_validator(coro):
     coro.close()
 
 
-def _receive(upload: UploadFile) -> upload_entry.ReceivedUpload:
+def _receive(upload: UploadFile) -> upload_entry_service.ReceivedUpload:
     """Receive an upload through the real writer, bound the way the router binds it."""
-    return upload_entry.receive_upload(
-        upload.filename, partial(upload_entry.core_file_uploads.save_validated_upload_sync, upload)
+    return upload_entry_service.receive_upload(
+        upload.filename, partial(upload_entry_service.core_file_uploads.save_validated_upload_sync, upload)
     )
 
 
@@ -58,14 +58,14 @@ class TestStagingTransit:
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
             # The safeuploads validator is covered by its own tests; this one is
             # about where the bytes go.
-            patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
+            patch.object(upload_entry_service.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
         ):
-            key = upload_entry.store_received_upload(_receive(upload), platform.storage)
+            key = upload_entry_service.store_received_upload(_receive(upload), platform.storage)
 
         # It really was written to disk first, under the server-generated name.
         assert observed["during"] == [key]
         assert observed["bytes"] == b"<gpx></gpx>"
-        assert observed["area"] == upload_entry.UPLOAD_STAGING_STORAGE_AREA
+        assert observed["area"] == upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
         # …and the local copy is gone once the provider owns it, so the incoming
         # directory never accumulates.
         assert list(incoming.iterdir()) == []
@@ -79,9 +79,9 @@ class TestStagingTransit:
         assert not incoming.exists()
         with (
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
-            patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
+            patch.object(upload_entry_service.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
         ):
-            upload_entry.store_received_upload(_receive(upload), platform.storage)
+            upload_entry_service.store_received_upload(_receive(upload), platform.storage)
 
         assert incoming.is_dir()
 
@@ -94,9 +94,9 @@ class TestStagingTransit:
 
         with (
             patch.object(core_config, "FILES_UPLOAD_INCOMING_DIR", str(incoming)),
-            patch.object(upload_entry.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
+            patch.object(upload_entry_service.core_file_uploads, "_run_validator_sync", side_effect=_skip_validator),
             pytest.raises(RuntimeError),
         ):
-            upload_entry.store_received_upload(_receive(upload), platform.storage)
+            upload_entry_service.store_received_upload(_receive(upload), platform.storage)
 
         assert list(pathlib.Path(incoming).iterdir()) == []

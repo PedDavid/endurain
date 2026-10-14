@@ -3,7 +3,7 @@
 from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 
-import modules.activities.activity_ingestion.subscribers as ingestion_subscribers
+import modules.activities.activity_ingestion.subscribers as activity_ingestion_subscribers
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
@@ -15,12 +15,12 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
     Returns:
         None.
     """
-    ingestion_subscribers.register_durable_handlers(registry)
+    activity_ingestion_subscribers.register_durable_handlers(registry)
 
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        ingestion_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID,
+        activity_ingestion_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID,
         None,
         exempt_reason=(
             "Each bulk-import file is itself a retryable command that dead-letters "
@@ -28,7 +28,7 @@ DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
         ),
     ),
     DurableSubscriberNet(
-        ingestion_subscribers.UPLOADED_FILE_SUBSCRIBER_ID,
+        activity_ingestion_subscribers.UPLOADED_FILE_SUBSCRIBER_ID,
         None,
         exempt_reason=(
             "Each upload is a retryable command whose terminal result is recorded "
@@ -36,7 +36,7 @@ DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
         ),
     ),
     DurableSubscriberNet(
-        ingestion_subscribers.REFRESH_REQUESTED_SUBSCRIBER_ID,
+        activity_ingestion_subscribers.REFRESH_REQUESTED_SUBSCRIBER_ID,
         None,
         exempt_reason=(
             "A refresh is a command to re-read a provider window, not durable "

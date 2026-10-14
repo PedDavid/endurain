@@ -13,7 +13,7 @@ class TestCommitOrPublish:
     def test_durable_profile_hands_the_commit_to_the_publisher(self):
         db, publish = MagicMock(), MagicMock()
         with _jobs(True):
-            dispatch.commit_or_publish(db, publish)
+            dispatch.commit_or_publish(db, publish=publish)
 
         publish.assert_called_once_with(db.commit)
         db.commit.assert_not_called()
@@ -21,7 +21,7 @@ class TestCommitOrPublish:
     def test_local_profile_commits_and_publishes_nothing(self):
         db, publish = MagicMock(), MagicMock()
         with _jobs(False):
-            dispatch.commit_or_publish(db, publish)
+            dispatch.commit_or_publish(db, publish=publish)
 
         db.commit.assert_called_once()
         publish.assert_not_called()

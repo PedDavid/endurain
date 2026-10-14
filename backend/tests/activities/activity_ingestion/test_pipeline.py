@@ -16,8 +16,8 @@ import modules.activities.activity_ingestion.pipeline_service as pipeline
 
 
 class TestParseFile:
-    @patch("modules.activities.activity_file_import.registry.adapter")
-    @patch("modules.activities.activity_file_import.registry.gpx_utils")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_adapter")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_gpx_utils")
     def test_parse_gpx(self, mock_gpx, mock_adapter):
         mock_gpx.parse_gpx_file.return_value = {"activity": "data"}
         mock_adapter.parsed_info_to_parsed_activity.return_value = "parsed"
@@ -30,8 +30,8 @@ class TestParseFile:
 
         assert result.activities == ["parsed"]
 
-    @patch("modules.activities.activity_file_import.registry.adapter")
-    @patch("modules.activities.activity_file_import.registry.tcx_utils")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_adapter")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_tcx_utils")
     def test_parse_tcx(self, mock_tcx, mock_adapter):
         mock_tcx.parse_tcx_file.return_value = {"activity": "tcx_data"}
         mock_adapter.parsed_info_to_parsed_activity.return_value = "parsed"
@@ -44,8 +44,8 @@ class TestParseFile:
 
         assert result.activities == ["parsed"]
 
-    @patch("modules.activities.activity_file_import.registry.adapter")
-    @patch("modules.activities.activity_file_import.registry.fit_utils")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_adapter")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_fit_utils")
     def test_parse_fit_returns_every_activity_in_the_file(self, mock_fit, mock_adapter):
         # The pipeline no longer knows that .fit can hold several activities.
         mock_fit.parse_fit_file.return_value = {}
@@ -82,7 +82,7 @@ class TestParseFile:
 class TestParseFileError:
     """Exception handler in parse_file."""
 
-    @patch("modules.activities.activity_file_import.registry.gpx_utils")
+    @patch("modules.activities.activity_file_import.registry.activity_file_import_gpx_utils")
     def test_raises_500_on_parse_error(self, mock_gpx):
         mock_gpx.parse_gpx_file.side_effect = ValueError("bad data")
 

@@ -16,6 +16,7 @@ file is only consumed in-process (profile export) and on cleanup, never served.
 import jasil.providers as platform_providers
 
 import core.logger as core_logger
+import modules.activities.activity_file_storage.constants as activity_file_storage_constants
 import modules.activities.activity_file_storage.files as activity_file_storage_files
 
 logger = core_logger.get_logger(__name__)
@@ -40,7 +41,7 @@ def store_activity_file(
     """
     key = activity_file_storage_files.activity_file_key(activity_id, extension)
     storage.save(
-        activity_file_storage_files.ACTIVITY_FILE_STORAGE_AREA,
+        activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA,
         activity_file_storage_files.processed_storage_key(key),
         data,
     )
@@ -93,7 +94,7 @@ def get_activity_file(
     for extension in activity_file_storage_files.STORED_EXTENSIONS:
         key = activity_file_storage_files.activity_file_key(activity_id, extension)
         data = storage.get(
-            activity_file_storage_files.ACTIVITY_FILE_STORAGE_AREA,
+            activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA,
             activity_file_storage_files.processed_storage_key(key),
         )
         if data is not None:

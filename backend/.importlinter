@@ -80,7 +80,7 @@ forbidden_modules =
 # The whole activities module is provider-agnostic, not just its core. Strava and
 # Garmin depend on activities — they parse a provider payload and hand it to the
 # ingestion seam — and activities used to depend on them right back:
-# ``activity_ingestion.refresh_entry`` imported both provider clients,
+# ``activity_ingestion.refresh_entry_service`` imported both provider clients,
 # ``sources`` (now ``contracts``) imported the Strava bulk-import helpers, and ``enrichment_service``
 # imported Garmin to resolve synced gear. That cycle meant neither side could be
 # built, tested or extracted without the other.
@@ -140,7 +140,7 @@ name = The ingestion pipeline must not import a parser directly — the registry
 type = forbidden
 allow_indirect_imports = True
 source_modules =
-    modules.activities.activity_ingestion.upload_entry
+    modules.activities.activity_ingestion.upload_entry_service
     modules.activities.activity_ingestion.bulk_entry_service
     modules.activities.activity_ingestion.service
     modules.activities.activity_ingestion.contracts

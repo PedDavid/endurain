@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import modules.activities.activity.child_access_service as activity_child_access
+import modules.activities.activity.child_access_service as activity_child_access_service
 
 logger = core_logger.get_logger(__name__)
 
@@ -93,7 +93,9 @@ class ChildCollection[PageT]:
         Returns:
             The page envelope, empty when the caller may not read this child.
         """
-        if not activity_child_access.may_read_child(activity_id, requester_user_id, db, hide_attr=self.hide_attr):
+        if not activity_child_access_service.may_read_child(
+            activity_id, requester_user_id, db, hide_attr=self.hide_attr
+        ):
             logger.debug(
                 "Refused an activity child read; answering with an empty page",
                 extra=core_logger.context(
@@ -125,7 +127,7 @@ class ChildCollection[PageT]:
             The page envelope, empty when the activity is not publicly shareable
             or this child is hidden.
         """
-        if not activity_child_access.may_read_public_child(activity_id, db, hide_attr=self.hide_attr):
+        if not activity_child_access_service.may_read_public_child(activity_id, db, hide_attr=self.hide_attr):
             logger.debug(
                 "Refused a public activity child read; answering with an empty page",
                 extra=core_logger.context(activity_id=activity_id, child=self.name),

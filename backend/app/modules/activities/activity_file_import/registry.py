@@ -14,7 +14,7 @@ the thin adapters below absorb every per-parser difference:
 * GPX returns a ``TypedDict`` and TCX a plain dict, each describing exactly one
   activity.
 * FIT parses in two stages and can describe **several** activities in one file,
-  so its adapter runs the split/build pipeline here rather than making the caller
+  so its activity_file_import_adapter runs the split/build pipeline here rather than making the caller
   do it. It also carries file-scoped exercise-title rows.
 
 Returning a uniform ``ParsedFile`` is what keeps "how many activities are in this
@@ -28,7 +28,7 @@ the sibling parser modules and the shared contracts.
 Note:
     Parsers currently read from a filesystem path. Migrating them to a pure
     ``bytes``/``BinaryIO`` contract (so file I/O lives entirely in the ingestion
-    adapter) is a follow-up: FIT's two-stage parse and TCX's path-only reader
+    activity_file_import_adapter) is a follow-up: FIT's two-stage parse and TCX's path-only reader
     make it a larger, separate change. The registry is the seam that migration
     would slot into without touching the ingestion core's dispatch again.
 """
@@ -36,10 +36,10 @@ Note:
 from typing import Protocol
 
 import modules.activities.activity.contracts as activity_contracts
-import modules.activities.activity_file_import.adapter as adapter
-import modules.activities.activity_file_import.fit_utils as fit_utils
-import modules.activities.activity_file_import.gpx_utils as gpx_utils
-import modules.activities.activity_file_import.tcx_utils as tcx_utils
+import modules.activities.activity_file_import.adapter as activity_file_import_adapter
+import modules.activities.activity_file_import.fit_utils as activity_file_import_fit_utils
+import modules.activities.activity_file_import.gpx_utils as activity_file_import_gpx_utils
+import modules.activities.activity_file_import.tcx_utils as activity_file_import_tcx_utils
 
 
 class FileParser(Protocol):
@@ -88,8 +88,10 @@ def _parse_gpx(
     Returns:
         The parsed file.
     """
-    parsed_info = dict(gpx_utils.parse_gpx_file(path, user_id, activity_name, default_timezone))
-    return activity_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
+    parsed_info = dict(activity_file_import_gpx_utils.parse_gpx_file(path, user_id, activity_name, default_timezone))
+    return activity_contracts.ParsedFile(
+        activities=[activity_file_import_adapter.parsed_info_to_parsed_activity(parsed_info)]
+    )
 
 
 def _parse_tcx(
@@ -109,8 +111,10 @@ def _parse_tcx(
     Returns:
         The parsed file.
     """
-    parsed_info = tcx_utils.parse_tcx_file(path, user_id, activity_name, default_timezone)
-    return activity_contracts.ParsedFile(activities=[adapter.parsed_info_to_parsed_activity(parsed_info)])
+    parsed_info = activity_file_import_tcx_utils.parse_tcx_file(path, user_id, activity_name, default_timezone)
+    return activity_contracts.ParsedFile(
+        activities=[activity_file_import_adapter.parsed_info_to_parsed_activity(parsed_info)]
+    )
 
 
 def _parse_fit(
@@ -136,11 +140,13 @@ def _parse_fit(
     Returns:
         The parsed file, one entry per activity.
     """
-    payload = fit_utils.parse_fit_file(path, activity_name)
-    sessions = fit_utils.split_records_by_activity(payload)
-    parsed_infos = fit_utils.create_activity_objects(sessions, user_id, default_timezone)
+    payload = activity_file_import_fit_utils.parse_fit_file(path, activity_name)
+    sessions = activity_file_import_fit_utils.split_records_by_activity(payload)
+    parsed_infos = activity_file_import_fit_utils.create_activity_objects(sessions, user_id, default_timezone)
     return activity_contracts.ParsedFile(
-        activities=[adapter.parsed_info_to_parsed_activity(parsed_info) for parsed_info in parsed_infos],
+        activities=[
+            activity_file_import_adapter.parsed_info_to_parsed_activity(parsed_info) for parsed_info in parsed_infos
+        ],
         components={"exercise_titles": payload.get("exercise_titles")},
     )
 

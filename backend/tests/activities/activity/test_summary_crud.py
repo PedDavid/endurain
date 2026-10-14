@@ -374,7 +374,7 @@ class TestGetLifetimeSummary:
 
 
 class TestApplyActivityTypeFilter:
-    @patch("modules.activities.activity.summary_crud.ACTIVITY_NAME_TO_ID", {"running": 1})
+    @patch("modules.activities.activity.constants.ACTIVITY_NAME_TO_ID", {"running": 1})
     def test_no_filter(self):
         import modules.activities.activity.summary_crud as crud
 
@@ -383,7 +383,7 @@ class TestApplyActivityTypeFilter:
         assert type_id is None
         stmt.where.assert_not_called()
 
-    @patch("modules.activities.activity.summary_crud.ACTIVITY_NAME_TO_ID", {"running": 1})
+    @patch("modules.activities.activity.constants.ACTIVITY_NAME_TO_ID", {"running": 1})
     def test_known_type(self):
         import modules.activities.activity.summary_crud as crud
 
@@ -393,7 +393,7 @@ class TestApplyActivityTypeFilter:
         assert type_id == 1
         stmt.where.assert_called_once()
 
-    @patch("modules.activities.activity.summary_crud.ACTIVITY_NAME_TO_ID", {"running": 1})
+    @patch("modules.activities.activity.constants.ACTIVITY_NAME_TO_ID", {"running": 1})
     def test_unknown_type(self):
         import modules.activities.activity.summary_crud as crud
 

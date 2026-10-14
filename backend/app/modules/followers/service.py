@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import core.logger as core_logger
+import modules.followers.constants as followers_constants
 import modules.followers.crud as followers_crud
 import modules.followers.event_publishers as followers_event_publishers
 import modules.followers.schema as followers_schema
-from modules.followers.constants import FollowStatus
 
 logger = core_logger.get_logger(__name__)
 
@@ -47,7 +47,7 @@ def _requester_may_view_network(target_user_id: int, requester_user_id: int, db:
         return True
 
     relationship = followers_crud.get_follower_for_user_id_and_target_user_id(requester_user_id, target_user_id, db)
-    return relationship is not None and relationship.status == FollowStatus.ACCEPTED
+    return relationship is not None and relationship.status == followers_constants.FollowStatus.ACCEPTED
 
 
 def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Session) -> None:
@@ -208,7 +208,9 @@ def reject_follow_request(target_user_id: int, requester_user_id: int, db: Sessi
     Raises:
         NotFoundError: When no pending request from that user exists.
     """
-    followers_crud.delete_follower(requester_user_id, target_user_id, db, status=FollowStatus.PENDING)
+    followers_crud.delete_follower(
+        requester_user_id, target_user_id, db, status=followers_constants.FollowStatus.PENDING
+    )
     db.commit()
     logger.info(
         "Follow request rejected",

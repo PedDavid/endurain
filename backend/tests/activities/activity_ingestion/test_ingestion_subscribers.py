@@ -33,7 +33,7 @@ def platform():
 
 class TestProcessUploadedFileForEvent:
     def test_runs_the_upload_job(self, platform):
-        with patch.object(ingestion_subscribers.ingestion_service, "run_upload_job") as run:
+        with patch.object(ingestion_subscribers.activity_ingestion_service, "run_upload_job") as run:
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}))
         run.assert_called_once_with("job-1", platform.storage)
 
@@ -46,9 +46,9 @@ class TestProcessUploadedFileForEvent:
         with (
             patch.object(ingestion_subscribers.core_config.settings, "JOBS_MAX_ATTEMPTS", 5),
             patch.object(
-                ingestion_subscribers.ingestion_service, "run_upload_job", side_effect=RuntimeError("db blip")
+                ingestion_subscribers.activity_ingestion_service, "run_upload_job", side_effect=RuntimeError("db blip")
             ),
-            patch.object(ingestion_subscribers.ingestion_service, "fail_ingestion_job") as fail,
+            patch.object(ingestion_subscribers.activity_ingestion_service, "fail_ingestion_job") as fail,
             pytest.raises(RuntimeError),
         ):
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}, retry_count=1))
@@ -61,9 +61,11 @@ class TestProcessUploadedFileForEvent:
         with (
             patch.object(ingestion_subscribers.core_config.settings, "JOBS_MAX_ATTEMPTS", 5),
             patch.object(
-                ingestion_subscribers.ingestion_service, "run_upload_job", side_effect=RuntimeError("still broken")
+                ingestion_subscribers.activity_ingestion_service,
+                "run_upload_job",
+                side_effect=RuntimeError("still broken"),
             ),
-            patch.object(ingestion_subscribers.ingestion_service, "fail_ingestion_job") as fail,
+            patch.object(ingestion_subscribers.activity_ingestion_service, "fail_ingestion_job") as fail,
             pytest.raises(RuntimeError),
         ):
             ingestion_subscribers.process_uploaded_file_for_event(_event({"job_id": "job-1"}, retry_count=5))

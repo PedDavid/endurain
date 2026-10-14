@@ -45,7 +45,7 @@ class TestGetActivitiesInTimeframe:
         db = MagicMock()
         service.get_activities_in_timeframe(1, "s", "e", 1, db)
         # Owner path: is_owner=True, no requester scoping.
-        mock_crud.get_user_activities_per_timeframe.assert_called_once_with(1, "s", "e", db, True)
+        mock_crud.get_user_activities_per_timeframe.assert_called_once_with(1, "s", "e", db, user_is_owner=True)
 
     @patch("modules.activities.activity.service.activity_crud")
     def test_requester_gets_visible(self, mock_crud):
@@ -58,7 +58,9 @@ class TestGetActivitiesInTimeframe:
         ):
             service.get_activities_in_timeframe(1, "s", "e", 2, db)
         # Non-owner path: the service resolves the followees, the query filters on them.
-        mock_crud.get_user_activities_per_timeframe.assert_called_once_with(1, "s", "e", db, False, followee_ids=[1])
+        mock_crud.get_user_activities_per_timeframe.assert_called_once_with(
+            1, "s", "e", db, user_is_owner=False, followee_ids=[1]
+        )
 
 
 class TestPeriodStats:
@@ -149,7 +151,7 @@ class TestPeriodBounds:
         import modules.activities.activity.service as service
 
         this_week, _ = service._week_bounds(1, MagicMock())
-        last_week, _ = service._week_bounds(1, MagicMock(), 1)
+        last_week, _ = service._week_bounds(1, MagicMock(), week_number=1)
 
         assert (this_week - last_week).days == 7
         assert last_week.weekday() == 0
@@ -183,7 +185,7 @@ class TestAnchoredPeriodBounds:
         import modules.activities.activity.service as service
 
         # Thu 2026-01-01; the ISO week runs Mon 2025-12-29 .. Sun 2026-01-04.
-        start, end = service._week_bounds(1, MagicMock(), 0, date(2026, 1, 1))
+        start, end = service._week_bounds(1, MagicMock(), week_number=0, anchor=date(2026, 1, 1))
 
         assert start.date() == date(2025, 12, 29)
         assert end.date() == date(2026, 1, 4)
@@ -193,8 +195,8 @@ class TestAnchoredPeriodBounds:
 
         # A caller at UTC+13 is already on Mon 2026-01-05 while the server's UTC
         # date is still Sun 2026-01-04; the anchor must win.
-        anchored, _ = service._week_bounds(1, MagicMock(), 0, date(2026, 1, 5))
-        server_side, _ = service._week_bounds(1, MagicMock(), 0, date(2026, 1, 4))
+        anchored, _ = service._week_bounds(1, MagicMock(), week_number=0, anchor=date(2026, 1, 5))
+        server_side, _ = service._week_bounds(1, MagicMock(), week_number=0, anchor=date(2026, 1, 4))
 
         assert anchored.date() == date(2026, 1, 5)
         assert server_side.date() == date(2025, 12, 29)
@@ -202,7 +204,7 @@ class TestAnchoredPeriodBounds:
     def test_month_bounds_use_the_supplied_anchor(self):
         import modules.activities.activity.service as service
 
-        start, end = service._month_bounds(1, MagicMock(), date(2026, 2, 17))
+        start, end = service._month_bounds(1, MagicMock(), anchor=date(2026, 2, 17))
 
         assert start.date() == date(2026, 2, 1)
         assert end.date() == date(2026, 2, 28)
@@ -224,7 +226,7 @@ class TestAnchoredPeriodBounds:
         """The client's own date is authoritative; no timezone lookup is needed."""
         import modules.activities.activity.service as service
 
-        service._week_bounds(1, MagicMock(), 0, date(2026, 1, 1))
+        service._week_bounds(1, MagicMock(), week_number=0, anchor=date(2026, 1, 1))
 
         stub_user_local_today.assert_not_called()
 
@@ -232,9 +234,9 @@ class TestAnchoredPeriodBounds:
         import modules.activities.activity.service as service
 
         with patch.object(service, "month_stats") as month_stats:
-            service.period_stats(1, "month", 1, "db", date(2026, 2, 17))
+            service.period_stats(1, "month", 1, "db", anchor=date(2026, 2, 17))
 
-        month_stats.assert_called_once_with(1, 1, "db", date(2026, 2, 17))
+        month_stats.assert_called_once_with(1, 1, "db", anchor=date(2026, 2, 17))
 
 
 class TestEditPublishesUpdated:

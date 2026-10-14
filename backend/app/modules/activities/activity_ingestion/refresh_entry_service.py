@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
-import modules.activities.activity_ingestion.provider_registry as provider_registry
+import modules.activities.activity_ingestion.provider_registry as activity_ingestion_provider_registry
 
 logger = core_logger.get_logger(__name__)
 
@@ -42,7 +42,7 @@ async def sync_linked_providers(user_id: int, db: Session) -> list[activity_sche
     window_end = datetime.now(UTC)
     window_start = window_end - _REFRESH_WINDOW
 
-    providers = provider_registry.registered()
+    providers = activity_ingestion_provider_registry.registered()
     if not providers:
         logger.debug(
             "Refresh requested with no providers registered",

@@ -7,7 +7,7 @@ import pytest
 from jasil.backends.storage_local import LocalStorage
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_ingestion.upload_entry as upload_entry
+import modules.activities.activity_ingestion.upload_entry_service as upload_entry_service
 
 
 def _platform() -> MagicMock:
@@ -26,10 +26,10 @@ class TestReceiveUpload:
     def test_streams_to_incoming_under_a_server_generated_key_and_fingerprints_it(self):
         save = MagicMock(return_value="/incoming/x.gpx")
         with (
-            patch.object(upload_entry.Path, "read_bytes", return_value=b"<gpx/>"),
-            patch.object(upload_entry.core_hashing, "sha256_hex", return_value="deadbeef"),
+            patch.object(upload_entry_service.Path, "read_bytes", return_value=b"<gpx/>"),
+            patch.object(upload_entry_service.core_hashing, "sha256_hex", return_value="deadbeef"),
         ):
-            received = upload_entry.receive_upload("../../etc/passwd.gpx", save, fingerprint=True)
+            received = upload_entry_service.receive_upload("../../etc/passwd.gpx", save, fingerprint=True)
 
         # The client filename reaches neither the filesystem nor the storage key.
         assert received.storage_key.endswith(".gpx")
@@ -37,7 +37,7 @@ class TestReceiveUpload:
         assert "/" not in received.storage_key
         # Streamed to the incoming dir, which must differ from the storage area
         # or the local backend would be copying a file onto itself.
-        assert save.call_args.kwargs["upload_dir"] == upload_entry.core_config.FILES_UPLOAD_INCOMING_DIR
+        assert save.call_args.kwargs["upload_dir"] == upload_entry_service.core_config.FILES_UPLOAD_INCOMING_DIR
         # Fingerprinted here, not after storing, so an idempotent replay can be
         # verified without paying for the storage write.
         assert received.fingerprint == "deadbeef"
@@ -45,56 +45,56 @@ class TestReceiveUpload:
     def test_skips_the_hash_when_no_idempotency_key_was_sent(self):
         """Nothing reads the fingerprint without a key, so it is not worth a pass over the file."""
         with (
-            patch.object(upload_entry.Path, "read_bytes", return_value=b"<gpx/>"),
-            patch.object(upload_entry.core_hashing, "sha256_hex") as hash_bytes,
+            patch.object(upload_entry_service.Path, "read_bytes", return_value=b"<gpx/>"),
+            patch.object(upload_entry_service.core_hashing, "sha256_hex") as hash_bytes,
         ):
-            received = upload_entry.receive_upload("ride.gpx", MagicMock(return_value="/incoming/x.gpx"))
+            received = upload_entry_service.receive_upload("ride.gpx", MagicMock(return_value="/incoming/x.gpx"))
 
         assert received.fingerprint is None
         hash_bytes.assert_not_called()
 
     def test_the_payload_is_kept_out_of_the_repr(self):
         """An activity file is up to 200 MiB and this object reaches error logs."""
-        received = upload_entry.ReceivedUpload(
+        received = upload_entry_service.ReceivedUpload(
             incoming_path="/incoming/x.gpx", storage_key="abc.gpx", data=b"secret-bytes", fingerprint=None
         )
         assert "secret-bytes" not in repr(received)
 
     def test_rejects_a_missing_filename(self):
         with pytest.raises(core_exceptions.InvalidInputError):
-            upload_entry.receive_upload(None, MagicMock())
+            upload_entry_service.receive_upload(None, MagicMock())
 
     def test_rejects_an_unsupported_extension_before_writing_anything(self):
         save = MagicMock()
         with pytest.raises(core_exceptions.UnsupportedFormatError):
-            upload_entry.receive_upload("notes.txt", save)
+            upload_entry_service.receive_upload("notes.txt", save)
 
         save.assert_not_called()
 
     def test_a_gz_upload_is_validated_as_gzip(self):
         save = MagicMock(return_value="/incoming/x.gz")
-        with patch.object(upload_entry.Path, "read_bytes", return_value=b"\x1f\x8b"):
-            upload_entry.receive_upload("ride.gpx.gz", save)
+        with patch.object(upload_entry_service.Path, "read_bytes", return_value=b"\x1f\x8b"):
+            upload_entry_service.receive_upload("ride.gpx.gz", save)
 
-        assert save.call_args.kwargs["kind"] == upload_entry.core_file_uploads.UploadKind.GZIP
+        assert save.call_args.kwargs["kind"] == upload_entry_service.core_file_uploads.UploadKind.GZIP
 
 
 class TestStoreReceivedUpload:
-    def _received(self) -> upload_entry.ReceivedUpload:
-        return upload_entry.ReceivedUpload(
+    def _received(self) -> upload_entry_service.ReceivedUpload:
+        return upload_entry_service.ReceivedUpload(
             incoming_path="/incoming/x.gpx", storage_key="abc.gpx", data=b"<gpx/>", fingerprint="deadbeef"
         )
 
     def test_hands_the_bytes_to_storage_and_drops_the_local_copy(self):
         platform = _platform()
         with (
-            patch.object(upload_entry.core_file_uploads, "remove_files") as remove,
+            patch.object(upload_entry_service.core_file_uploads, "remove_files") as remove,
         ):
-            key = upload_entry.store_received_upload(self._received(), platform.storage)
+            key = upload_entry_service.store_received_upload(self._received(), platform.storage)
 
         assert key == "abc.gpx"
         platform.storage.save.assert_called_once_with(
-            upload_entry.UPLOAD_STAGING_STORAGE_AREA,
+            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
             "upload_staging/abc.gpx",
             b"<gpx/>",
         )
@@ -104,16 +104,16 @@ class TestStoreReceivedUpload:
         platform = _platform()
         platform.storage.save.side_effect = RuntimeError("bucket down")
         with (
-            patch.object(upload_entry.core_file_uploads, "remove_files") as remove,
+            patch.object(upload_entry_service.core_file_uploads, "remove_files") as remove,
             pytest.raises(RuntimeError),
         ):
-            upload_entry.store_received_upload(self._received(), platform.storage)
+            upload_entry_service.store_received_upload(self._received(), platform.storage)
 
         remove.assert_called_once_with(["/incoming/x.gpx"])
 
     def test_discarding_removes_the_incoming_file(self):
-        with patch.object(upload_entry.core_file_uploads, "remove_files") as remove:
-            upload_entry.discard_received_upload(self._received())
+        with patch.object(upload_entry_service.core_file_uploads, "remove_files") as remove:
+            upload_entry_service.discard_received_upload(self._received())
 
         remove.assert_called_once_with(["/incoming/x.gpx"])
 
@@ -125,21 +125,25 @@ class TestProcessStagedUpload:
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
         with (
-            patch.object(upload_entry.pipeline, "store_activities_from_file", return_value=["activity"]) as store,
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                return_value=["activity"],
+            ) as store,
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
         ):
-            result = upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            result = upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         assert result == ["activity"]
         platform.storage.get.assert_called_once_with(
-            upload_entry.UPLOAD_STAGING_STORAGE_AREA,
+            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
             "upload_staging/abc.gpx",
         )
         assert store.call_args.args[0] == 7
         assert store.call_args.args[3] == "abc.gpx"
         # Consumed on success.
         platform.storage.delete.assert_called_once_with(
-            upload_entry.UPLOAD_STAGING_STORAGE_AREA,
+            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
             "upload_staging/abc.gpx",
         )
 
@@ -150,21 +154,25 @@ class TestProcessStagedUpload:
         with (
             pytest.raises(core_exceptions.InvalidInputError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
     def test_discards_the_blob_when_nothing_parsed(self):
         db = MagicMock()
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
         with (
-            patch.object(upload_entry.pipeline, "store_activities_from_file", return_value=None),
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                return_value=None,
+            ),
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
         ):
-            result = upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            result = upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         assert result is None
         platform.storage.delete.assert_called_once_with(
-            upload_entry.UPLOAD_STAGING_STORAGE_AREA,
+            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
             "upload_staging/abc.gpx",
         )
 
@@ -174,11 +182,15 @@ class TestProcessStagedUpload:
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
         with (
-            patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=OSError("disk gone")),
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                side_effect=OSError("disk gone"),
+            ),
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
             pytest.raises(core_exceptions.ProcessingError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         platform.storage.delete.assert_not_called()
 
@@ -190,11 +202,15 @@ class TestProcessStagedUpload:
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
         with (
-            patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=SQLAlchemyError("down")),
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                side_effect=SQLAlchemyError("down"),
+            ),
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
             pytest.raises(SQLAlchemyError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         platform.storage.delete.assert_not_called()
 
@@ -203,23 +219,29 @@ class TestProcessStagedUpload:
         platform = _platform()
         platform.storage.get.return_value = b"\x1f\x8b"
         with (
-            patch.object(upload_entry.core_file_uploads, "decompress_gzip", return_value=("/tmp/x.exe", ".exe")),
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
+            patch.object(
+                upload_entry_service.core_file_uploads, "decompress_gzip", return_value=("/tmp/x.exe", ".exe")
+            ),
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
             pytest.raises(core_exceptions.InvalidInputError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gz", platform.storage, db)
+            upload_entry_service.process_staged_upload(7, "abc.gz", platform.storage, db)
 
     def test_removes_the_working_directory_on_every_path(self):
         db = MagicMock()
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
         with (
-            patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=OSError("boom")),
-            patch.object(upload_entry.core_file_uploads, "remove_files"),
-            patch.object(upload_entry.shutil, "rmtree") as rmtree,
+            patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                side_effect=OSError("boom"),
+            ),
+            patch.object(upload_entry_service.core_file_uploads, "remove_files"),
+            patch.object(upload_entry_service.shutil, "rmtree") as rmtree,
             pytest.raises(core_exceptions.ProcessingError),
         ):
-            upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, db)
+            upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         rmtree.assert_called_once()
 
@@ -227,9 +249,9 @@ class TestProcessStagedUpload:
 class TestDiscardStagedUpload:
     def test_deletes_the_blob(self):
         platform = _platform()
-        upload_entry.discard_staged_upload("abc.gpx", platform.storage)
+        upload_entry_service.discard_staged_upload("abc.gpx", platform.storage)
         platform.storage.delete.assert_called_once_with(
-            upload_entry.UPLOAD_STAGING_STORAGE_AREA,
+            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
             "upload_staging/abc.gpx",
         )
 
@@ -237,7 +259,7 @@ class TestDiscardStagedUpload:
         """Cleanup must not turn a finished import into a failed one."""
         platform = _platform()
         platform.storage.delete.side_effect = RuntimeError("bucket down")
-        upload_entry.discard_staged_upload("abc.gpx", platform.storage)
+        upload_entry_service.discard_staged_upload("abc.gpx", platform.storage)
 
 
 class TestLocalStorageStaging:
@@ -245,7 +267,7 @@ class TestLocalStorageStaging:
         platform = MagicMock()
         platform.storage = local_storage
         parsed_data: list[bytes] = []
-        received = upload_entry.ReceivedUpload(
+        received = upload_entry_service.ReceivedUpload(
             incoming_path="/incoming/x.gpx",
             storage_key="abc.gpx",
             data=b"<gpx/>",
@@ -255,17 +277,24 @@ class TestLocalStorageStaging:
             parsed_data.append(Path(file_path).read_bytes())
             return []
 
-        with patch.object(upload_entry.core_file_uploads, "remove_files"):
-            upload_entry.store_received_upload(received, platform.storage)
-            assert local_storage.get(upload_entry.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") == b"<gpx/>"
+        with patch.object(upload_entry_service.core_file_uploads, "remove_files"):
+            upload_entry_service.store_received_upload(received, platform.storage)
+            assert (
+                local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx")
+                == b"<gpx/>"
+            )
 
-            with patch.object(upload_entry.pipeline, "store_activities_from_file", side_effect=store_materialized_file):
-                assert upload_entry.process_staged_upload(7, "abc.gpx", platform.storage, MagicMock()) == []
+            with patch.object(
+                upload_entry_service.activity_ingestion_pipeline_service,
+                "store_activities_from_file",
+                side_effect=store_materialized_file,
+            ):
+                assert upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, MagicMock()) == []
 
             assert parsed_data == [b"<gpx/>"]
-            assert local_storage.get(upload_entry.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None
+            assert local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None
 
-            upload_entry.store_received_upload(received, platform.storage)
-            upload_entry.discard_staged_upload("abc.gpx", platform.storage)
+            upload_entry_service.store_received_upload(received, platform.storage)
+            upload_entry_service.discard_staged_upload("abc.gpx", platform.storage)
 
-        assert local_storage.get(upload_entry.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None
+        assert local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None

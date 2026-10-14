@@ -26,7 +26,7 @@ class TestCollectionDeclaration:
 
 
 class TestDelegation:
-    @patch("modules.activities.activity.child_collection.activity_child_access")
+    @patch("modules.activities.activity.child_collection.activity_child_access_service")
     def test_the_authenticated_read_goes_through_the_shared_gate(self, mock_gate):
         mock_gate.may_read_child.return_value = False
         db = MagicMock()
@@ -36,7 +36,7 @@ class TestDelegation:
         assert (page.items, page.total) == ([], 0)
         mock_gate.may_read_child.assert_called_once_with(5, 1, db, hide_attr="hide_laps")
 
-    @patch("modules.activities.activity.child_collection.activity_child_access")
+    @patch("modules.activities.activity.child_collection.activity_child_access_service")
     def test_the_public_read_goes_through_the_public_gate(self, mock_gate):
         mock_gate.may_read_public_child.return_value = False
         db = MagicMock()

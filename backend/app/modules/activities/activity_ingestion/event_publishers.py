@@ -12,7 +12,7 @@ from collections.abc import Callable
 import jasil.publisher as platform_publisher
 from sqlalchemy.orm import Session
 
-import modules.activities.activity_ingestion.events as ingestion_events
+import modules.activities.activity_ingestion.events as activity_ingestion_events
 
 
 def publish_file_uploaded(job_id: str, user_id: int, db: Session, *, commit: Callable[[], None]) -> None:
@@ -30,9 +30,9 @@ def publish_file_uploaded(job_id: str, user_id: int, db: Session, *, commit: Cal
     Returns:
         None.
     """
-    payload = ingestion_events.UploadedFilePayload(job_id=job_id)
+    payload = activity_ingestion_events.UploadedFilePayload(job_id=job_id)
     platform_publisher.publish_committing(
-        ingestion_events.ACTIVITY_FILE_UPLOADED,
+        activity_ingestion_events.ACTIVITY_FILE_UPLOADED,
         payload.model_dump(),
         source="api:upload",
         db=db,
@@ -54,9 +54,9 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
     Returns:
         None.
     """
-    payload = ingestion_events.RefreshRequestedPayload(job_id=job_id)
+    payload = activity_ingestion_events.RefreshRequestedPayload(job_id=job_id)
     platform_publisher.publish_committing(
-        ingestion_events.ACTIVITY_REFRESH_REQUESTED,
+        activity_ingestion_events.ACTIVITY_REFRESH_REQUESTED,
         payload.model_dump(),
         source="api:refresh",
         db=db,
@@ -95,9 +95,9 @@ def publish_bulk_import_files(
         Exception: Propagated from the outbox staging.
     """
     platform_publisher.publish_many_committing(
-        ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
+        activity_ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
         [
-            ingestion_events.BulkImportFilePayload(
+            activity_ingestion_events.BulkImportFilePayload(
                 job_id=job_id,
                 storage_key=key,
                 filename=filename,
@@ -109,5 +109,5 @@ def publish_bulk_import_files(
         source="api:bulk_import",
         db=db,
         commit=commit,
-        schema_version=ingestion_events.BulkImportFilePayload.SCHEMA_VERSION,
+        schema_version=activity_ingestion_events.BulkImportFilePayload.SCHEMA_VERSION,
     )

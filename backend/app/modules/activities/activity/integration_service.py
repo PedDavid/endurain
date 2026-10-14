@@ -30,7 +30,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 import core.pagination as core_pagination
-import modules.activities.activity.child_access_service as activity_child_access
+import modules.activities.activity.child_access_service as activity_child_access_service
 import modules.activities.activity.child_collection as activity_child_collection
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.crud as activity_crud
@@ -230,7 +230,7 @@ def list_user_activities_in_timeframe_by_types(
         start,
         end,
         db,
-        True,
+        user_is_owner=True,
         exclude_hidden=exclude_hidden,
     )
     return activities or []
@@ -295,7 +295,7 @@ def resolve_readable_parent(
     Returns:
         The parent activity when an authenticated caller may read it.
     """
-    return activity_child_access.resolve_readable_parent(activity_id, requester_user_id, db)
+    return activity_child_access_service.resolve_readable_parent(activity_id, requester_user_id, db)
 
 
 def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Activity | None:
@@ -308,7 +308,7 @@ def resolve_public_parent(activity_id: int, db: Session) -> activity_schema.Acti
     Returns:
         The parent activity when it is publicly shareable.
     """
-    return activity_child_access.resolve_public_parent(activity_id, db)
+    return activity_child_access_service.resolve_public_parent(activity_id, db)
 
 
 def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
@@ -422,6 +422,7 @@ def clear_all_thumbnail_keys(db: Session) -> None:
 
 def list_activities_with_thumbnail(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
@@ -440,6 +441,7 @@ def list_activities_with_thumbnail(
 
 def list_activities_without_thumbnail(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
@@ -458,6 +460,7 @@ def list_activities_without_thumbnail(
 
 def list_activities_missing_location(
     db: Session,
+    *,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
     """Return bounded activity references whose location is unresolved.
@@ -469,7 +472,7 @@ def list_activities_missing_location(
     Returns:
         Bounded activity references whose location is unresolved.
     """
-    return activity_crud.get_activities_missing_location(db, limit)
+    return activity_crud.get_activities_missing_location(db, limit=limit)
 
 
 def set_activity_location(

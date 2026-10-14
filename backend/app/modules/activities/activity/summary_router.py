@@ -1,7 +1,7 @@
 """FastAPI routes for activity summaries (authenticated).
 
 Thin HTTP adapter: it validates query parameters and delegates every decision to
-:mod:`summary_service`. Mounted under ``/activities/summaries`` as a sub-resource
+:mod:`activity_summary_service`. Mounted under ``/activities/summaries`` as a sub-resource
 of activities rather than the former top-level endpoint, and the
 period is a query parameter, not a path segment, because ``week``/``month``/
 ``year``/``lifetime`` are four views of one resource, not four resources.
@@ -15,8 +15,8 @@ from fastapi import APIRouter, Depends, Query, Security
 from sqlalchemy.orm import Session
 
 import core.database as core_database
-import modules.activities.activity.summary_schema as summary_schema
-import modules.activities.activity.summary_service as summary_service
+import modules.activities.activity.summary_schema as activity_summary_schema
+import modules.activities.activity.summary_service as activity_summary_service
 import modules.auth.dependencies as auth_dependencies
 
 router = APIRouter()
@@ -24,7 +24,7 @@ router = APIRouter()
 
 @router.get(
     "",
-    response_model=summary_schema.SummaryResponse,
+    response_model=activity_summary_schema.SummaryResponse,
 )
 def read_activity_summary(
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:read"])],
@@ -49,9 +49,9 @@ def read_activity_summary(
         str | None,
         Query(alias="type", description="Filter the summary by activity type name."),
     ] = None,
-) -> summary_schema.SummaryResponse:
+) -> activity_summary_schema.SummaryResponse:
     """Return the authenticated user's activity summary for one period."""
-    return summary_service.build_summary(
+    return activity_summary_service.build_summary(
         token_user_id,
         period,
         db,

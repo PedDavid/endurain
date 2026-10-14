@@ -5,7 +5,7 @@ from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
 import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
-import modules.activities.activity_thumbnail.subscribers as thumbnail_subscribers
+import modules.activities.activity_thumbnail.subscribers as activity_thumbnail_subscribers
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
@@ -17,7 +17,7 @@ def register_bus_subscribers(events: EventBusProvider) -> None:
     Returns:
         None.
     """
-    thumbnail_subscribers.register_thumbnail_subscribers(events)
+    activity_thumbnail_subscribers.register_thumbnail_subscribers(events)
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:
@@ -29,20 +29,20 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
     Returns:
         None.
     """
-    thumbnail_subscribers.register_thumbnail_durable_handlers(registry)
+    activity_thumbnail_subscribers.register_thumbnail_durable_handlers(registry)
 
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        thumbnail_subscribers.THUMBNAIL_GENERATE_SUBSCRIBER_ID,
+        activity_thumbnail_subscribers.THUMBNAIL_GENERATE_SUBSCRIBER_ID,
         activity_thumbnail_scheduled_jobs.generate_missing_thumbnails,
     ),
     DurableSubscriberNet(
-        thumbnail_subscribers.THUMBNAIL_CLEANUP_SUBSCRIBER_ID,
+        activity_thumbnail_subscribers.THUMBNAIL_CLEANUP_SUBSCRIBER_ID,
         activity_thumbnail_scheduled_jobs.sweep_orphaned_thumbnails,
     ),
     DurableSubscriberNet(
-        thumbnail_subscribers.THUMBNAIL_SETTINGS_CHANGED_SUBSCRIBER_ID,
+        activity_thumbnail_subscribers.THUMBNAIL_SETTINGS_CHANGED_SUBSCRIBER_ID,
         None,
         exempt_reason=(
             "This is an explicit admin-triggered re-render command. Durable mode "

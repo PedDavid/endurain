@@ -16,7 +16,7 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.contracts as activity_contracts
-import modules.activities.activity_file_import.fit_frames as fit_frames
+import modules.activities.activity_file_import.fit_frames as activity_file_import_fit_frames
 import modules.activities.activity_file_import.utils as activity_file_import_utils
 import modules.activities.computation as activities_computation
 
@@ -87,7 +87,7 @@ def create_activity_objects(
                     resolved_distance = avg_speed * timer_time
 
             # Calculate elevation gain/loss, pace, average speed, and average power
-            total_timer_time, pace = fit_frames.calculate_pace(
+            total_timer_time, pace = activity_file_import_fit_frames.calculate_pace(
                 resolved_distance,
                 session_record["session"]["total_timer_time"],
                 session_record["session"]["activity_type"],
@@ -103,7 +103,7 @@ def create_activity_objects(
                         timezone,
                     )
                 elif session_record["time_offset"]:
-                    session_timezone = fit_frames._timezone_from_offset(
+                    session_timezone = activity_file_import_fit_frames._timezone_from_offset(
                         session_record["time_offset"],
                         session_record["session"]["first_waypoint_time"],
                         default_timezone,
@@ -587,7 +587,7 @@ def _handle_session_frame(frame, state: FitParseState) -> None:
         workout_feeling,
         workout_rpe,
         total_cycles,
-    ) = fit_frames.parse_frame_session(frame)
+    ) = activity_file_import_fit_frames.parse_frame_session(frame)
 
     city, town, country = None, None, None
 
@@ -638,7 +638,7 @@ def _handle_split_frame(frame, state: FitParseState) -> None:
     Returns:
         None.
     """
-    split_data = fit_frames.parse_frame_split(frame)
+    split_data = activity_file_import_fit_frames.parse_frame_split(frame)
     state.splits.append(dict(zip(_SPLIT_KEYS, split_data, strict=False)))
 
 
@@ -652,7 +652,7 @@ def _handle_split_summary_frame(frame, state: FitParseState) -> None:
     Returns:
         None.
     """
-    split_type, total_timer_time = fit_frames.parse_frame_split_summary(frame)
+    split_type, total_timer_time = activity_file_import_fit_frames.parse_frame_split_summary(frame)
     state.split_summary.append(
         {
             "split_type": split_type,
@@ -680,7 +680,7 @@ def _handle_record_frame(frame, state: FitParseState) -> None:
         cadence,
         power,
         temperature,
-    ) = fit_frames.parse_frame_record(frame)
+    ) = activity_file_import_fit_frames.parse_frame_record(frame)
 
     if elevation is not None:
         state.is_elevation_set = True
@@ -744,7 +744,7 @@ def _handle_monitoring_frame(frame, state: FitParseState, last_timestamp) -> Non
     Returns:
         None.
     """
-    steps, heart_rate = fit_frames.parse_frame_monitoring(frame, last_timestamp)
+    steps, heart_rate = activity_file_import_fit_frames.parse_frame_monitoring(frame, last_timestamp)
     state.intraday_steps.extend(steps)
     state.intraday_heart_rate.extend(heart_rate)
 
@@ -764,31 +764,33 @@ def _dispatch_data_message(frame, state: FitParseState, last_timestamp) -> None:
     if name == "session":
         _handle_session_frame(frame, state)
     elif name == "workout":
-        state.activity_name = fit_frames.parse_frame_workout(frame)
+        state.activity_name = activity_file_import_fit_frames.parse_frame_workout(frame)
     elif name == "lap":
-        state.laps.append(fit_frames.parse_frame_lap(frame))
+        state.laps.append(activity_file_import_fit_frames.parse_frame_lap(frame))
     elif name in {"split", "unknown_312"}:
         _handle_split_frame(frame, state)
     elif name in {"split_summary", "unknown_313"}:
         _handle_split_summary_frame(frame, state)
     elif name == "set":
-        state.sets.append(fit_frames.parse_frame_set(frame))
+        state.sets.append(activity_file_import_fit_frames.parse_frame_set(frame))
     elif name == "workout_step":
-        state.workout_steps.append(fit_frames.parse_frame_workout_step(frame))
+        state.workout_steps.append(activity_file_import_fit_frames.parse_frame_workout_step(frame))
     elif name == "exercise_title":
-        state.exercises_titles.append(fit_frames.parse_frame_exercise_title(frame))
+        state.exercises_titles.append(activity_file_import_fit_frames.parse_frame_exercise_title(frame))
     elif name == "record":
         _handle_record_frame(frame, state)
     elif name == "device_settings":
-        state.time_offset = fit_frames.interpret_time_offset(fit_frames.parse_frame_device_settings(frame))
+        state.time_offset = activity_file_import_fit_frames.interpret_time_offset(
+            activity_file_import_fit_frames.parse_frame_device_settings(frame)
+        )
     elif name == "length":
-        state.lengths.append(fit_frames.parse_frame_length(frame))
+        state.lengths.append(activity_file_import_fit_frames.parse_frame_length(frame))
     elif name == "file_id":
-        state.file_id = fit_frames.parse_frame_file_id(frame)
+        state.file_id = activity_file_import_fit_frames.parse_frame_file_id(frame)
     elif name == "monitoring":
         _handle_monitoring_frame(frame, state, last_timestamp)
     elif name == "monitoring_hr_data":
-        state.resting_heart_rate = fit_frames.parse_frame_monitoring_hr_data(frame)
+        state.resting_heart_rate = activity_file_import_fit_frames.parse_frame_monitoring_hr_data(frame)
 
 
 def parse_fit_file(file: str, activity_name_input: str | None = None) -> dict:

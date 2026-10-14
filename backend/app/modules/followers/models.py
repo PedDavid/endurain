@@ -3,8 +3,8 @@
 from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+import modules.followers.constants as followers_constants
 from core.database import Base, TimestampMixin
-from modules.followers.constants import FollowStatus
 
 
 class Follower(Base, TimestampMixin):
@@ -40,7 +40,7 @@ class Follower(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(length=20),
         nullable=False,
-        default=FollowStatus.PENDING.value,
-        server_default=FollowStatus.PENDING.value,
+        default=followers_constants.FollowStatus.PENDING.value,
+        server_default=followers_constants.FollowStatus.PENDING.value,
         comment="Follow request status: pending or accepted",
     )

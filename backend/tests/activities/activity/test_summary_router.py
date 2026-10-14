@@ -58,7 +58,7 @@ def _build_app(mock_db):
 
 
 class TestReadWeeklySummary:
-    @patch(f"{_SERVICE}.summary_crud.get_weekly_summary")
+    @patch(f"{_SERVICE}.activity_summary_crud.get_weekly_summary")
     def test_weekly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         from modules.activities.activity.summary_schema import WeeklySummaryResponse
@@ -78,7 +78,7 @@ class TestReadWeeklySummary:
     def test_week_is_the_default_period(self, mock_db):
         from modules.activities.activity.summary_schema import WeeklySummaryResponse
 
-        with patch(f"{_SERVICE}.summary_crud.get_weekly_summary") as mock_get:
+        with patch(f"{_SERVICE}.activity_summary_crud.get_weekly_summary") as mock_get:
             mock_get.return_value = WeeklySummaryResponse(breakdown=[], type_breakdown=None)
             response = TestClient(_build_app(mock_db)).get(
                 "/activities/summaries",
@@ -104,7 +104,7 @@ class TestReadWeeklySummary:
 
 
 class TestReadMonthlySummary:
-    @patch(f"{_SERVICE}.summary_crud.get_monthly_summary")
+    @patch(f"{_SERVICE}.activity_summary_crud.get_monthly_summary")
     def test_monthly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         from modules.activities.activity.summary_schema import MonthlySummaryResponse
@@ -122,7 +122,7 @@ class TestReadMonthlySummary:
 
 
 class TestReadYearlySummary:
-    @patch(f"{_SERVICE}.summary_crud.get_yearly_summary")
+    @patch(f"{_SERVICE}.activity_summary_crud.get_yearly_summary")
     def test_yearly_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         from modules.activities.activity.summary_schema import YearlySummaryResponse
@@ -136,7 +136,7 @@ class TestReadYearlySummary:
         assert response.status_code == 200
         assert mock_get.call_args.kwargs["year"] == 2024
 
-    @patch(f"{_SERVICE}.summary_crud.get_yearly_summary")
+    @patch(f"{_SERVICE}.activity_summary_crud.get_yearly_summary")
     def test_year_defaults_to_the_anchor_year(self, mock_get, mock_db):
         from modules.activities.activity.summary_schema import YearlySummaryResponse
 
@@ -151,7 +151,7 @@ class TestReadYearlySummary:
 
 
 class TestReadLifetimeSummary:
-    @patch(f"{_SERVICE}.summary_crud.get_lifetime_summary")
+    @patch(f"{_SERVICE}.activity_summary_crud.get_lifetime_summary")
     def test_lifetime_summary_success(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
         from modules.activities.activity.summary_schema import LifetimeSummaryResponse

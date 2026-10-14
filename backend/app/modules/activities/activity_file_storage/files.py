@@ -9,10 +9,10 @@ extensions.
 
 import jasil.providers as platform_providers
 
-# Domain-owned storage namespace for retained activity source files. The
-# ``processed`` hierarchy belongs in the key because JASIL storage areas are
+import modules.activities.activity_file_storage.constants as activity_file_storage_constants
+
+# The ``processed`` hierarchy belongs in the key because JASIL storage areas are
 # single namespace components.
-ACTIVITY_FILE_STORAGE_AREA = "activity_files"
 _PROCESSED_KEY_PREFIX = "processed"
 
 # The activity source-file extensions we retain and can address by activity id.
@@ -67,7 +67,7 @@ def delete_activity_file(
     """
     for extension in STORED_EXTENSIONS:
         key = activity_file_key(activity_id, extension)
-        storage.delete(ACTIVITY_FILE_STORAGE_AREA, processed_storage_key(key))
+        storage.delete(activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA, processed_storage_key(key))
 
 
 def activity_id_of_processed_key(key: str) -> int | None:

@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import modules.activities.activity_ingestion.provider_registry as provider_registry
-import modules.activities.activity_ingestion.refresh_entry as refresh_entry
+import modules.activities.activity_ingestion.refresh_entry_service as refresh_entry_service
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +42,7 @@ class TestSyncLinkedProviders:
         _provider("a", ["s1"])
         _provider("b", ["g1"])
 
-        assert await refresh_entry.sync_linked_providers(7, MagicMock()) == ["s1", "g1"]
+        assert await refresh_entry_service.sync_linked_providers(7, MagicMock()) == ["s1", "g1"]
 
     @pytest.mark.asyncio
     async def test_an_unlinked_provider_returns_nothing_rather_than_failing(self):
@@ -50,18 +50,18 @@ class TestSyncLinkedProviders:
         _provider("a", None)
         _provider("b", ["g1"])
 
-        assert await refresh_entry.sync_linked_providers(7, MagicMock()) == ["g1"]
+        assert await refresh_entry_service.sync_linked_providers(7, MagicMock()) == ["g1"]
 
     @pytest.mark.asyncio
     async def test_a_failing_provider_does_not_take_the_others_down(self):
         _provider("a", raises=RuntimeError("provider down"))
         _provider("b", ["g1"])
 
-        assert await refresh_entry.sync_linked_providers(7, MagicMock()) == ["g1"]
+        assert await refresh_entry_service.sync_linked_providers(7, MagicMock()) == ["g1"]
 
     @pytest.mark.asyncio
     async def test_no_registered_providers_is_not_an_error(self):
-        assert await refresh_entry.sync_linked_providers(7, MagicMock()) == []
+        assert await refresh_entry_service.sync_linked_providers(7, MagicMock()) == []
 
     @pytest.mark.asyncio
     async def test_asks_every_provider_for_the_same_window(self):
@@ -69,12 +69,12 @@ class TestSyncLinkedProviders:
         second = _provider("b")
         db = MagicMock()
 
-        await refresh_entry.sync_linked_providers(7, db)
+        await refresh_entry_service.sync_linked_providers(7, db)
 
         assert first[0] == second[0]
         user_id, window_start, window_end, passed_db = first[0]
         assert (user_id, passed_db) == (7, db)
-        assert window_end - window_start == refresh_entry._REFRESH_WINDOW
+        assert window_end - window_start == refresh_entry_service._REFRESH_WINDOW
 
 
 class TestRegistry:

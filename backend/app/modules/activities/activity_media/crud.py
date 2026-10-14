@@ -156,6 +156,7 @@ def get_activity_media_by_content_hash(
 @core_decorators.handle_db_errors
 def get_media_with_legacy_path(
     db: Session,
+    *,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:

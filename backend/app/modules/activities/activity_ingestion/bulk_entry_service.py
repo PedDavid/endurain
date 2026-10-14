@@ -24,8 +24,8 @@ import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
-import modules.activities.activity_ingestion.contracts as ingestion_contracts
-import modules.activities.activity_ingestion.pipeline_service as pipeline
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
+import modules.activities.activity_ingestion.pipeline_service as activity_ingestion_pipeline_service
 
 logger = core_logger.get_logger(__name__)
 
@@ -55,16 +55,18 @@ def store_bulk_import_file(
     Returns:
         List of created activity schema objects.
     """
-    return pipeline.validate_prepare_and_store_file(
+    return activity_ingestion_pipeline_service.validate_prepare_and_store_file(
         user_id,
         file_path,
         db,
-        source=ingestion_contracts.BulkImportSource(import_initiated_time=import_initiated_time, user_id=user_id),
+        source=activity_ingestion_contracts.BulkImportSource(
+            import_initiated_time=import_initiated_time, user_id=user_id
+        ),
         storage=storage,
     )
 
 
-def _move_failed_file_to_error_directory(source: ingestion_contracts.BulkImportSource, file_path: str) -> None:
+def _move_failed_file_to_error_directory(source: activity_ingestion_contracts.BulkImportSource, file_path: str) -> None:
     """Move a file whose import failed into the source's error directory.
 
     Args:
@@ -96,13 +98,13 @@ def store_activity_file(
     storage: platform_providers.StorageProvider,
     db: Session,
     *,
-    source: ingestion_contracts.IngestionSource,
+    source: activity_ingestion_contracts.IngestionSource,
 ) -> list[activity_schema.Activity] | None:
     """Validate an on-disk activity file and persist it, returning ``None`` on failure.
 
     Thin entry point for background ingestion (Garmin sync, Strava/generic bulk
     import). Validates and (if needed) decompresses the file, then delegates to
-    the shared pipeline. Unlike the upload entry it never raises to its caller: on
+    the shared activity_ingestion_pipeline_service. Unlike the upload entry it never raises to its caller: on
     failure it (for bulk imports) moves the offending file to the import-error
     directory and returns ``None`` so the batch can continue.
 
@@ -123,7 +125,7 @@ def store_activity_file(
         parsed or persisted.
     """
     try:
-        return pipeline.validate_prepare_and_store_file(
+        return activity_ingestion_pipeline_service.validate_prepare_and_store_file(
             token_user_id,
             file_path,
             db,
@@ -145,7 +147,7 @@ def store_activity_file(
         # This entry swallows the failure so the batch continues on the same
         # session, so it is the one that has to leave that session usable.
         db.rollback()
-        if isinstance(source, ingestion_contracts.BulkImportSource):
+        if isinstance(source, activity_ingestion_contracts.BulkImportSource):
             logger.error(
                 "Bulk file import: error while parsing file",
                 exc_info=err,

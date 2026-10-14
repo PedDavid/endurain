@@ -5,8 +5,8 @@ Split out of ``utils.py``: pure computation over already-serialized
 """
 
 import core.logger as core_logger
+import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.schema as activity_schema
-from modules.activities.activity.constants import ACTIVITY_TYPES_BY_SPORT
 
 logger = core_logger.get_logger(__name__)
 
@@ -14,7 +14,7 @@ logger = core_logger.get_logger(__name__)
 # than a scan of every sport's id list.
 _SPORT_BY_ACTIVITY_TYPE: dict[int, str] = {
     activity_type: sport
-    for sport, activity_types in ACTIVITY_TYPES_BY_SPORT.items()
+    for sport, activity_types in activity_constants.ACTIVITY_TYPES_BY_SPORT.items()
     for activity_type in activity_types
 }
 
