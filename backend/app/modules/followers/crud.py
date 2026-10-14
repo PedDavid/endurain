@@ -26,9 +26,6 @@ def _invalidate_followee_cache(db: Session) -> None:
 
     Args:
         db: Database session whose cache is cleared.
-
-    Raises:
-        None.
     """
     db.info.pop(_FOLLOWEE_CACHE_KEY, None)
 

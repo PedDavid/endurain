@@ -7,6 +7,7 @@ parsed activity needs (owner privacy defaults, gear, provider ids) is re-attache
 afterwards by ``activity_ingestion.enrichment_service``, and the
 ``activity-file-import-purity`` import-linter contract keeps it that way.
 
-Importing this package does not pull in a parser: reach for the submodule you
-need (``.registry``, ``.gpx_utils``, ``.fit_utils``, ``.tcx_utils``).
+Callers outside this package use :mod:`integration_service` (``get_parser``,
+``supported_extensions``); the parser modules and ``registry`` are private to it.
+Importing this package does not pull in a parser.
 """

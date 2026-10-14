@@ -9,26 +9,26 @@ from jasil.providers import EventBusProvider
 
 import core.scheduler as core_scheduler
 import modules.activities.activity_exercise_titles.integration_service as activity_exercise_titles_integration
-import modules.activities.activity_file_storage.scheduled_jobs as file_storage_jobs
-import modules.activities.activity_file_storage.subscriber_registry as file_storage_subscribers
-import modules.activities.activity_geocoding.scheduled_jobs as geocoding_jobs
-import modules.activities.activity_geocoding.subscriber_registry as geocoding_subscribers
-import modules.activities.activity_ingestion.scheduled_jobs as ingestion_jobs
-import modules.activities.activity_ingestion.subscriber_registry as ingestion_subscribers
+import modules.activities.activity_file_storage.scheduled_jobs as activity_file_storage_scheduled_jobs
+import modules.activities.activity_file_storage.subscriber_registry as activity_file_storage_subscriber_registry
+import modules.activities.activity_geocoding.scheduled_jobs as activity_geocoding_scheduled_jobs
+import modules.activities.activity_geocoding.subscriber_registry as activity_geocoding_subscriber_registry
+import modules.activities.activity_ingestion.scheduled_jobs as activity_ingestion_scheduled_jobs
+import modules.activities.activity_ingestion.subscriber_registry as activity_ingestion_subscriber_registry
 import modules.activities.activity_laps.integration_service as activity_laps_integration
 import modules.activities.activity_media.integration_service as activity_media_integration
-import modules.activities.activity_media.scheduled_jobs as media_jobs
-import modules.activities.activity_media.subscriber_registry as media_subscribers
+import modules.activities.activity_media.scheduled_jobs as activity_media_scheduled_jobs
+import modules.activities.activity_media.subscriber_registry as activity_media_subscriber_registry
 import modules.activities.activity_sets.integration_service as activity_sets_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
-import modules.activities.activity_streams.scheduled_jobs as stream_jobs
-import modules.activities.activity_streams.subscriber_registry as stream_subscribers
+import modules.activities.activity_streams.scheduled_jobs as activity_streams_scheduled_jobs
+import modules.activities.activity_streams.subscriber_registry as activity_streams_subscriber_registry
 import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
-import modules.activities.activity_thumbnail.scheduled_jobs as thumbnail_jobs
-import modules.activities.activity_thumbnail.subscriber_registry as thumbnail_subscribers
+import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
+import modules.activities.activity_thumbnail.subscriber_registry as activity_thumbnail_subscriber_registry
 import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
 import modules.activities.contributor_registry as activities_contributor_registry
-import modules.notifications.subscriber_registry as notification_subscribers
+import modules.notifications.subscriber_registry as notifications_subscriber_registry
 
 RegisterBus = Callable[[EventBusProvider], None]
 RegisterDurable = Callable[[JobHandlerRegistry], None]
@@ -59,71 +59,71 @@ class RuntimeModule:
 MODULES: tuple[RuntimeModule, ...] = (
     RuntimeModule(
         name="activity_thumbnail",
-        register_bus=thumbnail_subscribers.register_bus_subscribers,
-        register_durable=thumbnail_subscribers.register_durable_handlers,
-        nets=thumbnail_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=thumbnail_jobs.recurring_jobs,
+        register_bus=activity_thumbnail_subscriber_registry.register_bus_subscribers,
+        register_durable=activity_thumbnail_subscriber_registry.register_durable_handlers,
+        nets=activity_thumbnail_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_thumbnail_scheduled_jobs.recurring_jobs,
         startup_tasks=(
             StartupTask(
                 "generate_missing_thumbnails",
                 "Scheduling missing activity map thumbnail generation",
-                thumbnail_jobs.schedule_missing_thumbnail_generation,
+                activity_thumbnail_scheduled_jobs.schedule_missing_thumbnail_generation,
             ),
         ),
     ),
     RuntimeModule(
         name="activity_streams",
-        register_bus=stream_subscribers.register_bus_subscribers,
-        register_durable=stream_subscribers.register_durable_handlers,
-        nets=stream_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=stream_jobs.recurring_jobs,
+        register_bus=activity_streams_subscriber_registry.register_bus_subscribers,
+        register_durable=activity_streams_subscriber_registry.register_durable_handlers,
+        nets=activity_streams_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_streams_scheduled_jobs.recurring_jobs,
         startup_tasks=(
             StartupTask(
                 "backfill_missing_hr_zones",
                 "Scheduling missing HR-zone backfill",
-                stream_jobs.schedule_missing_hr_zone_backfill,
+                activity_streams_scheduled_jobs.schedule_missing_hr_zone_backfill,
             ),
         ),
     ),
     RuntimeModule(
         name="activity_geocoding",
-        register_bus=geocoding_subscribers.register_bus_subscribers,
-        register_durable=geocoding_subscribers.register_durable_handlers,
-        nets=geocoding_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=geocoding_jobs.recurring_jobs,
+        register_bus=activity_geocoding_subscriber_registry.register_bus_subscribers,
+        register_durable=activity_geocoding_subscriber_registry.register_durable_handlers,
+        nets=activity_geocoding_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_geocoding_scheduled_jobs.recurring_jobs,
         startup_tasks=(
             StartupTask(
                 "backfill_missing_locations",
                 "Scheduling missing activity location backfill",
-                geocoding_jobs.schedule_missing_location_backfill,
+                activity_geocoding_scheduled_jobs.schedule_missing_location_backfill,
             ),
         ),
     ),
     RuntimeModule(
         name="activity_file_storage",
-        register_bus=file_storage_subscribers.register_bus_subscribers,
-        register_durable=file_storage_subscribers.register_durable_handlers,
-        nets=file_storage_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=file_storage_jobs.recurring_jobs,
+        register_bus=activity_file_storage_subscriber_registry.register_bus_subscribers,
+        register_durable=activity_file_storage_subscriber_registry.register_durable_handlers,
+        nets=activity_file_storage_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_file_storage_scheduled_jobs.recurring_jobs,
     ),
     RuntimeModule(
         name="activity_media",
-        register_bus=media_subscribers.register_bus_subscribers,
-        register_durable=media_subscribers.register_durable_handlers,
-        nets=media_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=media_jobs.recurring_jobs,
+        register_bus=activity_media_subscriber_registry.register_bus_subscribers,
+        register_durable=activity_media_subscriber_registry.register_durable_handlers,
+        nets=activity_media_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_media_scheduled_jobs.recurring_jobs,
     ),
     RuntimeModule(
         name="activity_ingestion",
-        register_durable=ingestion_subscribers.register_durable_handlers,
-        nets=ingestion_subscribers.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=ingestion_jobs.recurring_jobs,
+        register_durable=activity_ingestion_subscriber_registry.register_durable_handlers,
+        nets=activity_ingestion_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
+        recurring_jobs=activity_ingestion_scheduled_jobs.recurring_jobs,
     ),
     RuntimeModule(
         name="notifications",
-        register_bus=notification_subscribers.register_all_notification_bus_subscribers,
-        register_durable=notification_subscribers.register_all_notification_durable_handlers,
-        nets=notification_subscribers.NOTIFICATION_DURABLE_SUBSCRIBER_NETS,
+        register_bus=notifications_subscriber_registry.register_all_notification_bus_subscribers,
+        register_durable=notifications_subscriber_registry.register_all_notification_durable_handlers,
+        nets=notifications_subscriber_registry.NOTIFICATION_DURABLE_SUBSCRIBER_NETS,
     ),
 )
 

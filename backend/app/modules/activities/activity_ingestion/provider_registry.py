@@ -42,9 +42,6 @@ def register(provider: ActivityProvider) -> None:
         provider: The provider to register. Re-registering the same name
             replaces the previous entry, so a repeated call (a test, a second
             lifespan) is idempotent rather than duplicating the fetch.
-
-    Raises:
-        None.
     """
     _providers[provider.name] = provider
 
@@ -52,25 +49,12 @@ def register(provider: ActivityProvider) -> None:
 def registered() -> tuple[ActivityProvider, ...]:
     """Return every registered provider, in registration order.
 
-    Args:
-        None.
-
     Returns:
         The registered providers.
-
-    Raises:
-        None.
     """
     return tuple(_providers.values())
 
 
 def clear() -> None:
-    """Drop every registration.
-
-    Args:
-        None.
-
-    Raises:
-        None.
-    """
+    """Drop every registration."""
     _providers.clear()

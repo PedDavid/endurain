@@ -1211,9 +1211,6 @@ def set_activity_thumbnail_path(
         activity_id: Target activity ID.
         thumbnail_path: Absolute path to the thumbnail file.
         db: Database session.
-
-    Returns:
-        None
     """
     stmt = select(activity_models.Activity).where(activity_models.Activity.id == activity_id)
     db_activity = db.execute(stmt).scalar_one_or_none()
@@ -1303,9 +1300,6 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
 
     Args:
         db: Database session.
-
-    Returns:
-        None
     """
     db.execute(sa_update(activity_models.Activity).values(map_thumbnail_path=None))
 
@@ -1555,9 +1549,6 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
         activity_id: Activity ID.
         user_id: ID of the user that must own the activity.
         db: Database session.
-
-    Returns:
-        None
 
     Raises:
         NotFoundError: When the activity is missing or not owned by ``user_id``.

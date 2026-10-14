@@ -274,18 +274,13 @@ def delete_and_regenerate_all_activity_thumbnails(
     Called when the tile server settings change and the admin has
     enabled automatic thumbnail regeneration. Deletes every stored
     thumbnail blob through the storage provider, clears the DB
-    references, then triggers a full regeneration pass.
+    references, then triggers a full regeneration pass. A failure on one
+    activity is logged and the pass continues.
 
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
         db: Database session.
-
-    Returns:
-        None
-
-    Raises:
-        None — errors are logged; execution continues.
     """
     logger.info("Thumbnail regeneration: deleting all existing thumbnails")
 
@@ -322,18 +317,13 @@ def generate_missing_activity_thumbnails(
     Intended to be called periodically by the scheduler. Acquires the
     coordination lock so only one replica runs the pass, then reconciles
     stale references and renders and stores a thumbnail for each activity
-    whose map_thumbnail_path is NULL.
+    whose map_thumbnail_path is NULL. A failure on one activity is logged and
+    the pass continues.
 
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
         db: Database session.
-
-    Returns:
-        None
-
-    Raises:
-        None — errors are logged per-activity; execution continues.
     """
     with lock.try_acquire("thumbnail_backfill") as acquired:
         if not acquired:
@@ -348,9 +338,6 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
     Args:
         storage: The blob-storage provider.
         db: Database session.
-
-    Returns:
-        None
     """
     # Reconcile: clear DB references whose stored blob no longer exists so
     # they are regenerated below.

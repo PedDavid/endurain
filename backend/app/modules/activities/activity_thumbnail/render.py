@@ -108,11 +108,8 @@ def render_activity_thumbnail(
         height: Thumbnail height in pixels.
 
     Returns:
-        WebP-encoded bytes, or None if generation was skipped or
-        failed.
-
-    Raises:
-        None — errors are logged and None is returned.
+        WebP-encoded bytes, or None if generation was skipped or failed; a
+        failure is logged, not raised.
     """
     if not waypoints or len(waypoints) < 2:
         logger.debug(

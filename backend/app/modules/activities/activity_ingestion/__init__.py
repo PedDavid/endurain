@@ -1,7 +1,8 @@
 """Activity ingestion — the parsing/provider boundary for the activities module.
 
-This package owns *all* knowledge of source formats (``.gpx`` / ``.tcx`` / ``.fit`` /
-``.gz``) and provider bulk-import glue (Strava). Its layers are:
+This package orchestrates how a file becomes activities: upload and bulk-import entry
+points, the shared pipeline, enrichment and the provider seams. Format parsing
+(``.gpx`` / ``.tcx`` / ``.fit`` / ``.gz``) lives in ``activity_file_import``. Its layers are:
 
 * :mod:`contracts` — what a file came from (upload / Garmin / bulk import), and the
   metadata that source carries.

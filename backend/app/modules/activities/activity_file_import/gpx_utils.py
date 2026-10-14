@@ -275,9 +275,6 @@ def _process_track_metadata(
         track: GPX track object.
         gpx: Root GPX object.
         state: Mutable parse state.
-
-    Returns:
-        None
     """
     state.activity_name = track.name or gpx.name or "Workout"
     state.activity_description = track.description or gpx.description or None
@@ -297,9 +294,6 @@ def _process_trackpoint(
     Args:
         point: GPX trackpoint to process.
         state: Mutable parse state.
-
-    Returns:
-        None
     """
     latitude = point.latitude
     longitude = point.longitude
@@ -404,9 +398,6 @@ def _compute_derived_metrics(
 
     Args:
         state: Mutable parse state.
-
-    Returns:
-        None
     """
     if state.ele_waypoints:
         gain, loss = activities_computation.compute_elevation_gain_and_loss(
