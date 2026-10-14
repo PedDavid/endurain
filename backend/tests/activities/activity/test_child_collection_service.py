@@ -1,20 +1,20 @@
 """The one paginated child read, tested once.
 
 Laps, sets and workout steps used to carry a copy of these assertions each. The
-behaviour lives in ``activity/child_collection`` now, so it is asserted here; the
+behaviour lives in ``activity/child_collection_service`` now, so it is asserted here; the
 per-package tests only check that each package declares itself correctly.
 """
 
 from unittest.mock import MagicMock, patch
 
 import core.pagination as core_pagination
-import modules.activities.activity.child_collection as child_collection
+import modules.activities.activity.child_collection_service as child_collection_service
 
-_GATE = "modules.activities.activity.child_collection.activity_child_access_service"
+_GATE = "modules.activities.activity.child_collection_service.activity_child_access_service"
 
 
 def _collection(fetch=None, count=None):
-    return child_collection.ChildCollection(
+    return child_collection_service.ChildCollection(
         name="laps",
         hide_attr="hide_laps",
         fetch=fetch or MagicMock(return_value=["row"]),

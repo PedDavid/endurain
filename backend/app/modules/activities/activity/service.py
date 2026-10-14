@@ -297,9 +297,10 @@ def count_user_activities(
 def list_gear_activities(
     user_id: int,
     gear_id: int,
-    page_number: int | None,
-    num_records: int | None,
     db: Session,
+    *,
+    page_number: int | None = None,
+    num_records: int | None = None,
 ) -> list[activity_schema.ActivityRead]:
     """List a user's activities for a gear (paginated when page/size are given).
 
@@ -337,10 +338,10 @@ def _count_gear_activities(user_id: int, gear_id: int, db: Session) -> int:
 def list_user_activities_paginated(
     user_id: int,
     requester_user_id: int,
-    page_number: int,
-    num_records: int,
     db: Session,
     *,
+    page_number: int,
+    num_records: int,
     activity_type: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -408,10 +409,10 @@ def list_user_activities_paginated(
 def page_user_activities(
     user_id: int,
     requester_user_id: int,
-    page_number: int,
-    num_records: int,
     db: Session,
     *,
+    page_number: int,
+    num_records: int,
     activity_type: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -441,9 +442,9 @@ def page_user_activities(
     items = list_user_activities_paginated(
         user_id,
         requester_user_id,
-        page_number,
-        num_records,
         db,
+        page_number=page_number,
+        num_records=num_records,
         activity_type=activity_type,
         start_date=start_date,
         end_date=end_date,
@@ -509,9 +510,10 @@ def scroll_following_feed(
 def page_gear_activities(
     user_id: int,
     gear_id: int,
+    db: Session,
+    *,
     page_number: int,
     num_records: int,
-    db: Session,
 ) -> activity_schema.ActivityPage:
     """Return one page of a user's activities for a gear with the matching total.
 
@@ -525,7 +527,7 @@ def page_gear_activities(
     Returns:
         The page envelope.
     """
-    items = list_gear_activities(user_id, gear_id, page_number, num_records, db)
+    items = list_gear_activities(user_id, gear_id, db, page_number=page_number, num_records=num_records)
     total = _count_gear_activities(user_id, gear_id, db)
     return activity_schema.ActivityPage.build(items, total, page_number, num_records)
 

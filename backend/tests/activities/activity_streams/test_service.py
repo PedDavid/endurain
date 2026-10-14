@@ -7,6 +7,9 @@ then cuts the masked result into the shared page envelope.
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+import core.exceptions as core_exceptions
 import modules.activities.activity_streams.schema as activity_streams_schema
 
 
@@ -86,7 +89,8 @@ class TestGetActivityStream:
         mock_crud.get_activity_stream_by_type.return_value = _stream(1)
         mock_hidden.return_value = True
 
-        assert service.get_activity_stream(5, 1, 1, MagicMock()) is None
+        with pytest.raises(core_exceptions.NotFoundError):
+            service.get_activity_stream(5, 1, 1, MagicMock())
 
     @patch("modules.activities.activity_streams.service._is_stream_hidden")
     @patch("modules.activities.activity_streams.service.activity_streams_crud")
@@ -109,7 +113,8 @@ class TestGetActivityStream:
         mock_gate.resolve_readable_parent.return_value = MagicMock(user_id=1)
         mock_crud.get_activity_stream_by_type.return_value = None
 
-        assert service.get_activity_stream(5, 1, 1, MagicMock()) is None
+        with pytest.raises(core_exceptions.NotFoundError):
+            service.get_activity_stream(5, 1, 1, MagicMock())
 
 
 class TestPublicStreams:
@@ -140,7 +145,8 @@ class TestPublicStreams:
         page = service.list_public_activity_streams(5, MagicMock())
 
         assert (page.items, page.total) == ([], 0)
-        assert service.get_public_activity_stream(5, 1, MagicMock()) is None
+        with pytest.raises(core_exceptions.NotFoundError):
+            service.get_public_activity_stream(5, 1, MagicMock())
         mock_crud.get_activity_streams.assert_not_called()
         mock_crud.get_activity_stream_by_type.assert_not_called()
 
@@ -154,7 +160,8 @@ class TestPublicStreams:
         mock_crud.get_activity_stream_by_type.return_value = _stream(1)
         mock_hidden.return_value = True
 
-        assert service.get_public_activity_stream(5, 1, MagicMock()) is None
+        with pytest.raises(core_exceptions.NotFoundError):
+            service.get_public_activity_stream(5, 1, MagicMock())
 
 
 class TestStreamMask:

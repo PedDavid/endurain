@@ -1,7 +1,7 @@
 """What the laps package declares itself to be.
 
 The paginated read itself is asserted once, in
-``tests/activities/activity/test_child_collection.py``. What remains
+``tests/activities/activity/test_child_collection_service.py``. What remains
 package-specific is the declaration: the wrong hide flag or the wrong CRUD pair
 would silently serve — or refuse — the wrong rows.
 """
@@ -26,7 +26,7 @@ class TestCollectionDeclaration:
 
 
 class TestDelegation:
-    @patch("modules.activities.activity.child_collection.activity_child_access_service")
+    @patch("modules.activities.activity.child_collection_service.activity_child_access_service")
     def test_the_authenticated_read_goes_through_the_shared_gate(self, mock_gate):
         mock_gate.may_read_child.return_value = False
         db = MagicMock()
@@ -36,7 +36,7 @@ class TestDelegation:
         assert (page.items, page.total) == ([], 0)
         mock_gate.may_read_child.assert_called_once_with(5, 1, db, hide_attr="hide_laps")
 
-    @patch("modules.activities.activity.child_collection.activity_child_access_service")
+    @patch("modules.activities.activity.child_collection_service.activity_child_access_service")
     def test_the_public_read_goes_through_the_public_gate(self, mock_gate):
         mock_gate.may_read_public_child.return_value = False
         db = MagicMock()

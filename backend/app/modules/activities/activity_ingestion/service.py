@@ -32,6 +32,7 @@ import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
 import modules.activities.activity_ingestion.crud as activity_ingestion_crud
 import modules.activities.activity_ingestion.dispatch_service as activity_ingestion_dispatch_service
@@ -46,13 +47,13 @@ logger = core_logger.get_logger(__name__)
 # Failure classes the owner can act on, mapped to a stable code. Anything not
 # listed collapses to PROCESSING_FAILED: the exception text can carry filesystem
 # paths and parser internals, so only this closed set ever reaches a client.
-_ERROR_CODES: dict[type[Exception], activity_ingestion_schema.IngestionJobErrorCode] = {
-    core_exceptions.UnsupportedFormatError: activity_ingestion_schema.IngestionJobErrorCode.UNSUPPORTED_FORMAT,
-    core_exceptions.InvalidInputError: activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE,
+_ERROR_CODES: dict[type[Exception], activity_ingestion_constants.IngestionJobErrorCode] = {
+    core_exceptions.UnsupportedFormatError: activity_ingestion_constants.IngestionJobErrorCode.UNSUPPORTED_FORMAT,
+    core_exceptions.InvalidInputError: activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE,
 }
 
 
-def _error_code_for(error: Exception) -> activity_ingestion_schema.IngestionJobErrorCode:
+def _error_code_for(error: Exception) -> activity_ingestion_constants.IngestionJobErrorCode:
     """Map an exception to the sanitized code shown to the uploader.
 
     Args:
@@ -64,7 +65,7 @@ def _error_code_for(error: Exception) -> activity_ingestion_schema.IngestionJobE
     for error_type, code in _ERROR_CODES.items():
         if isinstance(error, error_type):
             return code
-    return activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED
+    return activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED
 
 
 def accept_upload(
@@ -117,7 +118,7 @@ def accept_upload(
 
     if idempotency_key:
         prior = activity_ingestion_crud.get_job_for_idempotency(
-            idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
+            idempotency_key, token_user_id, activity_ingestion_constants.IngestionJobKind.UPLOAD, db
         )
         if prior is not None:
             replayed, fingerprint = prior
@@ -137,7 +138,7 @@ def accept_upload(
         activity_ingestion_crud.create_ingestion_job(
             job_id,
             token_user_id,
-            activity_ingestion_schema.IngestionJobKind.UPLOAD,
+            activity_ingestion_constants.IngestionJobKind.UPLOAD,
             db,
             # ``filename`` is non-None here: activity_ingestion_staging rejects a missing one.
             filename=str(filename),
@@ -162,7 +163,7 @@ def accept_upload(
         db.rollback()
         prior = (
             activity_ingestion_crud.get_job_for_idempotency(
-                idempotency_key, token_user_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, db
+                idempotency_key, token_user_id, activity_ingestion_constants.IngestionJobKind.UPLOAD, db
             )
             if idempotency_key
             else None
@@ -189,13 +190,13 @@ def accept_upload(
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
     return activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
-        job_id, activity_ingestion_schema.IngestionJobKind.UPLOAD, str(filename)
+        job_id, activity_ingestion_constants.IngestionJobKind.UPLOAD, str(filename)
     )
 
 
 def _pending_view(
     job_id: str,
-    kind: activity_ingestion_schema.IngestionJobKind,
+    kind: activity_ingestion_constants.IngestionJobKind,
     filename: str | None = None,
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Build the pending response when the row cannot be re-read.
@@ -216,7 +217,7 @@ def _pending_view(
         id=job_id,
         kind=kind,
         filename=filename,
-        status=activity_ingestion_schema.IngestionJobStatus.PENDING,
+        status=activity_ingestion_constants.IngestionJobStatus.PENDING,
         created_at=now,
         updated_at=now,
     )
@@ -275,7 +276,7 @@ def accept_refresh(
     activity_ingestion_crud.create_ingestion_job(
         job_id,
         token_user_id,
-        activity_ingestion_schema.IngestionJobKind.REFRESH,
+        activity_ingestion_constants.IngestionJobKind.REFRESH,
         db,
     )
     activity_ingestion_dispatch_service.commit_or_publish(
@@ -291,7 +292,7 @@ def accept_refresh(
         extra=core_logger.context(user_id=token_user_id, job_id=job_id),
     )
     return activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
-        job_id, activity_ingestion_schema.IngestionJobKind.REFRESH
+        job_id, activity_ingestion_constants.IngestionJobKind.REFRESH
     )
 
 
@@ -327,7 +328,7 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
                 # Nothing will retry, so leave the caller a terminal state
                 # instead of a job stuck at "processing".
                 fail_ingestion_job(
-                    job_id, activity_ingestion_schema.IngestionJobErrorCode.PROVIDER_UNAVAILABLE, storage
+                    job_id, activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE, storage
                 )
             raise
 
@@ -393,7 +394,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             if not activity_ingestion_dispatch_service.worker_retries():
                 fail_ingestion_job(
                     job_id,
-                    activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                    activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
                     storage,
                     staged_key,
                 )
@@ -406,7 +407,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         if not activity_ids:
             activity_ingestion_crud.mark_failed(
                 job_id,
-                activity_ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND,
+                activity_ingestion_constants.IngestionJobErrorCode.NO_ACTIVITIES_FOUND,
                 db,
             )
             db.commit()
@@ -425,7 +426,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
 
 def fail_ingestion_job(
     job_id: str,
-    error_code: activity_ingestion_schema.IngestionJobErrorCode,
+    error_code: activity_ingestion_constants.IngestionJobErrorCode,
     storage: platform_providers.StorageProvider,
     staged_key: str | None = None,
 ) -> None:
@@ -676,7 +677,7 @@ def start_bulk_import(
                 activity_ingestion_crud.create_ingestion_job(
                     str(uuid.uuid4()),
                     user_id,
-                    activity_ingestion_schema.IngestionJobKind.BULK_IMPORT,
+                    activity_ingestion_constants.IngestionJobKind.BULK_IMPORT,
                     db,
                     filename=os.path.basename(file_path),
                 ),
@@ -820,7 +821,7 @@ def process_all_files_sync(
             # the state recorded is terminal either way.
             if activities is None:
                 activity_ingestion_crud.mark_failed(
-                    job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
+                    job_id, activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, db
                 )
             else:
                 activity_ingestion_crud.mark_completed(
@@ -879,7 +880,7 @@ def mark_bulk_import_job_failed(job_id: str | None) -> None:
         return
     with core_database.SessionLocal() as db:
         activity_ingestion_crud.mark_failed(
-            job_id, activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, db
+            job_id, activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, db
         )
         db.commit()
     logger.warning("Bulk-import job exhausted its attempts", extra=core_logger.context(job_id=job_id))

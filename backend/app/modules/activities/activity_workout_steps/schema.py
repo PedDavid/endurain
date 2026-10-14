@@ -11,12 +11,10 @@ from pydantic import (
 import core.pagination as core_pagination
 
 
-class ActivityWorkoutStepsRead(BaseModel):
-    """Activity workout step schema.
+class ActivityWorkoutStepsBase(BaseModel):
+    """Fields that describe one workout step.
 
     Attributes:
-        id: Primary key.
-        activity_id: FK to activities table.
         message_index: Workout step message index.
         duration_type: Workout step duration type.
         duration_value: Workout step duration value.
@@ -34,8 +32,6 @@ class ActivityWorkoutStepsRead(BaseModel):
             target value.
     """
 
-    id: StrictInt | None = None
-    activity_id: StrictInt | None = None
     message_index: StrictInt
     duration_type: StrictStr
     duration_value: StrictFloat | None = None
@@ -53,6 +49,18 @@ class ActivityWorkoutStepsRead(BaseModel):
         from_attributes=True,
         extra="forbid",
     )
+
+
+class ActivityWorkoutStepsRead(ActivityWorkoutStepsBase):
+    """A stored workout step, as the API returns it.
+
+    Attributes:
+        id: Primary key.
+        activity_id: FK to activities table.
+    """
+
+    id: StrictInt
+    activity_id: StrictInt
 
 
 #: One page of an activity's planned workout steps. A structured workout's step

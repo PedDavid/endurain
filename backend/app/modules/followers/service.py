@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import core.logger as core_logger
+import core.pagination as core_pagination
 import modules.followers.constants as followers_constants
 import modules.followers.crud as followers_crud
 import modules.followers.event_publishers as followers_event_publishers
@@ -76,7 +77,7 @@ def list_followers(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
     accepted_only: bool = False,
 ) -> followers_schema.FollowRelationshipPage:
     """Return one page of the target's followers with the matching total.
@@ -121,7 +122,7 @@ def list_following(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
     accepted_only: bool = False,
 ) -> followers_schema.FollowRelationshipPage:
     """Return one page of who the target follows with the matching total.
@@ -163,7 +164,7 @@ def list_pending_requests(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
 ) -> followers_schema.FollowRelationshipPage:
     """Return one page of follow requests awaiting the caller's decision.
 

@@ -28,6 +28,7 @@ answered with a control that looks like a fix without being one.
 
 from sqlalchemy.orm import Session
 
+import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.integration_service as activity_integration
@@ -148,7 +149,7 @@ def get_activity_stream(
     stream_type: int,
     requester_user_id: int,
     db: Session,
-) -> activity_streams_schema.ActivityStreamsRead | None:
+) -> activity_streams_schema.ActivityStreamsRead:
     """Return one stream type of an activity for an authenticated caller.
 
     Args:
@@ -158,19 +159,23 @@ def get_activity_stream(
         db: Database session.
 
     Returns:
-        The stream, or ``None`` when the activity is not visible, has no such
-        stream, or the stream is hidden from this caller.
+        The stream.
+
+    Raises:
+        NotFoundError: When the activity is not visible, has no such
+        stream, or the stream is hidden from this caller — indistinguishable on purpose, so the
+            endpoint cannot be used to probe which activities exist.
     """
     activity = activity_integration.resolve_readable_parent(activity_id, requester_user_id, db)
     if activity is None:
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     stream = activity_streams_crud.get_activity_stream_by_type(activity_id, stream_type, db)
     if stream is None:
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     if requester_user_id != activity.user_id and _is_stream_hidden(activity, stream.stream_type):
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     return stream
 
@@ -213,7 +218,7 @@ def get_public_activity_stream(
     activity_id: int,
     stream_type: int,
     db: Session,
-) -> activity_streams_schema.ActivityStreamsRead | None:
+) -> activity_streams_schema.ActivityStreamsRead:
     """Return one stream type of a publicly shared activity.
 
     Args:
@@ -222,19 +227,23 @@ def get_public_activity_stream(
         db: Database session.
 
     Returns:
-        The stream, or ``None`` when the activity is not publicly shareable, has
-        no such stream, or the stream is hidden.
+        The stream.
+
+    Raises:
+        NotFoundError: When the activity is not publicly shareable, has
+        no such stream, or the stream is hidden — indistinguishable on purpose, so the
+            endpoint cannot be used to probe which activities exist.
     """
     activity = activity_integration.resolve_public_parent(activity_id, db)
     if activity is None:
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     stream = activity_streams_crud.get_activity_stream_by_type(activity_id, stream_type, db)
     if stream is None:
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     if _is_stream_hidden(activity, stream.stream_type):
-        return None
+        raise core_exceptions.NotFoundError("Activity stream not found")
 
     return stream
 

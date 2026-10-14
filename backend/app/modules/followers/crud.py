@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 import core.exceptions as core_exceptions
 import core.logger as core_logger
+import core.pagination as core_pagination
 import modules.followers.constants as followers_constants
 import modules.followers.models as followers_models
 import modules.followers.schema as followers_schema
@@ -35,7 +36,7 @@ def get_all_followers_by_user_id(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
     accepted_only: bool = False,
 ) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of follower records where the user is being followed.
@@ -66,7 +67,7 @@ def get_all_following_by_user_id(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
     accepted_only: bool = False,
 ) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of follow records where the user is the follower.
@@ -96,7 +97,7 @@ def get_pending_requests_for_user_id(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 25,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
 ) -> list[followers_schema.FollowRelationshipRead]:
     """Retrieve one page of pending follow requests addressed to a user.
 

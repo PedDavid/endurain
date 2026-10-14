@@ -9,10 +9,10 @@ stamps the default, ``crud`` filters on it, ``service`` compares against it, and
 to learn its own column's values is backwards; a constant all four share is not.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class FollowStatus(Enum):
+class FollowStatus(StrEnum):
     """Status of a follow relationship.
 
     Attributes:

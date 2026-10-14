@@ -53,14 +53,14 @@ def list_own_activities(
     name_search: Annotated[str | None, Query(alias="name")] = None,
     sort_by: activity_dependencies.SortBy = None,
     sort_order: activity_dependencies.SortOrder = None,
-):
+) -> activity_schema.ActivityPage:
     """List the authenticated user's activities, with the matching total."""
     return activity_service.page_user_activities(
         token_user_id,
         token_user_id,
-        page.page_number,
-        page.num_records,
         db,
+        page_number=page.page_number,
+        num_records=page.num_records,
         activity_type=activity_type,
         start_date=start_date,
         end_date=end_date,
@@ -93,7 +93,7 @@ def list_following_feed(
     db: Annotated[Session, Depends(core_database.get_db)],
     cursor: Annotated[str | None, Query()] = None,
     num_records: Annotated[int | None, Query(ge=1, le=core_pagination.MAX_NUM_RECORDS)] = None,
-):
+) -> activity_schema.ActivityFeedPage:
     """List a keyset slice of the authenticated user's following feed."""
     return activity_service.scroll_following_feed(
         token_user_id,
@@ -113,14 +113,14 @@ def list_gear_activities(
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
     page: Annotated[core_pagination.PageParams, Depends(core_pagination.list_page_params)],
-):
+) -> activity_schema.ActivityPage:
     """List the authenticated user's activities for a gear, with the matching total."""
     return activity_service.page_gear_activities(
         token_user_id,
         gear_id,
-        page.page_number,
-        page.num_records,
         db,
+        page_number=page.page_number,
+        num_records=page.num_records,
     )
 
 
@@ -165,14 +165,14 @@ def list_user_activities(
     name_search: Annotated[str | None, Query(alias="name")] = None,
     sort_by: activity_dependencies.SortBy = None,
     sort_order: activity_dependencies.SortOrder = None,
-):
+) -> activity_schema.ActivityPage:
     """List another user's visible activities, with the matching total."""
     return activity_service.page_user_activities(
         user_id,
         token_user_id,
-        page.page_number,
-        page.num_records,
         db,
+        page_number=page.page_number,
+        num_records=page.num_records,
         activity_type=activity_type,
         start_date=start_date,
         end_date=end_date,
@@ -233,7 +233,7 @@ def read_activity(
         Depends(core_database.get_db),
     ],
     response: Response,
-):
+) -> activity_schema.ActivityRead:
     """Read a single activity the requester owns or is permitted to see."""
     activity = activity_service.get_activity(activity_id, token_user_id, db)
     if activity.version is not None:
@@ -262,7 +262,7 @@ def edit_activity(
     ],
     response: Response,
     if_match: Annotated[str | None, Header(alias=core_etag.IF_MATCH_HEADER)] = None,
-):
+) -> activity_schema.ActivityRead:
     """Apply partial updates to one of the authenticated user's activities.
 
     Send ``If-Match`` with the ETag from the read to make the write conditional;

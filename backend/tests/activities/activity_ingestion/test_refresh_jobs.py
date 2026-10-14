@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.events as ingestion_events
-import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_jobs
 
 
@@ -26,7 +26,7 @@ class TestAcceptRefresh:
             result = ingestion_jobs.accept_refresh(7, "storage", db)
 
         assert result == "job-view"
-        assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
+        assert create.call_args.args[2] == activity_ingestion_constants.IngestionJobKind.REFRESH
         # Row and event land in one transaction, so a crash between them cannot
         # leave a job nobody will run.
         assert "commit" not in create.call_args.kwargs
@@ -160,7 +160,7 @@ class TestRunRefreshJob:
             sync.side_effect = _fake
             ingestion_jobs.run_refresh_job("job-1", "storage")
 
-        assert fail.call_args.args[1] == activity_ingestion_schema.IngestionJobErrorCode.PROVIDER_UNAVAILABLE
+        assert fail.call_args.args[1] == activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE
 
     def test_a_refresh_that_found_nothing_still_completes(self):
         """Nothing new is a normal outcome, not a failure."""

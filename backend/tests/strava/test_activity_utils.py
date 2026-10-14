@@ -156,7 +156,7 @@ class TestSaveActivityStreamsLaps:
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
         activity = activity_schema.ActivityRead(
-            user_id=1, distance=1000, name="Ride", activity_type=1, strava_activity_id=555
+            id=1, user_id=1, distance=1000, name="Ride", activity_type=1, strava_activity_id=555
         )
         stream_data = [
             (True, 1, [{"hr": 140}]),
@@ -188,7 +188,7 @@ class TestSaveActivityStreamsLaps:
 
         monkeypatch.setattr(activity_utils.activity_integration, "store_parsed_activity", _fake_store)
 
-        activity = activity_schema.ActivityRead(user_id=1, distance=0, name="X", activity_type=1)
+        activity = activity_schema.ActivityRead(id=1, user_id=1, distance=0, name="X", activity_type=1)
         activity_utils.save_activity_streams_laps(activity, [], None, Mock())
 
         parsed = captured["parsed"]

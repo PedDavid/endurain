@@ -31,14 +31,14 @@ from sqlalchemy.orm import Session
 
 import core.pagination as core_pagination
 import modules.activities.activity.child_access_service as activity_child_access_service
-import modules.activities.activity.child_collection as activity_child_collection
+import modules.activities.activity.child_collection_service as activity_child_collection_service
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.crud as activity_crud
 import modules.activities.activity.ingestion_service as activity_ingestion_service
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity.service as activity_service
 
-ChildCollection = activity_child_collection.ChildCollection
+ChildCollection = activity_child_collection_service.ChildCollection
 
 
 def get_activity_by_strava_id(
@@ -168,9 +168,10 @@ def get_gear_usage_totals_by_window(
 
 def list_user_activities_page(
     user_id: int,
+    db: Session,
+    *,
     page_number: int,
     num_records: int,
-    db: Session,
 ) -> list[activity_schema.ActivityRead]:
     """Return one page of a user's own activities, newest first.
 
@@ -186,7 +187,7 @@ def list_user_activities_page(
     Returns:
         The page of activities, empty when the page is past the end.
     """
-    activities = activity_crud.get_user_activities_with_pagination(
+    return activity_crud.get_user_activities_with_pagination(
         user_id=user_id,
         db=db,
         page_number=page_number,
@@ -196,7 +197,6 @@ def list_user_activities_page(
         sort_order="desc",
         user_is_owner=True,
     )
-    return activities or []
 
 
 def list_user_activities_in_timeframe_by_types(
@@ -224,7 +224,7 @@ def list_user_activities_in_timeframe_by_types(
     Returns:
         The matching activities, empty when there are none.
     """
-    activities = activity_crud.get_user_activities_per_timeframe_and_activity_types(
+    return activity_crud.get_user_activities_per_timeframe_and_activity_types(
         user_id,
         activity_types,
         start,
@@ -233,7 +233,6 @@ def list_user_activities_in_timeframe_by_types(
         user_is_owner=True,
         exclude_hidden=exclude_hidden,
     )
-    return activities or []
 
 
 def restore_activity(

@@ -61,7 +61,7 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
     Returns:
         The contributor.
     """
-    return activities_contributors.child_ingestion_contributor(key="sets", label="sets", store=_store_sets)
+    return activities_contributors.child_ingestion_contributor(key="sets", store=_store_sets)
 
 
 def profile_contributor() -> activities_contributors.ProfileActivityContributor:

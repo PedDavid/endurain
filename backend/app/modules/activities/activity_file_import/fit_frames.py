@@ -19,8 +19,8 @@ import fitdecode
 
 import core.logger as core_logger
 import modules.activities.activity.constants as activity_constants
-import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
-import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
+import modules.activities.activity_exercise_titles.contracts as activity_exercise_titles_contracts
+import modules.activities.activity_workout_steps.contracts as activity_workout_steps_contracts
 
 logger = core_logger.get_logger(__name__)
 
@@ -351,7 +351,7 @@ def parse_frame_workout_step(frame):
     if workout_set_data[9] is None:
         workout_set_data[9] = 0 if workout_set_data[10] is not None else None
 
-    return activity_workout_steps_schema.ActivityWorkoutStepsRead(
+    return activity_workout_steps_contracts.ActivityWorkoutStepsCreate(
         message_index=workout_set_data[0] if workout_set_data[0] else 0,
         duration_type=workout_set_data[1],
         duration_value=workout_set_data[2],
@@ -388,7 +388,7 @@ def parse_frame_exercise_title(frame):
     exercise_title_data = [get_value_from_frame(frame, key) for key in keys_value]
     exercise_title_data.extend(get_raw_value_from_frame(frame, key) for key in keys_raw)
 
-    return activity_exercise_titles_schema.ActivityExerciseTitlesRead(
+    return activity_exercise_titles_contracts.ActivityExerciseTitlesCreate(
         exercise_category=exercise_title_data[1] if exercise_title_data[1] else 0,
         exercise_name=exercise_title_data[2] if exercise_title_data[2] else 0,
         wkt_step_name=str(exercise_title_data[0]),

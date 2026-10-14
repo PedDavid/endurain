@@ -3,6 +3,8 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import core.exceptions as core_exceptions
+
 
 def _build_app(mock_db):
     import core.database as core_db
@@ -58,7 +60,7 @@ class TestReadPublicActivityStreams:
     @patch("modules.activities.activity_streams.public_router.activity_streams_service.get_public_activity_stream")
     def test_by_type_not_found(self, mock_get, mock_db):
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = None
+        mock_get.side_effect = core_exceptions.NotFoundError("Activity stream not found")
 
         response = client.get("/public/activities/999/streams/1")
         # Missing, not public, and public-links-disabled are one answer: this

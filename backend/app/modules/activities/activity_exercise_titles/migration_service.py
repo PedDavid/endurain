@@ -2,12 +2,12 @@
 
 from sqlalchemy.orm import Session
 
+import modules.activities.activity_exercise_titles.contracts as activity_exercise_titles_contracts
 import modules.activities.activity_exercise_titles.crud as activity_exercise_titles_crud
-import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
 
 
 def create_activity_exercise_titles(
-    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
+    activity_exercise_titles: list[activity_exercise_titles_contracts.ActivityExerciseTitlesCreate],
     db: Session,
 ) -> None:
     """Create exercise titles and commit them, as migrations did.

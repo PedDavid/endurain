@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+import modules.activities.activity_exercise_titles.contracts as activity_exercise_titles_contracts
 import modules.activities.activity_exercise_titles.models as activity_exercise_titles_models
 import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
 import modules.activities.activity_exercise_titles.serializers as activity_exercise_titles_serializers
@@ -25,7 +26,7 @@ def get_activity_exercise_titles(
 
 
 def create_activity_exercise_titles(
-    activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
+    activity_exercise_titles: list[activity_exercise_titles_contracts.ActivityExerciseTitlesCreate],
     db: Session,
 ) -> None:
     """Stage activity exercise titles, skipping pairs that already exist.

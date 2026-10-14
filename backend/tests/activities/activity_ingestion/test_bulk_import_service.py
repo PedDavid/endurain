@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as bulk_import_service
 
@@ -21,7 +22,7 @@ def _job(job_id, user_id, kind, db, *, filename=None, commit=True, **_kwargs):
         id=job_id,
         kind=kind,
         filename=filename,
-        status=activity_ingestion_schema.IngestionJobStatus.PENDING,
+        status=activity_ingestion_constants.IngestionJobStatus.PENDING,
         created_at=now,
         updated_at=now,
     )
@@ -48,7 +49,7 @@ class TestStartBulkImport:
         # dead-lettered and completed independently, so there is no shared
         # outcome a batch-level handle could report.
         assert [job.filename for job in result] == ["a.gpx", "b.fit"]
-        assert {job.kind for job in result} == {activity_ingestion_schema.IngestionJobKind.BULK_IMPORT}
+        assert {job.kind for job in result} == {activity_ingestion_constants.IngestionJobKind.BULK_IMPORT}
         # One batched publish for every file, staged in a single transaction.
         publish.assert_called_once()
         assert [job_id for job_id, _path in publish.call_args.args[0]] == [job.id for job in result]

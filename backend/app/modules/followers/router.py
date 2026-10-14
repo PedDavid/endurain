@@ -140,7 +140,7 @@ def follow_user(
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def accept_follow_request(
     request: Request,
-    follower_id: int,
+    follower_id: core_dependencies.PositiveId,
     accept: followers_schema.FollowRequestAccept,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
@@ -167,7 +167,7 @@ def accept_follow_request(
 @core_rate_limit.limiter.limit(core_rate_limit.WRITE)
 def reject_follow_request(
     request: Request,
-    follower_id: int,
+    follower_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],
@@ -191,7 +191,7 @@ def reject_follow_request(
 def delete_follow_relationship(
     request: Request,
     user_id: core_dependencies.PositiveId,
-    follower_id: int,
+    follower_id: core_dependencies.PositiveId,
     _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["followers:write"])],
     token_user_id: Annotated[int, Depends(auth_dependencies.get_sub_from_access_token)],
     db: Annotated[Session, Depends(core_database.get_db)],

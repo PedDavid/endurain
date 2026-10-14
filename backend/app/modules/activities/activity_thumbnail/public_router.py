@@ -14,6 +14,7 @@ import jasil.providers as platform_providers
 from fastapi import APIRouter, Depends, Query, Response
 
 import core.dependencies as core_dependencies
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_thumbnail.service as activity_thumbnail_service
 
 router = APIRouter()
@@ -27,7 +28,7 @@ _CACHE_MAX_AGE = 3600
     responses={200: {"content": {"image/webp": {}}}},
 )
 def read_activity_thumbnail(
-    activity_id: int,
+    activity_id: activity_dependencies.ActivityId,
     token: Annotated[str, Query(alias="t", description="Signed thumbnail access token")],
     storage: Annotated[platform_providers.StorageProvider, Depends(core_dependencies.get_storage)],
 ) -> Response:

@@ -2,7 +2,7 @@
 
 Declares *what* an activity's laps are — the parent flag that hides them and the
 two CRUD calls that read them — and delegates *how* the paged read runs to the
-shared :mod:`modules.activities.activity.child_collection` seam, which owns the
+shared :mod:`modules.activities.activity.child_collection_service` seam, which owns the
 access gate and the rule that a refusal and an empty collection answer alike.
 
 Reads are paginated. A lap count is not bounded by anything in the domain (a lap

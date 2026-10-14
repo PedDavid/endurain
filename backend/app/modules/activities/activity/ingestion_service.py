@@ -119,7 +119,7 @@ def store_parsed_activity(
 
         created_activity = activity_crud.create_activity(parsed.activity, db, dedup_key=dedup_key)
 
-        if created_activity is None or created_activity.id is None:
+        if created_activity is None:
             logger.error(
                 "store_parsed_activity: create_activity returned no activity",
                 extra=core_logger.context(user_id=parsed.activity.user_id, dedup_key=dedup_key),

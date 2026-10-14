@@ -100,7 +100,7 @@ class TestListUserActivitiesPaginated:
     def test_owner_scoping(self, mock_crud, _mock_followers):
         from modules.activities.activity import service
 
-        service.list_user_activities_paginated(1, 1, 1, 10, MagicMock(), activity_type=2)
+        service.list_user_activities_paginated(1, 1, MagicMock(), page_number=1, num_records=10, activity_type=2)
         kwargs = mock_crud.get_user_activities_with_pagination.call_args.kwargs
         assert kwargs["user_is_owner"] is True
         assert kwargs["activity_type"] == 2
@@ -110,7 +110,7 @@ class TestListUserActivitiesPaginated:
     def test_non_owner_scoping(self, mock_crud, _mock_followers):
         from modules.activities.activity import service
 
-        service.list_user_activities_paginated(1, 2, 1, 10, MagicMock())
+        service.list_user_activities_paginated(1, 2, MagicMock(), page_number=1, num_records=10)
         kwargs = mock_crud.get_user_activities_with_pagination.call_args.kwargs
         assert kwargs["user_is_owner"] is False
         assert kwargs["followee_ids"] == [9]

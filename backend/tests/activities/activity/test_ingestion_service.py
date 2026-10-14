@@ -97,10 +97,10 @@ class TestStoreParsedActivity:
         assert exc.value.status_code == 500
 
     @patch("modules.activities.activity.ingestion_service.activity_crud")
-    def test_raises_when_id_none(self, mock_crud):
+    def test_raises_when_nothing_is_created(self, mock_crud):
         import modules.activities.activity.ingestion_service as ingestion_service
 
-        mock_crud.create_activity = MagicMock(return_value=MagicMock(id=None))
+        mock_crud.create_activity = MagicMock(return_value=None)
 
         with pytest.raises(core_exceptions.ProcessingError) as exc:
             ingestion_service.store_parsed_activity(_parsed(), MagicMock())

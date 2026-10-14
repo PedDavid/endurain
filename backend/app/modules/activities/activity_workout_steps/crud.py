@@ -3,6 +3,7 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+import modules.activities.activity_workout_steps.contracts as activity_workout_steps_contracts
 import modules.activities.activity_workout_steps.models as activity_workout_steps_models
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.activity_workout_steps.serializers as activity_workout_steps_serializers
@@ -86,7 +87,7 @@ def get_activities_workout_steps(
 
 
 def create_activity_workout_steps(
-    activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
+    activity_workout_steps: list[activity_workout_steps_contracts.ActivityWorkoutStepsCreate],
     activity_id: int,
     db: Session,
 ) -> None:

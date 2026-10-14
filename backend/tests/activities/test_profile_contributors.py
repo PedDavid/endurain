@@ -84,7 +84,7 @@ def test_activity_profile_contributor_filters_copies_and_rekeys(
     assert source_records == original_records
     stored_record = store.call_args.args[0][0]
     stored_data = stored_record if isinstance(stored_record, dict) else stored_record.model_dump()
-    if integration is activity_laps_integration:
+    if integration in (activity_laps_integration, activity_workout_steps_integration):
         assert "activity_id" not in stored_data
     else:
         assert stored_data["activity_id"] == 10
@@ -126,6 +126,6 @@ def test_global_profile_contributor_restores_valid_titles_once() -> None:
     assert restored == 1
     assert records == original_records
     restored_title = store.call_args.args[0][0]
-    assert restored_title.id is None
+    assert not hasattr(restored_title, "id")
     assert restored_title.wkt_step_name == "Press"
     store.assert_called_once()

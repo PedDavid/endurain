@@ -416,7 +416,7 @@ in the API but not the worker silently does nothing wherever its work is claimed
 
 When several modules perform the same operation over different rows, the
 operation lives once in its owning module and peers consume its public behavior.
-`activity/child_collection.py` is the worked example: the root activity package
+`activity/child_collection_service.py` is the worked example: the root activity package
 owns the parent access rule and publishes `ChildCollection` through
 `activity.integration_service`. Laps, sets and workout steps state their hide
 flag, CRUD calls and page type without importing the private helper file.

@@ -182,6 +182,7 @@ class TestApplyVisibilityMask:
         from modules.activities.activity.serializers import apply_visibility_mask
 
         schema = ActivityRead(
+            id=1,
             distance=1000,
             name="Ride",
             activity_type=5,
@@ -200,6 +201,7 @@ class TestApplyVisibilityMask:
         from modules.activities.activity.serializers import apply_visibility_mask
 
         schema = ActivityRead(
+            id=1,
             distance=1000,
             name="Ride",
             activity_type=5,

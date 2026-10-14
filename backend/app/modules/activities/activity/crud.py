@@ -165,6 +165,44 @@ def _apply_activity_visibility_filter(
     return stmt.where(_visible_to_requester_condition(followee_ids))
 
 
+def _apply_user_activity_filters(
+    stmt,
+    *,
+    activity_type: int | None,
+    start_date: date | None,
+    end_date: date | None,
+    name_search: str | None,
+    user_is_owner: bool,
+    followee_ids: Sequence[int] | None,
+):
+    """Apply the filters shared by the activity list, page and count queries.
+
+    One definition, so a page and its total cannot disagree on what matched.
+
+    Args:
+        stmt: SQLAlchemy select statement.
+        activity_type: Optional activity type filter.
+        start_date: Optional inclusive start date filter.
+        end_date: Optional inclusive end date filter.
+        name_search: Optional case-insensitive name search.
+        user_is_owner: Whether the requester owns all candidate rows.
+        followee_ids: The requester's accepted-followee user ids, resolved by
+            the caller.
+
+    Returns:
+        The filtered statement.
+    """
+    stmt = _apply_activity_visibility_filter(stmt, user_is_owner=user_is_owner, followee_ids=followee_ids)
+    if activity_type:
+        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
+    # Date filters are evaluated in each activity's own timezone, so a
+    # user filtering "1 May" gets their 1 May, not UTC's.
+    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
+    if name_search:
+        stmt = stmt.where(activity_query.name_search_condition(name_search))
+    return stmt
+
+
 def get_all_activities(
     db: Session,
 ) -> list[activity_schema.ActivityRead]:
@@ -178,7 +216,7 @@ def get_all_activities(
         db: Database session.
 
     Returns:
-        List of Activity schemas or None when empty.
+        The activity schemas, empty when there are none.
     """
     activities = db.execute(select(activity_models.Activity)).scalars().all()
     if not activities:
@@ -240,21 +278,18 @@ def get_user_activities(
             by the caller; ``None`` for an owner-only or anonymous read.
 
     Returns:
-        List of activity schemas or None when no matches.
+        The matching activity schemas, empty when there are none.
     """
     stmt = select(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
-    stmt = _apply_activity_visibility_filter(
+    stmt = _apply_user_activity_filters(
         stmt,
+        activity_type=activity_type,
+        start_date=start_date,
+        end_date=end_date,
+        name_search=name_search,
         user_is_owner=user_is_owner,
         followee_ids=followee_ids,
     )
-    if activity_type:
-        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
-    # Date filters are evaluated in each activity's own timezone, so a
-    # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
-    if name_search:
-        stmt = stmt.where(activity_query.name_search_condition(name_search))
     stmt = stmt.order_by(desc(activity_models.Activity.start_time))
 
     activities = db.execute(stmt).scalars().all()
@@ -299,18 +334,15 @@ def count_user_activities(
         Number of matching activities.
     """
     stmt = select(func.count()).select_from(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
-    stmt = _apply_activity_visibility_filter(
+    stmt = _apply_user_activity_filters(
         stmt,
+        activity_type=activity_type,
+        start_date=start_date,
+        end_date=end_date,
+        name_search=name_search,
         user_is_owner=user_is_owner,
         followee_ids=followee_ids,
     )
-    if activity_type:
-        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
-    # Date filters are evaluated in each activity's own timezone, so a
-    # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
-    if name_search:
-        stmt = stmt.where(activity_query.name_search_condition(name_search))
     count = db.execute(stmt).scalar()
     return count or 0
 
@@ -325,7 +357,7 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
         db: Database session.
 
     Returns:
-        List of activity schemas or None when empty.
+        The matching activity schemas, empty when there are none.
     """
     stmt = (
         select(activity_models.Activity)
@@ -349,7 +381,7 @@ def get_user_activities_with_pagination(
     db: Session,
     *,
     page_number: int = 1,
-    num_records: int = 5,
+    num_records: int = core_pagination.DEFAULT_NUM_RECORDS,
     activity_type: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
@@ -378,23 +410,20 @@ def get_user_activities_with_pagination(
             by the caller; ``None`` for an owner-only or anonymous read.
 
     Returns:
-        List of activity schemas or None when empty.
+        The matching activity schemas, empty when there are none.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
     )
-    stmt = _apply_activity_visibility_filter(
+    stmt = _apply_user_activity_filters(
         stmt,
+        activity_type=activity_type,
+        start_date=start_date,
+        end_date=end_date,
+        name_search=name_search,
         user_is_owner=user_is_owner,
         followee_ids=followee_ids,
     )
-    if activity_type:
-        stmt = stmt.where(activity_models.Activity.activity_type == activity_type)
-    # Date filters are evaluated in each activity's own timezone, so a
-    # user filtering "1 May" gets their 1 May, not UTC's.
-    stmt = stmt.where(*activity_query.local_date_range_conditions(start_date, end_date, end_exclusive=False))
-    if name_search:
-        stmt = stmt.where(activity_query.name_search_condition(name_search))
 
     stmt = stmt.order_by(*_sort_order_by(sort_by, sort_order))
 
@@ -456,7 +485,7 @@ def get_user_activities_per_timeframe(
             by the caller; ``None`` for an owner-only or anonymous read.
 
     Returns:
-        List of activity schemas or None when empty.
+        The matching activity schemas, empty when there are none.
     """
     stmt = (
         select(activity_models.Activity)
@@ -628,7 +657,7 @@ def get_user_activities_by_gear_id_and_user_id(
         db: Database session.
 
     Returns:
-        List of activity schemas or None when empty.
+        The matching activity schemas, empty when there are none.
     """
     stmt = (
         select(activity_models.Activity)
@@ -664,7 +693,7 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
         db: Database session.
 
     Returns:
-        List of activity schemas or None when empty.
+        The matching activity schemas, empty when there are none.
     """
     stmt = (
         select(activity_models.Activity)

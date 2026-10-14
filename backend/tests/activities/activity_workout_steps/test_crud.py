@@ -5,12 +5,11 @@ class TestCreateActivityWorkoutSteps:
     @patch("modules.activities.activity_workout_steps.crud.activity_workout_steps_models.ActivityWorkoutSteps")
     def test_success(self, mock_steps_model, mock_db):
         import modules.activities.activity_workout_steps.crud as crud
-        from modules.activities.activity_workout_steps.schema import ActivityWorkoutStepsRead
+        from modules.activities.activity_workout_steps.contracts import ActivityWorkoutStepsCreate
 
         mock_steps_model.return_value = MagicMock()
         steps = [
-            ActivityWorkoutStepsRead(
-                activity_id=1,
+            ActivityWorkoutStepsCreate(
                 message_index=0,
                 duration_type="time",
                 duration_value=300.0,

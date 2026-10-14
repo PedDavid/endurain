@@ -6,12 +6,13 @@ from unittest.mock import patch
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.crud as ingestion_crud
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 
 _NOW = datetime(2026, 7, 28, 10, 0, 0, tzinfo=UTC)
-_KIND = activity_ingestion_schema.IngestionJobKind.UPLOAD
+_KIND = activity_ingestion_constants.IngestionJobKind.UPLOAD
 
 # Captured before any test patches the module attribute, so ``_row`` keeps
 # speccing against the real class rather than the patch's MagicMock.
@@ -52,7 +53,7 @@ class TestCreateUploadJob:
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
         assert result.id == "job-1"
-        assert result.status == activity_ingestion_schema.IngestionJobStatus.PENDING
+        assert result.status == activity_ingestion_constants.IngestionJobStatus.PENDING
 
 
 class TestGetUploadJob:
@@ -81,14 +82,14 @@ class TestGetUploadJob:
         _stub_first(mock_db, _row(status="completed", activity_ids=[11, 12], completed_at=_NOW))
         result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
-        assert result.status == activity_ingestion_schema.IngestionJobStatus.COMPLETED
+        assert result.status == activity_ingestion_constants.IngestionJobStatus.COMPLETED
         assert result.activity_ids == [11, 12]
 
     def test_maps_a_failed_job(self, mock_db):
         _stub_first(mock_db, _row(status="failed", error_code="invalid_file"))
         result = ingestion_crud.get_ingestion_job("job-1", 7, mock_db)
         assert result is not None
-        assert result.error_code == activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE
+        assert result.error_code == activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE
 
 
 class TestGetJobWorkItem:
@@ -122,7 +123,7 @@ class TestTerminalTransitions:
     def test_mark_failed_records_only_the_sanitized_code(self, mock_db):
         row = _row(status="processing")
         mock_db.get.return_value = row
-        ingestion_crud.mark_failed("job-1", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
+        ingestion_crud.mark_failed("job-1", activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE, mock_db)
         assert row.status == "failed"
         assert row.error_code == "invalid_file"
         assert row.staged_key is None
@@ -137,7 +138,7 @@ class TestTerminalTransitions:
         mock_db.get.return_value = None
         ingestion_crud.mark_processing("gone", mock_db)
         ingestion_crud.mark_completed("gone", [1], mock_db)
-        ingestion_crud.mark_failed("gone", activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE, mock_db)
+        ingestion_crud.mark_failed("gone", activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE, mock_db)
         mock_db.commit.assert_not_called()
 
 

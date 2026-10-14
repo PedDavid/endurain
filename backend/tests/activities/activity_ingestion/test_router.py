@@ -6,6 +6,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 import core.exceptions as core_exceptions
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.router as router
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 
@@ -15,9 +16,9 @@ def _upload_job(**overrides):
     now = datetime(2026, 7, 28, 10, 0, 0, tzinfo=UTC)
     defaults = {
         "id": "job-1",
-        "kind": activity_ingestion_schema.IngestionJobKind.UPLOAD,
+        "kind": activity_ingestion_constants.IngestionJobKind.UPLOAD,
         "filename": "ride.gpx",
-        "status": activity_ingestion_schema.IngestionJobStatus.PENDING,
+        "status": activity_ingestion_constants.IngestionJobStatus.PENDING,
         "created_at": now,
         "updated_at": now,
     }

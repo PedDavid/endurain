@@ -6,8 +6,8 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
+import modules.activities.activity_exercise_titles.contracts as activity_exercise_titles_contracts
 import modules.activities.activity_exercise_titles.crud as activity_exercise_titles_crud
-import modules.activities.activity_exercise_titles.schema as activity_exercise_titles_schema
 import modules.activities.contributors as activities_contributors
 
 logger = core_logger.get_logger(__name__)
@@ -45,7 +45,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
     Returns:
         The number of records restored.
     """
-    titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead] = []
+    titles: list[activity_exercise_titles_contracts.ActivityExerciseTitlesCreate] = []
     for record in records:
         if not isinstance(record, dict):
             logger.warning("Skipping non-object exercise-title profile record")
@@ -53,7 +53,7 @@ def _restore_profile_records(records: list[dict[str, Any]], db: Session) -> int:
         data = dict(record)
         data.pop("id", None)
         try:
-            titles.append(activity_exercise_titles_schema.ActivityExerciseTitlesRead.model_validate(data))
+            titles.append(activity_exercise_titles_contracts.ActivityExerciseTitlesCreate.model_validate(data))
         except ValidationError as err:
             logger.warning("Skipping invalid exercise-title profile record", exc_info=err)
 

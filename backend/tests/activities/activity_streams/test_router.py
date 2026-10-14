@@ -3,6 +3,8 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+import core.exceptions as core_exceptions
+
 
 def _build_app(mock_db):
     import core.database as core_db
@@ -54,7 +56,7 @@ class TestReadActivityStreams:
     def test_read_stream_by_type_missing_is_404(self, mock_get, mock_db):
         # A single resource that does not exist is a 404, not ``200 null``.
         client = TestClient(_build_app(mock_db))
-        mock_get.return_value = None
+        mock_get.side_effect = core_exceptions.NotFoundError("Activity stream not found")
 
         response = client.get("/activities/1/streams/1", headers={"Authorization": "Bearer x"})
         assert response.status_code == 404

@@ -6,11 +6,11 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 import core.exceptions as core_exceptions
-import modules.activities.activity_ingestion.schema as activity_ingestion_schema
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.service as ingestion_jobs
 import modules.activities.activity_ingestion.upload_entry_service as upload_entry_service
 
-_UPLOAD = activity_ingestion_schema.IngestionJobKind.UPLOAD
+_UPLOAD = activity_ingestion_constants.IngestionJobKind.UPLOAD
 
 
 def _upload(filename: str = "ride.gpx") -> tuple[str, MagicMock]:
@@ -235,5 +235,5 @@ class TestRefreshIsUnaffected:
         ):
             ingestion_jobs.accept_refresh(7, "storage", db)
 
-        assert create.call_args.args[2] == activity_ingestion_schema.IngestionJobKind.REFRESH
+        assert create.call_args.args[2] == activity_ingestion_constants.IngestionJobKind.REFRESH
         assert "idempotency_key" not in create.call_args.kwargs

@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+import modules.activities.activity_workout_steps.contracts as activity_workout_steps_contracts
 import modules.activities.activity_workout_steps.crud as activity_workout_steps_crud
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.contributors as activities_contributors
@@ -26,7 +27,7 @@ def _list_workout_steps_for_activities(
 
 
 def _store_workout_steps(
-    steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
+    steps: list[activity_workout_steps_contracts.ActivityWorkoutStepsCreate],
     activity_id: int,
     db: Session,
 ) -> None:
@@ -41,19 +42,22 @@ def _store_workout_steps(
 
 
 def _parse_profile_record(
-    record: dict[str, Any],
-    activity_id: int,
-) -> activity_workout_steps_schema.ActivityWorkoutStepsRead:
-    """Validate one archived workout step onto the restored activity.
+    record: dict[str, Any], _activity_id: int
+) -> activity_workout_steps_contracts.ActivityWorkoutStepsCreate:
+    """Validate one archived workout step.
+
+    Steps are stored from a parent-less shape, so the archived ``activity_id`` is
+    dropped rather than re-keyed.
 
     Args:
         record: The archived record, without its ``id``.
-        activity_id: ID of the activity the step is restored onto.
+        _activity_id: ID of the restored activity (unused: the store re-keys steps).
 
     Returns:
         The validated step.
     """
-    return activity_workout_steps_schema.ActivityWorkoutStepsRead.model_validate({**record, "activity_id": activity_id})
+    data = {key: value for key, value in record.items() if key != "activity_id"}
+    return activity_workout_steps_contracts.ActivityWorkoutStepsCreate.model_validate(data)
 
 
 def ingestion_contributor() -> activities_contributors.ActivityIngestionContributor:
@@ -62,9 +66,7 @@ def ingestion_contributor() -> activities_contributors.ActivityIngestionContribu
     Returns:
         The contributor.
     """
-    return activities_contributors.child_ingestion_contributor(
-        key="workout_steps", label="workout steps", store=_store_workout_steps
-    )
+    return activities_contributors.child_ingestion_contributor(key="workout_steps", store=_store_workout_steps)
 
 
 def profile_contributor() -> activities_contributors.ProfileActivityContributor:

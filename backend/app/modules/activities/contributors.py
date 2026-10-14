@@ -12,7 +12,6 @@ from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
 import modules.activities.activity.schema as activity_schema
 
 
@@ -202,14 +201,12 @@ class ParseChildRecord(Protocol):
 def child_ingestion_contributor(
     *,
     key: str,
-    label: str,
     store: StoreChildRecords,
 ) -> ActivityIngestionContributor:
     """Build the ingestion contribution for a plain child collection.
 
     Args:
         key: The parsed component key the contribution persists.
-        label: Human name of the rows, used in the missing-parent error.
         store: Stages the parsed rows for an activity.
 
     Returns:
@@ -217,8 +214,6 @@ def child_ingestion_contributor(
     """
 
     def persist(data: Any, activity: activity_schema.ActivityRead, db: Session) -> None:
-        if activity.id is None:
-            raise core_exceptions.ProcessingError(f"Cannot store {label} before the activity has an id")
         store(data, activity.id, db)
 
     return ActivityIngestionContributor(key=key, persist=persist)
@@ -259,8 +254,6 @@ def child_profile_contributor(
         new_activity: activity_schema.ActivityRead,
         db: Session,
     ) -> int:
-        if new_activity.id is None:
-            return 0
         restored = []
         for record in records:
             if record.get("activity_id") != original_activity_id:

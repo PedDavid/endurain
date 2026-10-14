@@ -64,9 +64,6 @@ def _restore_profile_records(
     Returns:
         The number of records restored.
     """
-    if new_activity.id is None:
-        return 0
-
     media: list[activity_media_contracts.ActivityMediaCreate] = []
     for record in records:
         if record.get("activity_id") != original_activity_id:

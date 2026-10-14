@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 import core.database as core_database
 import core.dependencies as core_dependencies
+import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_media.service as activity_media_service
 
 router = APIRouter()
@@ -28,8 +29,8 @@ _CACHE_MAX_AGE = 3600
     responses={200: {"content": {"image/*": {}}}},
 )
 def read_activity_media_file(
-    activity_id: int,
-    media_id: int,
+    activity_id: activity_dependencies.ActivityId,
+    media_id: core_dependencies.PositiveId,
     token: Annotated[str, Query(alias="t", description="Signed media access token")],
     db: Annotated[Session, Depends(core_database.get_db)],
     storage: Annotated[

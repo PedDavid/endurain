@@ -4,7 +4,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-import core.exceptions as core_exceptions
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
@@ -56,8 +55,6 @@ def _persist_ingestion_component(
         activity: The newly created parent activity.
         db: Database session.
     """
-    if activity.id is None:
-        raise core_exceptions.ProcessingError("Cannot store streams before the activity has an id")
     streams = [
         activity_streams_contracts.ActivityStreamsCreate(
             activity_id=activity.id,

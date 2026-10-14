@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Security
 from sqlalchemy.orm import Session
 
 import core.database as core_database
-import core.exceptions as core_exceptions
 import core.pagination as core_pagination
 import modules.activities.activity.dependencies as activity_dependencies
 import modules.activities.activity_streams.dependencies as activity_streams_dependencies
@@ -73,7 +72,7 @@ def read_activities_streams_for_activity_stream_type(
         Session,
         Depends(core_database.get_db),
     ],
-):
+) -> activity_streams_schema.ActivityStreamsRead:
     """Get a specific stream type for an activity.
 
     Not found when the activity has no such stream or is not visible to the
@@ -81,12 +80,9 @@ def read_activities_streams_for_activity_stream_type(
     ``200 null``, and the two cases are indistinguishable so the endpoint cannot
     be used to probe which activities exist.
     """
-    stream = activity_streams_service.get_activity_stream(
+    return activity_streams_service.get_activity_stream(
         activity_id,
         stream_type,
         token_user_id,
         db,
     )
-    if stream is None:
-        raise core_exceptions.NotFoundError("Activity stream not found")
-    return stream

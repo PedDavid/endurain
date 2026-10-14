@@ -3,6 +3,7 @@
 ``crud`` calls these at its edges so ORM rows never leave the persistence layer.
 """
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 
@@ -20,11 +21,11 @@ def to_read_schema(
     """
     return activity_ingestion_schema.ActivityIngestionJobRead(
         id=orm_job.id,
-        kind=activity_ingestion_schema.IngestionJobKind(orm_job.kind),
+        kind=activity_ingestion_constants.IngestionJobKind(orm_job.kind),
         filename=orm_job.filename,
-        status=activity_ingestion_schema.IngestionJobStatus(orm_job.status),
+        status=activity_ingestion_constants.IngestionJobStatus(orm_job.status),
         error_code=(
-            activity_ingestion_schema.IngestionJobErrorCode(orm_job.error_code) if orm_job.error_code else None
+            activity_ingestion_constants.IngestionJobErrorCode(orm_job.error_code) if orm_job.error_code else None
         ),
         activity_ids=list(orm_job.activity_ids or []),
         created_at=orm_job.created_at,

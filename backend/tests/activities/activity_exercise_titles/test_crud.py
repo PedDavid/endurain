@@ -43,11 +43,11 @@ class TestCreateExerciseTitle:
     def test_skips_existing_pairs_in_the_database(self, mock_db):
         """Repeats in the batch and rows from a concurrent import are skipped, not raised."""
         import modules.activities.activity_exercise_titles.crud as crud
-        from modules.activities.activity_exercise_titles.schema import ActivityExerciseTitlesRead
+        from modules.activities.activity_exercise_titles.contracts import ActivityExerciseTitlesCreate
 
         titles = [
-            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
-            ActivityExerciseTitlesRead(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
+            ActivityExerciseTitlesCreate(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
+            ActivityExerciseTitlesCreate(exercise_category=1, exercise_name=42, wkt_step_name="Sprint"),
         ]
         crud.create_activity_exercise_titles(titles, mock_db)
 

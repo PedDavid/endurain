@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.serializers as activity_ingestion_serializers
@@ -17,7 +18,7 @@ import modules.activities.activity_ingestion.serializers as activity_ingestion_s
 def create_ingestion_job(
     job_id: str,
     user_id: int,
-    kind: activity_ingestion_schema.IngestionJobKind,
+    kind: activity_ingestion_constants.IngestionJobKind,
     db: Session,
     *,
     filename: str | None = None,
@@ -55,7 +56,7 @@ def create_ingestion_job(
         staged_key=staged_key,
         idempotency_key=idempotency_key,
         request_fingerprint=request_fingerprint,
-        status=activity_ingestion_schema.IngestionJobStatus.PENDING.value,
+        status=activity_ingestion_constants.IngestionJobStatus.PENDING.value,
         created_at=now,
         updated_at=now,
     )
@@ -116,7 +117,7 @@ def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
 def get_job_for_idempotency(
     idempotency_key: str,
     user_id: int,
-    kind: activity_ingestion_schema.IngestionJobKind,
+    kind: activity_ingestion_constants.IngestionJobKind,
     db: Session,
 ) -> tuple[activity_ingestion_schema.ActivityIngestionJobRead, str | None] | None:
     """Retrieve a user's job by the idempotency key it was accepted with.
@@ -177,7 +178,7 @@ def mark_processing(job_id: str, db: Session) -> None:
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
         return
-    orm_job.status = activity_ingestion_schema.IngestionJobStatus.PROCESSING.value
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
     orm_job.updated_at = datetime.now(UTC)
     db.flush()
 
@@ -194,7 +195,7 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     if orm_job is None:
         return
     now = datetime.now(UTC)
-    orm_job.status = activity_ingestion_schema.IngestionJobStatus.COMPLETED.value
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.COMPLETED.value
     orm_job.activity_ids = activity_ids
     orm_job.error_code = None
     orm_job.staged_key = None
@@ -205,7 +206,7 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
 
 def mark_failed(
     job_id: str,
-    error_code: activity_ingestion_schema.IngestionJobErrorCode,
+    error_code: activity_ingestion_constants.IngestionJobErrorCode,
     db: Session,
 ) -> None:
     """Stage a move of a job to the failed state with a sanitized reason.
@@ -219,7 +220,7 @@ def mark_failed(
     if orm_job is None:
         return
     now = datetime.now(UTC)
-    orm_job.status = activity_ingestion_schema.IngestionJobStatus.FAILED.value
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.FAILED.value
     orm_job.error_code = error_code.value
     orm_job.staged_key = None
     orm_job.updated_at = now

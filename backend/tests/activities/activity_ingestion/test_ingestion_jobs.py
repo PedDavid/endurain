@@ -6,8 +6,8 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 
 import core.exceptions as core_exceptions
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.events as ingestion_events
-import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_jobs
 import modules.activities.activity_ingestion.upload_entry_service as upload_entry_service
 
@@ -168,7 +168,7 @@ class TestRunUploadJob:
             session_local.return_value.__enter__.return_value = MagicMock()
             ingestion_jobs.run_upload_job("job-1", "storage")
 
-        assert failed.call_args.args[1] == activity_ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND
+        assert failed.call_args.args[1] == activity_ingestion_constants.IngestionJobErrorCode.NO_ACTIVITIES_FOUND
 
     def test_a_rejected_file_is_terminal_immediately(self):
         """The same file fails identically on every retry, so don't burn attempts."""
@@ -188,7 +188,7 @@ class TestRunUploadJob:
             session_local.return_value.__enter__.return_value = MagicMock()
             ingestion_jobs.run_upload_job("job-1", "storage")
 
-        assert fail.call_args.args[1] == activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE
+        assert fail.call_args.args[1] == activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE
         assert fail.call_args.args[2] == "storage"
         assert fail.call_args.args[3] == "abc.gz"
 
@@ -230,7 +230,7 @@ class TestRunUploadJob:
             session_local.return_value.__enter__.return_value = MagicMock()
             ingestion_jobs.run_upload_job("job-1", "storage")
 
-        assert fail.call_args.args[1] == activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED
+        assert fail.call_args.args[1] == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED
 
 
 class TestFailUploadJob:
@@ -243,7 +243,7 @@ class TestFailUploadJob:
             session_local.return_value.__enter__.return_value = MagicMock()
             ingestion_jobs.fail_ingestion_job(
                 "job-1",
-                activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
                 "storage",
                 "abc.gpx",
             )
@@ -261,7 +261,7 @@ class TestFailUploadJob:
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
             ingestion_jobs.fail_ingestion_job(
-                "job-1", activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, "storage"
+                "job-1", activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, "storage"
             )
 
         discard.assert_called_once_with("abc.gpx", "storage")
@@ -274,7 +274,7 @@ class TestFailUploadJob:
         ):
             ingestion_jobs.fail_ingestion_job(
                 "job-1",
-                activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
                 "storage",
                 "abc.gpx",
             )
@@ -324,10 +324,10 @@ class TestErrorCodeFor:
         [
             (
                 core_exceptions.UnsupportedFormatError("x"),
-                activity_ingestion_schema.IngestionJobErrorCode.UNSUPPORTED_FORMAT,
+                activity_ingestion_constants.IngestionJobErrorCode.UNSUPPORTED_FORMAT,
             ),
-            (core_exceptions.InvalidInputError("x"), activity_ingestion_schema.IngestionJobErrorCode.INVALID_FILE),
-            (core_exceptions.ProcessingError(), activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED),
+            (core_exceptions.InvalidInputError("x"), activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE),
+            (core_exceptions.ProcessingError(), activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED),
         ],
     )
     def test_maps_known_failures(self, error, expected):
@@ -336,7 +336,7 @@ class TestErrorCodeFor:
     def test_an_unexpected_failure_does_not_leak_its_message(self):
         """The exception text can carry paths and parser internals."""
         code = ingestion_jobs._error_code_for(RuntimeError("/srv/data/activity_files/secret.fit exploded"))
-        assert code == activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED
+        assert code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED
 
 
 class TestGetJob:

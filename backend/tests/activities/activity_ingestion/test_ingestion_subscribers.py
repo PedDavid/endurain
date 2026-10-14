@@ -7,8 +7,8 @@ from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 from pydantic import ValidationError
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.events as ingestion_events
-import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.subscribers as ingestion_subscribers
 
 
@@ -72,7 +72,7 @@ class TestProcessUploadedFileForEvent:
 
         # Otherwise a dead-lettered upload would sit at "processing" forever.
         fail.assert_called_once_with(
-            "job-1", activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED, platform.storage
+            "job-1", activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, platform.storage
         )
 
 

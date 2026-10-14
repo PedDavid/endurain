@@ -21,8 +21,8 @@ from tests._helpers.db import (
     postgres_test_url,
 )
 
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.models as ingestion_models
-import modules.activities.activity_ingestion.schema as ingestion_schema
 import modules.activities.activity_ingestion.service as ingestion_jobs
 
 
@@ -113,7 +113,7 @@ class TestUploadJob:
 
         job = _read_job(factory)
         assert job.status == "failed"
-        assert job.error_code == ingestion_schema.IngestionJobErrorCode.NO_ACTIVITIES_FOUND.value
+        assert job.error_code == activity_ingestion_constants.IngestionJobErrorCode.NO_ACTIVITIES_FOUND.value
 
     def test_processing_is_visible_while_the_import_is_still_running(self, factory):
         """``mark_processing`` commits before the (slow) import starts."""
@@ -139,14 +139,14 @@ class TestUploadJob:
         with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
             ingestion_jobs.fail_ingestion_job(
                 "job-1",
-                ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
                 MagicMock(),
                 staged_key="abc.gpx",
             )
 
         job = _read_job(factory)
         assert job.status == "failed"
-        assert job.error_code == ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED.value
+        assert job.error_code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED.value
 
 
 class TestRefreshJob:
@@ -227,4 +227,4 @@ class TestSynchronousBulkImport:
         first, second = _read_job(factory, "job-a"), _read_job(factory, "job-b")
         assert (first.status, first.activity_ids) == ("completed", [31])
         assert second.status == "failed"
-        assert second.error_code == ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED.value
+        assert second.error_code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED.value

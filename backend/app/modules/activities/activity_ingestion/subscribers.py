@@ -30,8 +30,8 @@ import core.config as core_config
 import core.database as core_database
 import core.logger as core_logger
 import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.events as activity_ingestion_events
-import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as activity_ingestion_service
 import modules.activities.activity_ingestion.staging as activity_ingestion_staging
 
@@ -77,7 +77,7 @@ def process_uploaded_file_for_event(event: Event) -> None:
         if _is_final_attempt(event):
             activity_ingestion_service.fail_ingestion_job(
                 payload.job_id,
-                activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
                 storage,
             )
             logger.error(
@@ -107,7 +107,7 @@ def process_refresh_requested_for_event(event: Event) -> None:
         if _is_final_attempt(event):
             activity_ingestion_service.fail_ingestion_job(
                 payload.job_id,
-                activity_ingestion_schema.IngestionJobErrorCode.PROVIDER_UNAVAILABLE,
+                activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE,
                 storage,
             )
             logger.error(

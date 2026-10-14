@@ -2,7 +2,7 @@
 
 Declares *what* an activity's workout steps are — the parent flag that hides them
 and the two CRUD calls that read them — and delegates *how* the paged read runs
-to the shared :mod:`modules.activities.activity.child_collection` seam, which
+to the shared :mod:`modules.activities.activity.child_collection_service` seam, which
 owns the access gate and the rule that a refusal and an empty collection answer
 alike.
 

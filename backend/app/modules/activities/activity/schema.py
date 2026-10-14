@@ -191,7 +191,7 @@ class ActivityRead(ActivityBase):
             by the thumbnail subsystem reacting to ``activity.created``.
     """
 
-    id: int | None = Field(default=None, ge=1)
+    id: int = Field(ge=1)
     map_thumbnail_path: str | None = Field(default=None, max_length=500)
     version: int | None = Field(default=None, ge=1)
 

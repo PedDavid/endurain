@@ -264,9 +264,9 @@ class ExportService:
 
             return activity_integration.list_user_activities_page(
                 self.user_id,
-                page_number,
-                limit,
                 self.db,
+                page_number=page_number,
+                num_records=limit,
             )
 
         except Exception as err:

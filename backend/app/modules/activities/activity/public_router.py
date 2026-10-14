@@ -27,7 +27,7 @@ def read_public_activities_activity_from_id(
         Session,
         Depends(core_database.get_db),
     ],
-):
+) -> activity_schema.ActivityRead:
     """Return a public activity by ID.
 
     Answers 404 when the activity does not exist *or* is not public — the two are
