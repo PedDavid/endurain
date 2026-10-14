@@ -1,0 +1,67 @@
+"""The one place ingestion decides how a queued job gets run.
+
+Two deployment profiles exist, and which one is active is a fact about the
+deployment, not about a request:
+
+* **Durable** (``JOBS_ENABLED``): the job is staged in the transactional outbox
+  with the job row and a worker claims it. A failed attempt is retried and
+  dead-lettered by the worker, so the job body only has to raise.
+* **Local** (default): there is no worker. The job row is committed and the same
+  job body runs on the in-process pool in :mod:`.background`. Nothing retries it,
+  so a failure has to leave the job in a terminal state itself.
+
+``service`` states *what* is queued and calls these three functions; it does not
+read the setting. The job bodies are identical in both profiles.
+"""
+
+from collections.abc import Callable
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+import core.config as core_config
+import modules.activities.activity_ingestion.background as activity_ingestion_background
+
+
+def worker_retries() -> bool:
+    """Return whether a durable worker retries a job that raises.
+
+    Returns:
+        True on the durable profile; False when the in-process pool runs the job
+        and nothing will retry it.
+    """
+    return core_config.settings.JOBS_ENABLED
+
+
+def commit_or_publish(db: Session, publish: Callable[[Callable[[], None]], None]) -> None:
+    """Make a staged job row durable and, on the durable profile, hand it to the worker.
+
+    Args:
+        db: The session holding the staged job row(s).
+        publish: Publishes the work event, given the commit callable the
+            publisher must own so the outbox row commits with the job row. Not
+            called on the local profile.
+
+    Returns:
+        None.
+    """
+    if worker_retries():
+        publish(db.commit)
+    else:
+        db.commit()
+
+
+def run_in_background(run: Callable[..., Any], *args: Any) -> None:
+    """Run a job body on the in-process pool, unless a durable worker will.
+
+    Call after the job row is committed.
+
+    Args:
+        run: The job body.
+        *args: Arguments for the job body.
+
+    Returns:
+        None.
+    """
+    if not worker_retries():
+        activity_ingestion_background.submit(run, *args)

@@ -17,7 +17,7 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
-            patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
+            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit") as submit,
         ):
             result = ingestion_jobs.accept_refresh(7, "storage", db)
 
@@ -38,14 +38,14 @@ class TestAcceptRefresh:
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.ingestion_event_publishers.platform_publisher, "publish_committing") as publish,
-            patch.object(ingestion_jobs.activity_ingestion_background, "submit_refresh") as submit,
+            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit") as submit,
         ):
             ingestion_jobs.accept_refresh(7, "storage", db)
 
         # Same client contract either way — only the executor differs.
         publish.assert_not_called()
         db.commit.assert_called_once()
-        submit.assert_called_once_with(create.call_args.args[0], "storage")
+        submit.assert_called_once_with(ingestion_jobs.run_refresh_job, create.call_args.args[0], "storage")
 
     def test_a_refresh_job_carries_no_file_fields(self):
         db = MagicMock()

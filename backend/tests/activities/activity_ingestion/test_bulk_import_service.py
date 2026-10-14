@@ -38,7 +38,9 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
-            patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
+            patch.object(
+                bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
+            ) as submit,
         ):
             result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
@@ -73,7 +75,7 @@ class TestStartBulkImport:
                 "_enqueue_bulk_import_files",
                 side_effect=SQLAlchemyError("outbox down"),
             ),
-            patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
+            patch.object(bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
             pytest.raises(SQLAlchemyError),
         ):
             bulk_import_service.start_bulk_import(3, MagicMock(), db)
@@ -88,7 +90,9 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
-            patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import") as submit,
+            patch.object(
+                bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
+            ) as submit,
         ):
             result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
 
@@ -96,7 +100,7 @@ class TestStartBulkImport:
         publish.assert_not_called()
         # The fallback executor moves the same rows, so the handle reports the
         # same states whichever executor ran the import.
-        assert [job_id for job_id, _path in submit.call_args.args[1]] == [result[0].id]
+        assert [job_id for job_id, _path in submit.call_args.args[2]] == [result[0].id]
         # Nothing publishes, so the job rows need their own commit.
         db.commit.assert_called_once()
 
@@ -110,7 +114,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
-            patch.object(bulk_import_service.activity_ingestion_background, "submit_bulk_import"),
+            patch.object(bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
         ):
             assert bulk_import_service.start_bulk_import(3, MagicMock(), db) == []
 

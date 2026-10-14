@@ -31,10 +31,10 @@ import core.database as core_database
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
-import modules.activities.activity_ingestion.background as activity_ingestion_background
 import modules.activities.activity_ingestion.bulk_entry_service as bulk_entry_service
 import modules.activities.activity_ingestion.contracts as ingestion_contracts
 import modules.activities.activity_ingestion.crud as ingestion_crud
+import modules.activities.activity_ingestion.dispatch as activity_ingestion_dispatch
 import modules.activities.activity_ingestion.event_publishers as ingestion_event_publishers
 import modules.activities.activity_ingestion.refresh_entry as refresh_entry
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
@@ -143,14 +143,14 @@ def accept_upload(
             idempotency_key=idempotency_key,
             request_fingerprint=received.fingerprint,
         )
-        if core_config.settings.JOBS_ENABLED:
-            # Staged in the transactional outbox on this session and committed
-            # with the job row, then relayed into a retryable processing_jobs
-            # row. A staging failure propagates, so the caller gets a 500 rather
-            # than a 202 for an upload that was never queued.
-            ingestion_event_publishers.publish_file_uploaded(job_id, token_user_id, db, commit=db.commit)
-        else:
-            db.commit()
+        # Durable profile: staged in the transactional outbox on this session
+        # and committed with the job row, then relayed into a retryable
+        # processing_jobs row. A staging failure propagates, so the caller gets
+        # a 500 rather than a 202 for an upload that was never queued.
+        activity_ingestion_dispatch.commit_or_publish(
+            db,
+            lambda commit: ingestion_event_publishers.publish_file_uploaded(job_id, token_user_id, db, commit=commit),
+        )
     except IntegrityError:
         # Two requests carrying the same key raced past the check above. The
         # constraint is what actually decides; the loser reports the winner's job.
@@ -175,12 +175,10 @@ def accept_upload(
         upload_entry.discard_staged_upload(staged_key, storage)
         raise
 
-    if not core_config.settings.JOBS_ENABLED:
-        # No durable worker to drain the queue; fall back to the background pool
-        # so the parse still leaves the request threadpool alone. In-flight work
-        # is lost on restart, which is exactly the reliability gap durable jobs
-        # close.
-        activity_ingestion_background.submit_upload(job_id, storage)
+    # No durable worker drains the queue on the local profile, so the parse runs
+    # on the background pool and leaves the request threadpool alone. In-flight
+    # work is lost on restart, which is the reliability gap durable jobs close.
+    activity_ingestion_dispatch.run_in_background(run_upload_job, job_id, storage)
 
     logger.info(
         "Activity upload accepted for background import",
@@ -280,11 +278,11 @@ def accept_refresh(
         activity_ingestion_schema.IngestionJobKind.REFRESH,
         db,
     )
-    if core_config.settings.JOBS_ENABLED:
-        ingestion_event_publishers.publish_refresh_requested(job_id, token_user_id, db, commit=db.commit)
-    else:
-        db.commit()
-        activity_ingestion_background.submit_refresh(job_id, storage)
+    activity_ingestion_dispatch.commit_or_publish(
+        db,
+        lambda commit: ingestion_event_publishers.publish_refresh_requested(job_id, token_user_id, db, commit=commit),
+    )
+    activity_ingestion_dispatch.run_in_background(run_refresh_job, job_id, storage)
 
     logger.info(
         "Provider refresh accepted for background sync",
@@ -326,7 +324,7 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         try:
             activities = asyncio.run(refresh_entry.sync_linked_providers(owner, db))
         except Exception:
-            if not core_config.settings.JOBS_ENABLED:
+            if not activity_ingestion_dispatch.worker_retries():
                 # Nothing will retry, so leave the caller a terminal state
                 # instead of a job stuck at "processing".
                 fail_ingestion_job(
@@ -396,7 +394,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         except Exception:
             # Server-side, possibly transient. Keep the blob for the retry, and
             # only give up here when there is no retry to wait for.
-            if not core_config.settings.JOBS_ENABLED:
+            if not activity_ingestion_dispatch.worker_retries():
                 fail_ingestion_job(
                     job_id,
                     activity_ingestion_schema.IngestionJobErrorCode.PROCESSING_FAILED,
@@ -701,14 +699,13 @@ def start_bulk_import(
             for file_path in files_to_process
         ]
 
-        if core_config.settings.JOBS_ENABLED:
-            _enqueue_bulk_import_files(
-                [(job.id, file_path) for job, file_path in jobs], user_id, import_time, storage, db
-            )
+        queued_files = [(job.id, file_path) for job, file_path in jobs]
+        if activity_ingestion_dispatch.worker_retries():
+            _enqueue_bulk_import_files(queued_files, user_id, import_time, storage, db)
         else:
             db.commit()
-            activity_ingestion_background.submit_bulk_import(
-                user_id, [(job.id, file_path) for job, file_path in jobs], import_time, storage
+            activity_ingestion_dispatch.run_in_background(
+                process_all_files_sync, user_id, queued_files, import_time, storage
             )
     except (OSError, RuntimeError) as err:
         logger.error(

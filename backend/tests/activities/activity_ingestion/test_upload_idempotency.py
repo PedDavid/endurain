@@ -62,7 +62,7 @@ class TestReplay:
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job"),
             patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
             patch.object(ingestion_jobs.core_config.settings, "JOBS_ENABLED", False),
-            patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
+            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
         ):
             ingestion_jobs.accept_upload(7, *_upload(), "storage", db, idempotency_key="key-1")
 
@@ -173,7 +173,7 @@ class TestWithoutAKey:
             patch.object(ingestion_jobs.upload_entry, "store_received_upload", return_value="abc.gpx"),
             patch.object(ingestion_jobs.ingestion_crud, "create_ingestion_job") as create,
             patch.object(ingestion_jobs.ingestion_crud, "get_ingestion_job", return_value="job-view"),
-            patch.object(ingestion_jobs.activity_ingestion_background, "submit_upload"),
+            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
         ):
             ingestion_jobs.accept_upload(7, *_upload(), "storage", db)
 
