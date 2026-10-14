@@ -571,6 +571,21 @@ one pattern. Recorded here so a review does not reopen them.
   (or `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
   share a name, and the OpenAPI component name is the schema's. A value object nested
   inside a read model (`SummaryMetrics`, `DaySummary`) keeps its descriptive name.
+- **Read models are stored rows.** A `<Thing>Read` always has a required `id`: it is
+  what the server returns, never what a producer sends. A shape that is written
+  before it has an id (parsed, archived or restored data) is `<Thing>Create` in
+  `contracts.py`, and both derive from a shared `<Thing>Base` in `schema.py`
+  (`activity_sets`, `activity_workout_steps`, `activity_exercise_titles`). An
+  optional `id` on a read model is the symptom of one class doing both jobs.
+- **Status vocabularies.** A closed set a column stores (`FollowStatus`,
+  `IngestionJobStatus`) is a `StrEnum` in `constants.py`, imported by `models`,
+  `crud`, `service` and `schema` alike. `schema.py` only references it as a field type.
+- **Page arguments.** `page_number` and `num_records` follow `db` as keyword-only
+  arguments, with `core.pagination.DEFAULT_NUM_RECORDS` / `DEFAULT_CHILD_NUM_RECORDS`
+  as the defaults, never a literal.
+- **Access decisions are service.** A helper that decides what a caller may see and
+  logs the refusal (`activity/child_collection_service.py`) is named
+  `<thing>_service.py`, even when other services consume it.
 - **Request parameters.** A path or query parameter's constraint is part of its type
   (`core.dependencies.PositiveId`, an enum for a closed set, `AfterValidator` for a
   vocabulary lookup), so FastAPI validates it, answers with the validation problem
@@ -617,7 +632,8 @@ one pattern. Recorded here so a review does not reopen them.
   private helpers are named for that (`_persist_ingestion_component`,
   `_restore_profile_records`). A package has a `contracts.py` only when it defines an
   input shape its `schema.py` does not (`activity_sets`, `activity_streams`,
-  `activity_media`); laps and workout steps reuse their schema.
+  `activity_media`, `activity_workout_steps`, `activity_exercise_titles`); laps
+  hand their contributor plain dicts, so they have none.
 - **`activity_file_storage` has no `service.py`.** It is a leaf over
   `StorageProvider` with no decision to arrange, so a service would only forward.
 

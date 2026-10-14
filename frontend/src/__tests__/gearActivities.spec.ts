@@ -35,11 +35,11 @@ describe('mapGearActivity', () => {
     expect(mapGearActivity(activityDto)).toEqual(mappedActivity)
   })
 
-  it('defaults an absent id to zero and absent optionals to null', () => {
+  it('defaults absent optionals to null', () => {
     expect(
-      mapGearActivity({ name: 'Run', activity_type: 2, distance: 5000, is_hidden: false }),
+      mapGearActivity({ id: 7, name: 'Run', activity_type: 2, distance: 5000, is_hidden: false }),
     ).toEqual({
-      id: 0,
+      id: 7,
       name: 'Run',
       activityType: 2,
       startTime: null,

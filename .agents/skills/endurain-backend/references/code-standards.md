@@ -23,11 +23,12 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 ## SQLAlchemy 2
 - `Mapped[...]` with `mapped_column()`; every column typed.
 - `crud` stages with `db.flush()`; only `service` commits. `db.refresh(obj)` after the flush when you need server defaults.
-- Persistence raises `core.exceptions`; the app handler maps them to responses. Converted modules do not use ``: a `SQLAlchemyError` propagates to `core.exceptions.database_error_handler`.
+- Persistence raises `core.exceptions`; the app handler maps them to responses. Converted modules do not use `@handle_db_errors`: a `SQLAlchemyError` propagates to `core.exceptions.database_error_handler`.
 
 ## Pydantic v2
 - `ConfigDict`, `field_validator`; no class `Config`, no `@validator`.
 - Keep ORM and schema names distinct.
+- A `<Thing>Read` has a required `id`; input shapes are `<Thing>Create` in `contracts.py` (see the guide's "Read models are stored rows").
 
 ## FastAPI
 - `response_model` on every JSON endpoint; a route that returns bytes declares `responses=` with its media type instead (`TestRouteConventions`). Status 200 (GET), 201 (POST create), 202 (POST accepted for background processing), 204 (DELETE).

@@ -20,7 +20,7 @@ export interface GearActivitiesListParams {
  */
 export function mapGearActivity(dto: GearActivityDto): GearActivity {
   return {
-    id: dto.id ?? 0,
+    id: dto.id,
     name: dto.name,
     activityType: dto.activity_type,
     // The raw UTC instant plus the recording timezone, matching the main

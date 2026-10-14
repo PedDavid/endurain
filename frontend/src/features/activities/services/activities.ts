@@ -91,7 +91,7 @@ export async function fetchAllChildPages<T>(
  */
 export function mapActivity(dto: ActivityDto): Activity {
   return {
-    id: dto.id ?? 0,
+    id: dto.id,
     userId: dto.user_id ?? null,
     name: dto.name,
     description: dto.description ?? null,

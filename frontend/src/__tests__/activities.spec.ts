@@ -75,9 +75,8 @@ describe('mapActivity', () => {
     expect(activity.privacy.hideMap).toBe(false)
   })
 
-  it('defaults a missing id and visibility', () => {
-    const activity = mapActivity({ ...activityDto, id: null, visibility: null })
-    expect(activity.id).toBe(0)
+  it('defaults a missing visibility', () => {
+    const activity = mapActivity({ ...activityDto, visibility: null })
     expect(activity.visibility).toBe(0)
   })
 })
