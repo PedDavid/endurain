@@ -13,7 +13,7 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 - Every public module, class, function and method has a docstring.
 - `Args`: every parameter (D417 enforces it).
 - `Returns`: when a value comes back. `Returns: None.` is not required.
-- `Raises`: the exceptions the function raises or deliberately lets propagate, including those raised by a decorator such as `handle_db_errors`, and especially the ones that carry a security meaning (`PermissionDeniedError`, `NotFoundError` as an anti-enumeration answer). Omit it when there are none; do not write `Raises: None.`.
+- `Raises`: the exceptions the function raises or deliberately lets propagate, and especially the ones that carry a security meaning (`PermissionDeniedError`, `NotFoundError` as an anti-enumeration answer). Omit it when there are none; do not write `Raises: None.`.
 - Classes: summary plus `Attributes`.
 - No examples; extended explanation only where the *why* is not obvious from the code.
 - A docstring with backslashes is a raw string (`r"""`).
@@ -21,7 +21,7 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 ## SQLAlchemy 2
 - `Mapped[...]` with `mapped_column()`; every column typed.
 - `crud` stages with `db.flush()`; only `service` commits. `db.refresh(obj)` after the flush when you need server defaults.
-- Persistence raises `core.exceptions`; the app handler maps them to responses.
+- Persistence raises `core.exceptions`; the app handler maps them to responses. Converted modules do not use ``: a `SQLAlchemyError` propagates to `core.exceptions.database_error_handler`.
 
 ## Pydantic v2
 - `ConfigDict`, `field_validator`; no class `Config`, no `@validator`.

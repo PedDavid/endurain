@@ -19,7 +19,9 @@ class TestAcceptRefresh:
             patch.object(
                 ingestion_jobs.activity_ingestion_event_publishers.platform_publisher, "publish_committing"
             ) as publish,
-            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit") as submit,
+            patch.object(
+                ingestion_jobs.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
+            ) as submit,
         ):
             result = ingestion_jobs.accept_refresh(7, "storage", db)
 
@@ -42,7 +44,9 @@ class TestAcceptRefresh:
             patch.object(
                 ingestion_jobs.activity_ingestion_event_publishers.platform_publisher, "publish_committing"
             ) as publish,
-            patch.object(ingestion_jobs.activity_ingestion_dispatch.activity_ingestion_background, "submit") as submit,
+            patch.object(
+                ingestion_jobs.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
+            ) as submit,
         ):
             ingestion_jobs.accept_refresh(7, "storage", db)
 

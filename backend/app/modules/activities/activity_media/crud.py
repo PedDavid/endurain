@@ -12,7 +12,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import core.exceptions as core_exceptions
 import core.pagination as core_pagination
 import modules.activities.activity_media.contracts as activity_media_contracts
@@ -20,7 +19,6 @@ import modules.activities.activity_media.models as activity_media_models
 import modules.activities.activity_media.serializers as activity_media_serializers
 
 
-@core_decorators.handle_db_errors
 def get_all_activity_media(
     db: Session,
 ) -> list[activity_media_contracts.ActivityMediaRecord]:
@@ -31,15 +29,11 @@ def get_all_activity_media(
 
     Returns:
         The media records (empty if none exist).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_media_models.ActivityMedia)
     return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_activity_media_by_id(
     activity_media_id: int,
     db: Session,
@@ -52,9 +46,6 @@ def get_activity_media_by_id(
 
     Returns:
         The media record, or None when no such record exists.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.id == activity_media_id
@@ -63,7 +54,6 @@ def get_activity_media_by_id(
     return activity_media_serializers.to_read_schema(media) if media is not None else None
 
 
-@core_decorators.handle_db_errors
 def get_media_for_activity(
     activity_id: int,
     db: Session,
@@ -84,9 +74,6 @@ def get_media_for_activity(
 
     Returns:
         The page of media records (empty when the activity has none).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = (
         select(activity_media_models.ActivityMedia)
@@ -98,7 +85,6 @@ def get_media_for_activity(
     return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def count_media_for_activity(activity_id: int, db: Session) -> int:
     """Count an activity's media records.
 
@@ -108,15 +94,11 @@ def count_media_for_activity(activity_id: int, db: Session) -> int:
 
     Returns:
         The total number of media records.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(func.count()).where(activity_media_models.ActivityMedia.activity_id == activity_id)
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def get_activities_media(
     activity_ids: list[int],
     db: Session,
@@ -133,9 +115,6 @@ def get_activities_media(
 
     Returns:
         The media records of those activities, empty when there are none.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     if not activity_ids:
         return []
@@ -146,7 +125,6 @@ def get_activities_media(
     return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_activity_media_by_content_hash(
     activity_id: int,
     content_hash: str,
@@ -165,9 +143,6 @@ def get_activity_media_by_content_hash(
 
     Returns:
         The matching media record, or None when there isn't one.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.activity_id == activity_id,
@@ -177,7 +152,6 @@ def get_activity_media_by_content_hash(
     return activity_media_serializers.to_read_schema(media) if media is not None else None
 
 
-@core_decorators.handle_db_errors
 def get_media_with_legacy_path(
     db: Session,
     *,
@@ -215,7 +189,6 @@ def get_media_with_legacy_path(
     return [activity_media_serializers.to_read_schema(media) for media in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def create_activity_media(
     activity_id: int,
     media_key: str,
@@ -239,7 +212,6 @@ def create_activity_media(
     Raises:
         ConflictError: If a record with the same ``media_path`` exists, or the
             same ``content_hash`` is already stored for this activity.
-        ProcessingError: For any other database error.
     """
     try:
         db_activity_media = activity_media_models.ActivityMedia(
@@ -258,7 +230,6 @@ def create_activity_media(
         ) from integrity_error
 
 
-@core_decorators.handle_db_errors
 def create_activity_medias(
     activity_media: list[activity_media_contracts.ActivityMediaCreate],
     activity_id: int,
@@ -270,9 +241,6 @@ def create_activity_medias(
         activity_media: The media records to persist.
         activity_id: Activity ID the media belong to.
         db: Database session.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     media: list[activity_media_models.ActivityMedia] = []
     for media_item in activity_media:
@@ -291,7 +259,6 @@ def create_activity_medias(
     db.flush()
 
 
-@core_decorators.handle_db_errors
 def edit_activity_media_media_path(
     activity_media_id: int, media_path: str, db: Session
 ) -> activity_media_contracts.ActivityMediaRecord:
@@ -307,7 +274,6 @@ def edit_activity_media_media_path(
 
     Raises:
         NotFoundError: If the record does not exist.
-        ProcessingError: For any other database error.
     """
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.id == activity_media_id
@@ -323,7 +289,6 @@ def edit_activity_media_media_path(
     return activity_media_serializers.to_read_schema(db_activity_media)
 
 
-@core_decorators.handle_db_errors
 def delete_activity_media(activity_media_id: int, db: Session) -> None:
     """Stage the deletion of an activity media record.
 
@@ -336,7 +301,6 @@ def delete_activity_media(activity_media_id: int, db: Session) -> None:
 
     Raises:
         NotFoundError: If the media record does not exist.
-        ProcessingError: For database errors.
     """
     stmt = select(activity_media_models.ActivityMedia).where(
         activity_media_models.ActivityMedia.id == activity_media_id

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
 
@@ -43,16 +43,6 @@ class TestCreateActivityMedia:
         )
         assert result.content_hash == "deadbeef"
 
-    @patch("modules.activities.activity_media.crud.activity_media_models.ActivityMedia")
-    def test_db_error(self, mock_media_model, mock_db):
-        import modules.activities.activity_media.crud as crud
-
-        mock_media_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_media(activity_id=1, media_key="1_abc123.jpg", db=mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetMediaForActivity:
     def test_success(self, mock_db):
@@ -73,14 +63,6 @@ class TestGetMediaForActivity:
 
         setup_mock_execute(mock_db, return_scalars_all=[])
         assert crud.get_media_for_activity(activity_id=1, db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_media_for_activity(activity_id=1, db=mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivityMediaById:
@@ -120,14 +102,6 @@ class TestGetActivityMediaByContentHash:
         mock_db.scalars.return_value.first.return_value = None
         assert crud.get_activity_media_by_content_hash(1, "deadbeef", mock_db) is None
 
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activity_media_by_content_hash(1, "deadbeef", mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetAllActivityMedia:
     def test_success(self, mock_db):
@@ -151,14 +125,6 @@ class TestGetAllActivityMedia:
         setup_mock_execute(mock_db, return_scalars_all=[])
         r = crud.get_all_activity_media(mock_db)
         assert r == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_all_activity_media(mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivitiesMedia:
@@ -187,14 +153,6 @@ class TestGetActivitiesMedia:
         mock_db.scalars.return_value.all.return_value = []
 
         assert crud.get_activities_media(activity_ids=[1], db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activities_media(activity_ids=[1], db=mock_db)
-        assert e.value.status_code == 500
 
 
 class TestCreateActivityMediaIntegrity:
@@ -228,18 +186,6 @@ class TestCreateActivityMedias:
         crud.create_activity_medias([], 1, mock_db)
         mock_db.commit.assert_not_called()
 
-    @patch("modules.activities.activity_media.crud.activity_media_models.ActivityMedia")
-    def test_db_error(self, mock_media_model, mock_db):
-        import modules.activities.activity_media.crud as crud
-        from modules.activities.activity_media.contracts import ActivityMediaCreate
-
-        mock_media_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        media_list = [ActivityMediaCreate(media_path="1_p.jpg", media_type=1)]
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_medias(media_list, 1, mock_db)
-        assert e.value.status_code == 500
-
 
 class TestEditActivityMediaMediaPath:
     def test_success(self, mock_db):
@@ -264,16 +210,6 @@ class TestEditActivityMediaMediaPath:
             crud.edit_activity_media_media_path(1, "/new/path", mock_db)
         assert e.value.status_code == 404
 
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-        import modules.activities.activity_media.models as m
-
-        mock_db.scalars.return_value.first.return_value = MagicMock(spec=m.ActivityMedia)
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.edit_activity_media_media_path(1, "/new/path", mock_db)
-        assert e.value.status_code == 500
-
 
 class TestDeleteActivityMedia:
     def test_success(self, mock_db):
@@ -294,13 +230,3 @@ class TestDeleteActivityMedia:
         with pytest.raises(core_exceptions.NotFoundError) as e:
             crud.delete_activity_media(1, mock_db)
         assert e.value.status_code == 404
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_media.crud as crud
-        import modules.activities.activity_media.models as m
-
-        mock_db.scalars.return_value.first.return_value = MagicMock(spec=m.ActivityMedia, id=1, activity_id=1)
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.delete_activity_media(1, mock_db)
-        assert e.value.status_code == 500

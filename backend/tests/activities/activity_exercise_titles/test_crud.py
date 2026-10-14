@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
 
@@ -30,13 +30,6 @@ class TestGetAllExerciseTitles:
         setup_mock_execute(mock_db, return_scalars_all=[])
         r = crud.get_activity_exercise_titles(db=mock_db)
         assert r == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_exercise_titles.crud as crud
-
-        mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError):
-            crud.get_activity_exercise_titles(db=mock_db)
 
 
 class TestCreateExerciseTitle:

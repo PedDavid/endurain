@@ -6,7 +6,6 @@ from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.followers.constants as followers_constants
@@ -34,7 +33,6 @@ def _invalidate_followee_cache(db: Session) -> None:
     db.info.pop(_FOLLOWEE_CACHE_KEY, None)
 
 
-@core_decorators.handle_db_errors
 def get_all_followers_by_user_id(
     user_id: int,
     db: Session,
@@ -58,9 +56,6 @@ def get_all_followers_by_user_id(
 
     Returns:
         The follow relationships on this page (empty list if none).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(followers_models.Follower).where(followers_models.Follower.followee_id == user_id)
     if accepted_only:
@@ -69,7 +64,6 @@ def get_all_followers_by_user_id(
     return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_all_following_by_user_id(
     user_id: int,
     db: Session,
@@ -92,9 +86,6 @@ def get_all_following_by_user_id(
 
     Returns:
         The follow relationships on this page (empty list if none).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(followers_models.Follower).where(followers_models.Follower.follower_id == user_id)
     if accepted_only:
@@ -103,7 +94,6 @@ def get_all_following_by_user_id(
     return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_pending_requests_for_user_id(
     user_id: int,
     db: Session,
@@ -121,9 +111,6 @@ def get_pending_requests_for_user_id(
 
     Returns:
         The pending requests (empty list if none).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = (
         select(followers_models.Follower)
@@ -138,7 +125,6 @@ def get_pending_requests_for_user_id(
     return [followers_serializers.to_read_schema(follower) for follower in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def count_pending_requests_for_user_id(user_id: int, db: Session) -> int:
     """Count the pending follow requests addressed to a user.
 
@@ -148,9 +134,6 @@ def count_pending_requests_for_user_id(user_id: int, db: Session) -> int:
 
     Returns:
         The number of pending requests.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(func.count(followers_models.Follower.id)).where(
         followers_models.Follower.followee_id == user_id,
@@ -159,7 +142,6 @@ def count_pending_requests_for_user_id(user_id: int, db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool = False) -> int:
     """Count followers for a user without loading the full rowset.
 
@@ -170,9 +152,6 @@ def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool
 
     Returns:
         Number of follow relationships.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = (
         select(func.count())
@@ -184,7 +163,6 @@ def count_followers_by_user_id(user_id: int, db: Session, *, accepted_only: bool
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool = False) -> int:
     """Count users a given user is following without loading the rowset.
 
@@ -195,9 +173,6 @@ def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool
 
     Returns:
         Number of follow relationships.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = (
         select(func.count())
@@ -209,7 +184,6 @@ def count_following_by_user_id(user_id: int, db: Session, *, accepted_only: bool
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def get_follower_for_user_id_and_target_user_id(
     user_id: int, target_user_id: int, db: Session
 ) -> followers_schema.FollowRelationship | None:
@@ -222,9 +196,6 @@ def get_follower_for_user_id_and_target_user_id(
 
     Returns:
         The follow relationship if found, otherwise None.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(followers_models.Follower).where(
         followers_models.Follower.follower_id == user_id,
@@ -234,7 +205,6 @@ def get_follower_for_user_id_and_target_user_id(
     return followers_serializers.to_read_schema(follower) if follower is not None else None
 
 
-@core_decorators.handle_db_errors
 def list_accepted_followee_ids(user_id: int, db: Session) -> list[int]:
     """List the ids of users the given user follows with an accepted relationship.
 
@@ -255,9 +225,6 @@ def list_accepted_followee_ids(user_id: int, db: Session) -> list[int]:
 
     Returns:
         The followee user ids (empty list if none).
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     cache: dict[int, list[int]] = db.info.setdefault(_FOLLOWEE_CACHE_KEY, {})
     if user_id in cache:
@@ -272,7 +239,6 @@ def list_accepted_followee_ids(user_id: int, db: Session) -> list[int]:
     return followee_ids
 
 
-@core_decorators.handle_db_errors
 def create_follower(
     user_id: int,
     target_user_id: int,
@@ -294,7 +260,6 @@ def create_follower(
 
     Raises:
         ConflictError: If the relationship already exists.
-        ProcessingError: On other database errors.
     """
     # Pre-check to return a clean 409 instead of a 500 from a unique
     # constraint violation.
@@ -314,10 +279,8 @@ def create_follower(
         db.refresh(new_follow)
         _invalidate_followee_cache(db)
     except IntegrityError as err:
-        # Kept rather than delegated: the decorator deliberately lets IntegrityError
-        # through precisely so a caller can map it to its own semantics. The
-        # pre-check above races, so a concurrent follow lands here and must be a
-        # 409, not a 500. Rolling the session back is the transaction owner's
+        # The pre-check above races, so a concurrent follow lands here and must be
+        # a 409, not a 500. Rolling the session back is the transaction owner's
         # job (``service`` / ``core.database.get_db``), not persistence's.
         logger.warning(
             "Integrity error in create_follower",
@@ -329,7 +292,6 @@ def create_follower(
     return followers_serializers.to_read_schema(new_follow)
 
 
-@core_decorators.handle_db_errors
 def accept_follower(
     user_id: int,
     target_user_id: int,
@@ -351,7 +313,6 @@ def accept_follower(
 
     Raises:
         NotFoundError: If no pending request exists.
-        ProcessingError: On other database errors.
     """
     stmt = select(followers_models.Follower).where(
         followers_models.Follower.follower_id == target_user_id,
@@ -371,7 +332,6 @@ def accept_follower(
     return followers_serializers.to_read_schema(accept_follow)
 
 
-@core_decorators.handle_db_errors
 def delete_follower(
     user_id: int,
     target_user_id: int,
@@ -393,7 +353,6 @@ def delete_follower(
 
     Raises:
         NotFoundError: If no matching follower record exists.
-        ProcessingError: On other database errors.
     """
     stmt = delete(followers_models.Follower).where(
         followers_models.Follower.follower_id == user_id,

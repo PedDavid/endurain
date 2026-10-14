@@ -291,6 +291,7 @@ def count_user_activities(
         start_date=start_date,
         end_date=end_date,
         name_search=name_search,
+        user_is_owner=True,
     )
 
 

@@ -85,9 +85,9 @@ def list_user_activities(user_id: int, db: Session) -> list[activity_schema.Acti
         db: Database session.
 
     Returns:
-        The user's activities, or ``None`` when they have none.
+        The user's activities (empty when they have none).
     """
-    return activity_crud.get_user_activities(user_id, db)
+    return activity_crud.get_user_activities(user_id, db, user_is_owner=True)
 
 
 def list_user_activities_with_garminconnect_gear(

@@ -4,11 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import insert
-from sqlalchemy.exc import SQLAlchemyError
 from tests._helpers.db import create_sqlite_session, setup_mock_execute
 from tests._helpers.models import mock_model
-
-import core.exceptions as core_exceptions
 
 
 @pytest.fixture
@@ -122,20 +119,6 @@ class TestGetWeeklySummary:
         )
         assert r.activity_count == 1
 
-    def test_db_error(self, mock_db):
-        from datetime import datetime
-
-        import modules.activities.activity.summary_crud as crud
-
-        mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError):
-            crud.get_weekly_summary(
-                user_id=1,
-                target_date=datetime(2024, 1, 15),
-                first_day_of_week="monday",
-                db=mock_db,
-            )
-
 
 class TestGetMonthlySummary:
     def test_success(self, mock_db):
@@ -233,20 +216,6 @@ class TestGetMonthlySummary:
 
         assert [(row.week_number, row.activity_count) for row in result.breakdown] == [(1, 1), (2, 1)]
 
-    def test_db_error(self, mock_db):
-        from datetime import datetime
-
-        import modules.activities.activity.summary_crud as crud
-
-        mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError):
-            crud.get_monthly_summary(
-                user_id=1,
-                target_date=datetime(2024, 1, 15),
-                first_day_of_week="monday",
-                db=mock_db,
-            )
-
 
 class TestGetYearlySummary:
     def test_success(self, mock_db):
@@ -293,13 +262,6 @@ class TestGetYearlySummary:
         ]
         r = crud.get_yearly_summary(user_id=1, year=2024, activity_type="cycling", db=mock_db)
         assert r.activity_count == 1
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity.summary_crud as crud
-
-        mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError):
-            crud.get_yearly_summary(user_id=1, year=2024, db=mock_db)
 
 
 class TestGetLifetimeSummary:
@@ -364,13 +326,6 @@ class TestGetLifetimeSummary:
         ]
         r = crud.get_lifetime_summary(user_id=1, activity_type="running", db=mock_db)
         assert r.activity_count == 5
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity.summary_crud as crud
-
-        mock_db.execute.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError):
-            crud.get_lifetime_summary(user_id=1, db=mock_db)
 
 
 class TestApplyActivityTypeFilter:

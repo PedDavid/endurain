@@ -1,19 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-from sqlalchemy.exc import SQLAlchemyError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
-
-import core.exceptions as core_exceptions
-
-
-def test_hr_migration_read_has_one_database_error_wrapper():
-    import modules.activities.activity_streams.crud as crud
-
-    wrapped = crud.get_hr_streams_without_zone_percentages
-    assert hasattr(wrapped, "__wrapped__")
-    assert not hasattr(wrapped.__wrapped__, "__wrapped__")
 
 
 class TestCreateActivityStreams:
@@ -58,19 +46,6 @@ class TestCreateActivityStreams:
         crud.create_activity_streams(s, mock_activity, mock_db)
 
         assert mock_streams_model.call_args.kwargs["zone_percentages"] is None
-
-    @patch("modules.activities.activity_streams.crud.activity_streams_models.ActivityStreams")
-    def test_db_error(self, mock_streams_model, mock_db):
-        import modules.activities.activity_streams.crud as crud
-        from modules.activities.activity_streams.contracts import ActivityStreamsCreate
-
-        mock_activity = MagicMock(user_id=1, id=1)
-        mock_streams_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        s = [ActivityStreamsCreate(activity_id=1, stream_type=1, stream_waypoints=[], strava_activity_stream_id=None)]
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_streams(s, mock_activity, mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivityStreams:
@@ -118,14 +93,6 @@ class TestGetActivityStreams:
         mock_db.scalars.return_value.all.return_value = []
         assert crud.get_activity_streams(activity_id=1, db=mock_db) == []
 
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_streams.crud as crud
-
-        mock_db.scalars.return_value.all.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activity_streams(activity_id=1, db=mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetActivitiesStreams:
     """The batch read no longer joins the parent: it is handed scoped ids."""
@@ -152,14 +119,6 @@ class TestGetActivitiesStreams:
         mock_db.scalars.return_value.all.return_value = []
 
         assert crud.get_activities_streams(activity_ids=[1], db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_streams.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activities_streams(activity_ids=[1], db=mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetGpsStreamWaypointsForActivities:

@@ -4,7 +4,6 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import core.logger as core_logger
 import core.pagination as core_pagination
 import modules.activities.activity.schema as activity_schema
@@ -17,7 +16,6 @@ import modules.activities.activity_streams.serializers as activity_streams_seria
 logger = core_logger.get_logger(__name__)
 
 
-@core_decorators.handle_db_errors
 def get_activity_streams(
     activity_id: int,
     db: Session,
@@ -33,9 +31,6 @@ def get_activity_streams(
 
     Returns:
         The activity's streams, empty when it has none.
-
-    Raises:
-        ProcessingError: On database errors.
     """
     stmt = select(activity_streams_models.ActivityStreams).where(
         activity_streams_models.ActivityStreams.activity_id == activity_id,
@@ -45,7 +40,6 @@ def get_activity_streams(
     return activity_streams_serializers.to_read_schema(activity_streams)
 
 
-@core_decorators.handle_db_errors
 def get_activities_streams(
     activity_ids: list[int],
     db: Session,
@@ -61,9 +55,6 @@ def get_activities_streams(
 
     Returns:
         List of activity streams.
-
-    Raises:
-        ProcessingError: On database errors.
     """
     if not activity_ids:
         return []
@@ -78,7 +69,6 @@ def get_activities_streams(
     return activity_streams_serializers.to_read_schema(all_streams)
 
 
-@core_decorators.handle_db_errors
 def get_activity_stream_by_type(
     activity_id: int,
     stream_type: int,
@@ -96,9 +86,6 @@ def get_activity_stream_by_type(
 
     Returns:
         The activity stream, or ``None`` when the activity has no such stream.
-
-    Raises:
-        ProcessingError: On database errors.
     """
     stmt = select(activity_streams_models.ActivityStreams).where(
         activity_streams_models.ActivityStreams.activity_id == activity_id,
@@ -143,7 +130,6 @@ def get_gps_stream_waypoints_for_activities(
     return {activity_id: (waypoints or []) for activity_id, waypoints in db.execute(stmt).all()}
 
 
-@core_decorators.handle_db_errors
 def get_hr_streams_without_zone_percentages(
     db: Session,
     *,
@@ -192,7 +178,6 @@ def backfill_zone_percentages_for_missing_hr_streams(
         )
 
 
-@core_decorators.handle_db_errors
 def list_hr_streams_for_activities(
     activity_ids: list[int],
     db: Session,
@@ -215,7 +200,6 @@ def list_hr_streams_for_activities(
     return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def list_hr_streams_missing_zones(
     db: Session,
     *,
@@ -231,9 +215,6 @@ def list_hr_streams_missing_zones(
 
     Returns:
         The batch, id-ordered; empty when there are no more.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_streams_models.ActivityStreams)
@@ -248,7 +229,6 @@ def list_hr_streams_missing_zones(
     return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_activity_hr_stream(
     activity_id: int,
     db: Session,
@@ -261,9 +241,6 @@ def get_activity_hr_stream(
 
     Returns:
         The stream, or None when the activity recorded no heart rate.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_streams_models.ActivityStreams).where(
         activity_streams_models.ActivityStreams.activity_id == activity_id,
@@ -273,16 +250,12 @@ def get_activity_hr_stream(
     return activity_streams_serializers.to_hr_record(stream) if stream is not None else None
 
 
-@core_decorators.handle_db_errors
 def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session) -> None:
     """Stage the computed HR zone breakdown against each stream (not committed).
 
     Args:
         zones_by_stream_id: Stream id -> breakdown, or None to clear it.
         db: Database session.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if not zones_by_stream_id:
         return
@@ -294,7 +267,6 @@ def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session
         )
 
 
-@core_decorators.handle_db_errors
 def create_activity_streams(
     activity_streams: list[activity_streams_contracts.ActivityStreamsCreate],
     activity: activity_schema.ActivityRead,

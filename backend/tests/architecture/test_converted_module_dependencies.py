@@ -28,7 +28,6 @@ _IMPORTLINTER = pathlib.Path(".importlinter")
 #: ``jasil`` when they are generic enough to be shared by other products.
 _ALLOWED_CORE: dict[str, str] = {
     "core.calendar": "Period boundaries for activity summaries.",
-    "core.decorators": "``handle_db_errors`` on persistence functions.",
     "core.etag": "Conditional-response helpers for activity routes.",
     "core.event_metadata": "Event envelope metadata shared by every publisher.",
     "core.exceptions": "The domain error vocabulary raised by crud and service.",

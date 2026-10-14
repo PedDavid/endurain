@@ -25,7 +25,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
@@ -166,7 +165,6 @@ def _apply_activity_visibility_filter(
     return stmt.where(_visible_to_requester_condition(followee_ids))
 
 
-@core_decorators.handle_db_errors
 def get_all_activities(
     db: Session,
 ) -> list[activity_schema.ActivityRead]:
@@ -181,9 +179,6 @@ def get_all_activities(
 
     Returns:
         List of Activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     activities = db.execute(select(activity_models.Activity)).scalars().all()
     if not activities:
@@ -191,7 +186,6 @@ def get_all_activities(
     return [activity_serializers.to_read_schema(a) for a in activities]
 
 
-@core_decorators.handle_db_errors
 def get_all_activities_for_migration(
     db: Session,
 ) -> list[activity_contracts.ActivityMigrationRef]:
@@ -205,9 +199,6 @@ def get_all_activities_for_migration(
 
     Returns:
         A migration reference per activity, or an empty list when there are none.
-
-    Raises:
-        ProcessingError: On database error.
     """
     activities = db.execute(select(activity_models.Activity)).scalars().all()
     return [
@@ -223,7 +214,6 @@ def get_all_activities_for_migration(
     ]
 
 
-@core_decorators.handle_db_errors
 def get_user_activities(
     user_id: int,
     db: Session,
@@ -232,7 +222,7 @@ def get_user_activities(
     start_date: date | None = None,
     end_date: date | None = None,
     name_search: str | None = None,
-    user_is_owner: bool = True,
+    user_is_owner: bool,
     followee_ids: Sequence[int] | None = None,
 ) -> list[activity_schema.ActivityRead]:
     """Get activities owned by a user (with optional filters).
@@ -251,9 +241,6 @@ def get_user_activities(
 
     Returns:
         List of activity schemas or None when no matches.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
     stmt = _apply_activity_visibility_filter(
@@ -280,7 +267,6 @@ def get_user_activities(
     )
 
 
-@core_decorators.handle_db_errors
 def count_user_activities(
     user_id: int,
     db: Session,
@@ -289,7 +275,7 @@ def count_user_activities(
     start_date: date | None = None,
     end_date: date | None = None,
     name_search: str | None = None,
-    user_is_owner: bool = True,
+    user_is_owner: bool,
     followee_ids: Sequence[int] | None = None,
 ) -> int:
     """Count activities owned by a user (with optional filters).
@@ -311,9 +297,6 @@ def count_user_activities(
 
     Returns:
         Number of matching activities.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(func.count()).select_from(activity_models.Activity).where(activity_models.Activity.user_id == user_id)
     stmt = _apply_activity_visibility_filter(
@@ -332,7 +315,6 @@ def count_user_activities(
     return count or 0
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_by_user_id_and_garminconnect_gear_set(
     user_id: int, db: Session
 ) -> list[activity_schema.ActivityRead]:
@@ -344,9 +326,6 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
 
     Returns:
         List of activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -365,7 +344,6 @@ def get_user_activities_by_user_id_and_garminconnect_gear_set(
     )
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_with_pagination(
     user_id: int,
     db: Session,
@@ -378,7 +356,7 @@ def get_user_activities_with_pagination(
     name_search: str | None = None,
     sort_by: str | None = None,
     sort_order: str | None = None,
-    user_is_owner: bool = False,
+    user_is_owner: bool,
     followee_ids: Sequence[int] | None = None,
 ) -> list[activity_schema.ActivityRead]:
     """Get a page of user activities with filters and sorting.
@@ -401,9 +379,6 @@ def get_user_activities_with_pagination(
 
     Returns:
         List of activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -435,7 +410,6 @@ def get_user_activities_with_pagination(
     )
 
 
-@core_decorators.handle_db_errors
 def get_distinct_activity_types_for_user(user_id: int, db: Session) -> dict[int, str]:
     """Map distinct activity types owned by a user to names.
 
@@ -445,9 +419,6 @@ def get_distinct_activity_types_for_user(user_id: int, db: Session) -> dict[int,
 
     Returns:
         Dict of activity_type -> human readable name.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity.activity_type)
@@ -463,14 +434,13 @@ def get_distinct_activity_types_for_user(user_id: int, db: Session) -> dict[int,
     }
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_per_timeframe(
     user_id: int,
     start: datetime,
     end: datetime,
     db: Session,
     *,
-    user_is_owner: bool = False,
+    user_is_owner: bool,
     followee_ids: Sequence[int] | None = None,
 ) -> list[activity_schema.ActivityRead]:
     """Get a user's activities within a date range.
@@ -487,9 +457,6 @@ def get_user_activities_per_timeframe(
 
     Returns:
         List of activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -514,7 +481,6 @@ def get_user_activities_per_timeframe(
     )
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_per_timeframe_and_activity_types(
     user_id: int,
     activity_types: list[int],
@@ -522,7 +488,7 @@ def get_user_activities_per_timeframe_and_activity_types(
     end: datetime,
     db: Session,
     *,
-    user_is_owner: bool = False,
+    user_is_owner: bool,
     followee_ids: Sequence[int] | None = None,
     exclude_hidden: bool = False,
 ) -> list[activity_schema.ActivityRead]:
@@ -543,9 +509,6 @@ def get_user_activities_per_timeframe_and_activity_types(
 
     Returns:
         List of activity schemas.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -573,7 +536,6 @@ def get_user_activities_per_timeframe_and_activity_types(
     )
 
 
-@core_decorators.handle_db_errors
 def get_following_feed_after(
     followee_ids: list[int],
     after: tuple[datetime, int] | None,
@@ -628,7 +590,6 @@ def get_following_feed_after(
     ]
 
 
-@core_decorators.handle_db_errors
 def get_gear_activities_count_by_user_id(
     user_id: int,
     gear_id: int,
@@ -643,9 +604,6 @@ def get_gear_activities_count_by_user_id(
 
     Returns:
         Number of activities for the gear.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(func.count())
@@ -659,7 +617,6 @@ def get_gear_activities_count_by_user_id(
     return count or 0
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_by_gear_id_and_user_id(
     user_id: int, gear_id: int, db: Session
 ) -> list[activity_schema.ActivityRead]:
@@ -672,9 +629,6 @@ def get_user_activities_by_gear_id_and_user_id(
 
     Returns:
         List of activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -693,7 +647,6 @@ def get_user_activities_by_gear_id_and_user_id(
     )
 
 
-@core_decorators.handle_db_errors
 def get_user_activities_by_gear_id_and_user_id_with_pagination(
     user_id: int,
     gear_id: int,
@@ -712,9 +665,6 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
 
     Returns:
         List of activity schemas or None when empty.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -735,7 +685,6 @@ def get_user_activities_by_gear_id_and_user_id_with_pagination(
     )
 
 
-@core_decorators.handle_db_errors
 def sum_gear_usage(gear_id: int, db: Session) -> activity_contracts.ActivityUsageTotals:
     """Total distance and moving time recorded against a gear.
 
@@ -748,9 +697,6 @@ def sum_gear_usage(gear_id: int, db: Session) -> activity_contracts.ActivityUsag
 
     Returns:
         The gear's totals; zeroes when it has no activities.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(
         func.coalesce(func.sum(activity_models.Activity.distance), 0),
@@ -760,7 +706,6 @@ def sum_gear_usage(gear_id: int, db: Session) -> activity_contracts.ActivityUsag
     return activity_contracts.ActivityUsageTotals(distance=float(distance), time=float(moving_time))
 
 
-@core_decorators.handle_db_errors
 def sum_gear_usage_by_window(
     gear_id: int,
     windows: Sequence[activity_contracts.GearUsageWindow],
@@ -782,9 +727,6 @@ def sum_gear_usage_by_window(
     Returns:
         Totals per window key. Windows with no matching activity report zeroes,
         so every requested key is always present.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if not windows:
         return {}
@@ -813,7 +755,6 @@ def sum_gear_usage_by_window(
     }
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_id_from_user_id_or_has_visibility(
     activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
 ) -> activity_schema.ActivityRead | None:
@@ -828,9 +769,6 @@ def get_activity_by_id_from_user_id_or_has_visibility(
 
     Returns:
         Activity schema or None if not found / not visible.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         or_(
@@ -848,7 +786,6 @@ def get_activity_by_id_from_user_id_or_has_visibility(
     return schema
 
 
-@core_decorators.handle_db_errors
 def get_viewable_activity_by_id_for_user(
     activity_id: int, user_id: int, db: Session, *, followee_ids: Sequence[int] | None = None
 ) -> activity_schema.ActivityRead | None:
@@ -876,9 +813,6 @@ def get_viewable_activity_by_id_for_user(
 
     Returns:
         The activity schema when the user may view it, otherwise ``None``.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         or_(
@@ -893,7 +827,6 @@ def get_viewable_activity_by_id_for_user(
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get an activity by ID if it is publicly shareable.
 
@@ -907,9 +840,6 @@ def get_activity_by_id_if_is_public(activity_id: int, db: Session) -> activity_s
 
     Returns:
         Activity schema or None when not public / not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.visibility == 0,
@@ -960,9 +890,6 @@ def get_public_activity_for_child_read(
     Returns:
         The public activity schema when the child rows may be served anonymously,
         otherwise ``None``.
-
-    Raises:
-        ProcessingError: On database error.
     """
     activity = get_activity_by_id_if_is_public(activity_id, db)
     if activity is None:
@@ -974,7 +901,6 @@ def get_public_activity_for_child_read(
     return activity
 
 
-@core_decorators.handle_db_errors
 def get_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[int]:
     """Return which of the given activity IDs still have a row.
 
@@ -984,9 +910,6 @@ def get_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[i
 
     Returns:
         The subset of ``activity_ids`` that exist.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if not activity_ids:
         return set()
@@ -994,7 +917,6 @@ def get_existing_activity_ids(activity_ids: Sequence[int], db: Session) -> set[i
     return set(db.scalars(stmt).all())
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get an activity by ID without permission checks.
 
@@ -1004,9 +926,6 @@ def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activit
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.id == activity_id,
@@ -1017,7 +936,6 @@ def get_activity_by_id(activity_id: int, db: Session) -> activity_schema.Activit
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_start_time(
     start_time: str | datetime, user_id: int, db: Session
 ) -> activity_schema.ActivityRead | None:
@@ -1030,9 +948,6 @@ def get_activity_by_start_time(
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if isinstance(start_time, str):
         start_time = datetime.fromisoformat(start_time)
@@ -1048,7 +963,6 @@ def get_activity_by_start_time(
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get a user's activity by its idempotency dedup key.
 
@@ -1062,9 +976,6 @@ def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> acti
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -1076,7 +987,6 @@ def get_activity_by_dedup_key(dedup_key: str, user_id: int, db: Session) -> acti
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_scoring_context(
     activity_id: int,
     db: Session,
@@ -1099,7 +1009,6 @@ def get_activity_scoring_context(
     return activity_serializers.to_scoring_context(row) if row is not None else None
 
 
-@core_decorators.handle_db_errors
 def get_activity_scoring_contexts(
     activity_ids: list[int],
     db: Session,
@@ -1124,7 +1033,6 @@ def get_activity_scoring_contexts(
     return {context.activity_id: context for context in contexts}
 
 
-@core_decorators.handle_db_errors
 def list_user_activity_scoring_contexts(
     user_id: int,
     db: Session,
@@ -1159,7 +1067,6 @@ def list_user_activity_scoring_contexts(
     return [activity_serializers.to_scoring_context(row) for row in db.execute(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session) -> activity_schema.ActivityRead | None:
     """Get a user's activity by ID.
 
@@ -1170,9 +1077,6 @@ def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session)
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -1184,7 +1088,6 @@ def get_activity_by_id_from_user_id(activity_id: int, user_id: int, db: Session)
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_strava_id_from_user_id(
     activity_strava_id: int, user_id: int, db: Session
 ) -> activity_schema.ActivityRead | None:
@@ -1197,9 +1100,6 @@ def get_activity_by_strava_id_from_user_id(
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -1211,7 +1111,6 @@ def get_activity_by_strava_id_from_user_id(
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def get_activity_by_garminconnect_id_from_user_id(
     activity_garminconnect_id: int, user_id: int, db: Session
 ) -> activity_schema.ActivityRead | None:
@@ -1224,9 +1123,6 @@ def get_activity_by_garminconnect_id_from_user_id(
 
     Returns:
         Activity schema or None when not found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -1238,7 +1134,6 @@ def get_activity_by_garminconnect_id_from_user_id(
     return activity_serializers.to_read_schema(activity)
 
 
-@core_decorators.handle_db_errors
 def create_activity(
     activity: activity_contracts.ActivityCore,
     db: Session,
@@ -1263,9 +1158,6 @@ def create_activity(
         ``created_at`` populated from the row. ``is_hidden`` is ``True`` when the
         start time duplicates an existing activity — the signal the caller
         forwards to the ``activity.created`` notification subscriber.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if activity.user_id is None:
         raise core_exceptions.InvalidInputError("Activity user_id is required")
@@ -1310,7 +1202,6 @@ def create_activity(
     return created
 
 
-@core_decorators.handle_db_errors
 def set_activity_thumbnail_path(
     activity_id: int,
     thumbnail_path: str | None,
@@ -1325,9 +1216,6 @@ def set_activity_thumbnail_path(
 
     Returns:
         None
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(activity_models.Activity.id == activity_id)
     db_activity = db.execute(stmt).scalar_one_or_none()
@@ -1341,7 +1229,6 @@ def set_activity_thumbnail_path(
     db.flush()
 
 
-@core_decorators.handle_db_errors
 def update_activity_location(
     activity_id: int,
     city: str | None,
@@ -1364,9 +1251,6 @@ def update_activity_location(
     Returns:
         True when the activity existed and was updated, False when it was not
         found.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(activity_models.Activity.id == activity_id)
     db_activity = db.execute(stmt).scalar_one_or_none()
@@ -1383,7 +1267,6 @@ def update_activity_location(
     return True
 
 
-@core_decorators.handle_db_errors
 def get_activities_missing_location(
     db: Session,
     *,
@@ -1402,9 +1285,6 @@ def get_activities_missing_location(
 
     Returns:
         Location references (id only) ordered by id.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity.id)
@@ -1420,7 +1300,6 @@ def get_activities_missing_location(
     return [activity_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
 
 
-@core_decorators.handle_db_errors
 def clear_all_activity_thumbnail_paths(db: Session) -> None:
     """Stage ``map_thumbnail_path`` = NULL on every activity.
 
@@ -1429,14 +1308,10 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
 
     Returns:
         None
-
-    Raises:
-        ProcessingError: On database error.
     """
     db.execute(sa_update(activity_models.Activity).values(map_thumbnail_path=None))
 
 
-@core_decorators.handle_db_errors
 def get_activities_with_thumbnail(
     db: Session,
     *,
@@ -1456,9 +1331,6 @@ def get_activities_with_thumbnail(
     Returns:
         Thumbnail references (id + stored key) for rows with
         ``map_thumbnail_path`` set.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity.id, activity_models.Activity.map_thumbnail_path)
@@ -1475,7 +1347,6 @@ def get_activities_with_thumbnail(
     ]
 
 
-@core_decorators.handle_db_errors
 def get_activities_without_thumbnail(
     db: Session,
     *,
@@ -1496,9 +1367,6 @@ def get_activities_without_thumbnail(
     Returns:
         Thumbnail references (id, with a null key) for rows with
         ``map_thumbnail_path`` set to NULL.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity.id, activity_models.Activity.map_thumbnail_path)
@@ -1515,7 +1383,6 @@ def get_activities_without_thumbnail(
     ]
 
 
-@core_decorators.handle_db_errors
 def get_activities_with_legacy_thumbnail_path(
     db: Session,
     *,
@@ -1537,9 +1404,6 @@ def get_activities_with_legacy_thumbnail_path(
     Returns:
         Thumbnail references (id + stored key) for rows with a legacy thumbnail
         path.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         select(activity_models.Activity)
@@ -1557,7 +1421,6 @@ def get_activities_with_legacy_thumbnail_path(
     ]
 
 
-@core_decorators.handle_db_errors
 def edit_activity(
     user_id: int,
     activity_id: int,
@@ -1578,7 +1441,6 @@ def edit_activity(
 
     Raises:
         NotFoundError: When the activity is missing.
-        ProcessingError: On database error.
     """
     stmt = select(activity_models.Activity).where(
         activity_models.Activity.user_id == user_id,
@@ -1615,7 +1477,6 @@ def edit_activity(
     return activity_serializers.to_read_schema(db_activity)
 
 
-@core_decorators.handle_db_errors
 def edit_user_activities_visibility(user_id: int, visibility: int, db: Session) -> list[int]:
     """Stage a bulk visibility update for every activity of a user.
 
@@ -1627,9 +1488,6 @@ def edit_user_activities_visibility(user_id: int, visibility: int, db: Session) 
     Returns:
         The IDs of the updated activities, so the caller can publish one event
         per row instead of re-deriving which activities the user owns.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         sa_update(activity_models.Activity)
@@ -1642,7 +1500,6 @@ def edit_user_activities_visibility(user_id: int, visibility: int, db: Session) 
     return [row_id for (row_id,) in db.execute(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def bulk_set_activities_gear_id(
     user_id: int,
     gear_assignments: dict[int, int | None],
@@ -1665,9 +1522,6 @@ def bulk_set_activities_gear_id(
     Returns:
         The IDs of the activities actually updated — a subset of the requested
         keys, since the ownership predicate silently drops another user's ids.
-
-    Raises:
-        ProcessingError: On database error.
     """
     if not gear_assignments:
         return []
@@ -1690,7 +1544,6 @@ def bulk_set_activities_gear_id(
     return updated_ids
 
 
-@core_decorators.handle_db_errors
 def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
     """Stage the deletion of an activity owned by ``user_id``.
 
@@ -1711,7 +1564,6 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
 
     Raises:
         NotFoundError: When the activity is missing or not owned by ``user_id``.
-        ProcessingError: On database error.
     """
     stmt = sa_delete(activity_models.Activity).where(
         activity_models.Activity.id == activity_id,
@@ -1723,7 +1575,6 @@ def delete_activity(activity_id: int, user_id: int, db: Session) -> None:
         raise core_exceptions.NotFoundError(f"Activity with id {activity_id} not found")
 
 
-@core_decorators.handle_db_errors
 def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int]:
     """Stage the deletion of every Strava-synced activity owned by a user.
 
@@ -1734,9 +1585,6 @@ def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int
     Returns:
         The IDs of the deleted activities, so the caller can publish the cleanup
         events that reclaim each activity's thumbnail and stored source file.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         sa_delete(activity_models.Activity)
@@ -1749,7 +1597,6 @@ def delete_all_strava_activities_for_user(user_id: int, db: Session) -> list[int
     return [row_id for (row_id,) in db.execute(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def delete_all_activities_for_user(user_id: int, db: Session) -> list[int]:
     """Stage the deletion of every activity owned by a user.
 
@@ -1765,9 +1612,6 @@ def delete_all_activities_for_user(user_id: int, db: Session) -> list[int]:
 
     Returns:
         The IDs of the deleted activities.
-
-    Raises:
-        ProcessingError: On database error.
     """
     stmt = (
         sa_delete(activity_models.Activity)

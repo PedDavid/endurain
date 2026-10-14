@@ -39,7 +39,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(
-                bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
+                bulk_import_service.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
             ) as submit,
         ):
             result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
@@ -75,7 +75,9 @@ class TestStartBulkImport:
                 "_enqueue_bulk_import_files",
                 side_effect=SQLAlchemyError("outbox down"),
             ),
-            patch.object(bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
+            patch.object(
+                bulk_import_service.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
+            ),
             pytest.raises(SQLAlchemyError),
         ):
             bulk_import_service.start_bulk_import(3, MagicMock(), db)
@@ -91,7 +93,7 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
             patch.object(
-                bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"
+                bulk_import_service.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
             ) as submit,
         ):
             result = bulk_import_service.start_bulk_import(3, MagicMock(), db)
@@ -114,7 +116,9 @@ class TestStartBulkImport:
             patch.object(bulk_import_service.core_file_uploads, "validate_local_file_sync"),
             patch.object(bulk_import_service.activity_ingestion_crud, "create_ingestion_job", side_effect=_job),
             patch.object(bulk_import_service, "_enqueue_bulk_import_files") as publish,
-            patch.object(bulk_import_service.activity_ingestion_dispatch.activity_ingestion_background, "submit"),
+            patch.object(
+                bulk_import_service.activity_ingestion_dispatch_service.activity_ingestion_background, "submit"
+            ),
         ):
             assert bulk_import_service.start_bulk_import(3, MagicMock(), db) == []
 

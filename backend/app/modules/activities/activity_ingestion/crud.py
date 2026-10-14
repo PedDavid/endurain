@@ -9,13 +9,11 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.serializers as activity_ingestion_serializers
 
 
-@core_decorators.handle_db_errors
 def create_ingestion_job(
     job_id: str,
     user_id: int,
@@ -47,7 +45,6 @@ def create_ingestion_job(
 
     Raises:
         IntegrityError: If the user already has a job with this idempotency key.
-        ProcessingError: If another database error occurs.
     """
     now = datetime.now(UTC)
     new_job = activity_ingestion_models.ActivityIngestionJob(
@@ -67,7 +64,6 @@ def create_ingestion_job(
     return activity_ingestion_serializers.to_read_schema(new_job)
 
 
-@core_decorators.handle_db_errors
 def get_ingestion_job(
     job_id: str,
     user_id: int,
@@ -86,9 +82,6 @@ def get_ingestion_job(
 
     Returns:
         The ingestion job, or None if it does not exist or belongs to someone else.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.id == job_id,
@@ -98,7 +91,6 @@ def get_ingestion_job(
     return activity_ingestion_serializers.to_read_schema(orm_job) if orm_job else None
 
 
-@core_decorators.handle_db_errors
 def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
     """Read the owner and staged key of a job, for the background executor.
 
@@ -114,9 +106,6 @@ def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
     Returns:
         A ``(user_id, staged_key)`` pair, or None if the job is unknown or its
         upload was already consumed.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None or orm_job.staged_key is None:
@@ -124,7 +113,6 @@ def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
     return orm_job.user_id, orm_job.staged_key
 
 
-@core_decorators.handle_db_errors
 def get_job_for_idempotency(
     idempotency_key: str,
     user_id: int,
@@ -150,9 +138,6 @@ def get_job_for_idempotency(
     Returns:
         A ``(job, fingerprint)`` pair, or None if this user has not used that
         key for that kind.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.idempotency_key == idempotency_key,
@@ -163,7 +148,6 @@ def get_job_for_idempotency(
     return (activity_ingestion_serializers.to_read_schema(orm_job), orm_job.request_fingerprint) if orm_job else None
 
 
-@core_decorators.handle_db_errors
 def get_job_owner(job_id: str, db: Session) -> int | None:
     """Read the owner of a job, for the background executor.
 
@@ -178,24 +162,17 @@ def get_job_owner(job_id: str, db: Session) -> int | None:
 
     Returns:
         The owning user id, or None if the job is unknown.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     return orm_job.user_id if orm_job else None
 
 
-@core_decorators.handle_db_errors
 def mark_processing(job_id: str, db: Session) -> None:
     """Stage a move of a job to the processing state (not committed).
 
     Args:
         job_id: The job identifier.
         db: Database session.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -205,7 +182,6 @@ def mark_processing(job_id: str, db: Session) -> None:
     db.flush()
 
 
-@core_decorators.handle_db_errors
 def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     """Stage a move of a job to the completed state and record what it created.
 
@@ -213,9 +189,6 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
         job_id: The job identifier.
         activity_ids: Ids of the activities the import created.
         db: Database session.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -230,7 +203,6 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     db.flush()
 
 
-@core_decorators.handle_db_errors
 def mark_failed(
     job_id: str,
     error_code: activity_ingestion_schema.IngestionJobErrorCode,
@@ -242,9 +214,6 @@ def mark_failed(
         job_id: The job identifier.
         error_code: Sanitized failure reason shown to the owner.
         db: Database session.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
@@ -258,7 +227,6 @@ def mark_failed(
     db.flush()
 
 
-@core_decorators.handle_db_errors
 def delete_jobs_before(cutoff: datetime, db: Session) -> int:
     """Stage the deletion of terminal ingestion jobs older than a cutoff.
 
@@ -268,9 +236,6 @@ def delete_jobs_before(cutoff: datetime, db: Session) -> int:
 
     Returns:
         Number of rows deleted.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
         activity_ingestion_models.ActivityIngestionJob.completed_at.is_not(None),

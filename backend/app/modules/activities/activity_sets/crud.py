@@ -3,14 +3,12 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import modules.activities.activity_sets.contracts as activity_sets_contracts
 import modules.activities.activity_sets.models as activity_sets_models
 import modules.activities.activity_sets.schema as activity_sets_schema
 import modules.activities.activity_sets.serializers as activity_sets_serializers
 
 
-@core_decorators.handle_db_errors
 def get_activity_sets(
     activity_id: int,
     db: Session,
@@ -31,9 +29,6 @@ def get_activity_sets(
 
     Returns:
         The page of sets, empty when the activity has none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = (
         select(activity_sets_models.ActivitySets)
@@ -47,7 +42,6 @@ def get_activity_sets(
     return [activity_sets_serializers.to_read_schema(s) for s in activity_sets]
 
 
-@core_decorators.handle_db_errors
 def count_activity_sets(activity_id: int, db: Session) -> int:
     """Count an activity's workout sets.
 
@@ -57,9 +51,6 @@ def count_activity_sets(activity_id: int, db: Session) -> int:
 
     Returns:
         The total number of sets.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = select(func.count()).select_from(
         select(activity_sets_models.ActivitySets.id)
@@ -69,7 +60,6 @@ def count_activity_sets(activity_id: int, db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def get_activities_sets(
     activity_ids: list[int],
     db: Session,
@@ -86,9 +76,6 @@ def get_activities_sets(
 
     Returns:
         The workout sets of those activities, empty when there are none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     if not activity_ids:
         return []
@@ -99,7 +86,6 @@ def get_activities_sets(
     return [activity_sets_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def create_activity_sets(
     activity_sets: list[activity_sets_contracts.ActivitySetsCreate | list],
     activity_id: int,
@@ -112,9 +98,6 @@ def create_activity_sets(
             raw lists from the FIT parser.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     sets = [activity_sets_serializers.to_orm(activity_set, activity_id) for activity_set in activity_sets]
 

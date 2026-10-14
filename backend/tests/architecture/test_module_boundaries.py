@@ -671,6 +671,33 @@ class TestSubPackagePrivacy:
             "the one it actually plays:\n  " + "\n  ".join(sorted(offenders))
         )
 
+    def test_only_transaction_owners_end_transactions(self):
+        """Stating the rule as an allowlist: a file's name cannot exempt it.
+
+        ``test_crud_does_not_end_transactions`` forbids the offence in one role,
+        so a file whose name declares no role (``dispatch.py`` once committed
+        unnoticed) escaped it. The owners of a unit of work are services,
+        durable-job and subscriber entry points, and the version-pinned
+        ``migration_service`` adapters; any other file asks one of them.
+        """
+        owners = {"service", "migration_service", "subscribers", "scheduled_jobs"}
+        offenders = [
+            f"{path.relative_to(_MODULES_ROOT).as_posix()}: role '{_role(path.stem)}'"
+            for module_name in _CONVERTED
+            for path in _python_files(_MODULES_ROOT / module_name)
+            if _role(path.stem) not in owners
+            and any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in _TRANSACTION_CONTROL
+                for node in ast.walk(ast.parse(path.read_text()))
+            )
+        ]
+        assert not offenders, (
+            "Only a service, subscriber, scheduled job or migration_service may end a transaction. "
+            "Name the file for the role it plays, or move the commit into a service:\n  " + "\n  ".join(offenders)
+        )
+
     def test_crud_does_not_end_transactions(self):
         """Persistence stages a write; the service decides when it is durable.
 

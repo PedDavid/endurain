@@ -1,10 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-from sqlalchemy.exc import SQLAlchemyError
-
-import core.exceptions as core_exceptions
-
 
 class TestCreateActivityWorkoutSteps:
     @patch("modules.activities.activity_workout_steps.crud.activity_workout_steps_models.ActivityWorkoutSteps")
@@ -33,26 +28,6 @@ class TestCreateActivityWorkoutSteps:
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
-    @patch("modules.activities.activity_workout_steps.crud.activity_workout_steps_models.ActivityWorkoutSteps")
-    def test_db_error(self, mock_steps_model, mock_db):
-        import modules.activities.activity_workout_steps.crud as crud
-
-        mock_steps_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        steps = [
-            MagicMock(
-                activity_id=1,
-                step_number=1,
-                step_type="warm_up",
-                step_duration=300.0,
-                message_index=0,
-                duration_type="time",
-            )
-        ]
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_workout_steps(steps, 1, mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetActivityWorkoutSteps:
     """Persistence only — the access decision lives in ``activity_workout_steps.service``."""
@@ -70,14 +45,6 @@ class TestGetActivityWorkoutSteps:
 
         mock_db.scalars.return_value.all.return_value = []
         assert crud.get_activity_workout_steps(activity_id=1, db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_workout_steps.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activity_workout_steps(activity_id=1, db=mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivitiesWorkoutSteps:
@@ -105,11 +72,3 @@ class TestGetActivitiesWorkoutSteps:
         mock_db.scalars.return_value.all.return_value = []
 
         assert crud.get_activities_workout_steps(activity_ids=[1], db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_workout_steps.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activities_workout_steps(activity_ids=[1], db=mock_db)
-        assert e.value.status_code == 500

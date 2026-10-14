@@ -1,11 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-from sqlalchemy.exc import SQLAlchemyError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
-
-import core.exceptions as core_exceptions
 
 
 class TestCreateActivitySets:
@@ -29,20 +25,6 @@ class TestCreateActivitySets:
         crud.create_activity_sets([], 1, mock_db)
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
-
-    @patch("modules.activities.activity_sets.crud.activity_sets_models.ActivitySets")
-    def test_db_error(self, mock_sets_model, mock_db):
-        import modules.activities.activity_sets.crud as crud
-        from modules.activities.activity_sets.contracts import ActivitySetsCreate
-
-        mock_sets_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        sets = [
-            ActivitySetsCreate(activity_id=1, duration=300.0, set_type="interval", start_time="2024-01-15T08:00:00")
-        ]
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_sets(sets, 1, mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivitySets:
@@ -70,14 +52,6 @@ class TestGetActivitySets:
         setup_mock_execute(mock_db, return_scalars_all=[])
         assert crud.get_activity_sets(activity_id=1, db=mock_db) == []
 
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_sets.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activity_sets(activity_id=1, db=mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetActivitiesSets:
     """The batch read no longer joins the parent: it is handed scoped ids."""
@@ -104,11 +78,3 @@ class TestGetActivitiesSets:
         mock_db.scalars.return_value.all.return_value = []
 
         assert crud.get_activities_sets(activity_ids=[1], db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_sets.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activities_sets(activity_ids=[1], db=mock_db)
-        assert e.value.status_code == 500

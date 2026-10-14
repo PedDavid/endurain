@@ -20,7 +20,10 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 import core.config as core_config
+import core.logger as core_logger
 import modules.activities.activity_ingestion.background as activity_ingestion_background
+
+logger = core_logger.get_logger(__name__)
 
 
 def worker_retries() -> bool:
@@ -42,7 +45,9 @@ def commit_or_publish(db: Session, *, publish: Callable[[Callable[[], None]], No
             publisher must own so the outbox row commits with the job row. Not
             called on the local profile.
     """
-    if worker_retries():
+    durable = worker_retries()
+    logger.debug("Making a staged ingestion job durable", extra=core_logger.context(durable=durable))
+    if durable:
         publish(db.commit)
     else:
         db.commit()

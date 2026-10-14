@@ -4,7 +4,6 @@ from sqlalchemy import select, tuple_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.activities.activity_exercise_titles.models as activity_exercise_titles_models
@@ -14,7 +13,6 @@ import modules.activities.activity_exercise_titles.serializers as activity_exerc
 logger = core_logger.get_logger(__name__)
 
 
-@core_decorators.handle_db_errors
 def get_activity_exercise_titles(
     db: Session,
 ) -> list[activity_exercise_titles_schema.ActivityExerciseTitlesRead]:
@@ -25,15 +23,11 @@ def get_activity_exercise_titles(
 
     Returns:
         Every exercise title, empty when there are none.
-
-    Raises:
-        ProcessingError: If a database error occurs.
     """
     stmt = select(activity_exercise_titles_models.ActivityExerciseTitles)
     return [activity_exercise_titles_serializers.to_read_schema(title) for title in db.execute(stmt).scalars().all()]
 
 
-@core_decorators.handle_db_errors
 def create_activity_exercise_titles(
     activity_exercise_titles: list[activity_exercise_titles_schema.ActivityExerciseTitlesRead],
     db: Session,
@@ -46,7 +40,6 @@ def create_activity_exercise_titles(
 
     Raises:
         ConflictError: On a duplicate (exercise_name, exercise_category) entry.
-        ProcessingError: On other database errors.
     """
     if not activity_exercise_titles:
         return

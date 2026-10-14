@@ -3,13 +3,11 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import modules.activities.activity_laps.models as activity_laps_models
 import modules.activities.activity_laps.schema as activity_laps_schema
 import modules.activities.activity_laps.serializers as activity_laps_serializers
 
 
-@core_decorators.handle_db_errors
 def get_activity_laps(
     activity_id: int,
     db: Session,
@@ -30,9 +28,6 @@ def get_activity_laps(
 
     Returns:
         The page of laps, empty when the activity has none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = (
         select(activity_laps_models.ActivityLaps)
@@ -48,7 +43,6 @@ def get_activity_laps(
     return [activity_laps_serializers.to_read_schema(lap) for lap in activity_laps]
 
 
-@core_decorators.handle_db_errors
 def count_activity_laps(activity_id: int, db: Session) -> int:
     """Count an activity's laps.
 
@@ -58,9 +52,6 @@ def count_activity_laps(activity_id: int, db: Session) -> int:
 
     Returns:
         The total number of laps.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = select(func.count()).select_from(
         select(activity_laps_models.ActivityLaps.id)
@@ -70,7 +61,6 @@ def count_activity_laps(activity_id: int, db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def get_activities_laps(
     activity_ids: list[int],
     db: Session,
@@ -87,9 +77,6 @@ def get_activities_laps(
 
     Returns:
         The laps of those activities, empty when there are none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     if not activity_ids:
         return []
@@ -100,7 +87,6 @@ def get_activities_laps(
     return [activity_laps_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def create_activity_laps(
     activity_laps: list[dict],
     activity_id: int,
@@ -113,9 +99,6 @@ def create_activity_laps(
             file parsers.
         activity_id: The parent activity ID.
         db: Database session.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     laps = [activity_laps_serializers.to_orm(lap, activity_id) for lap in activity_laps]
 

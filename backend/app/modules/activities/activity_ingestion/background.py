@@ -2,7 +2,7 @@
 
 When ``JOBS_ENABLED`` is off there is no durable-job worker to drain the queue,
 so bulk import, uploads and refreshes fall back to a small thread pool that
-processes the work in the background (:mod:`.dispatch` decides when). That pool lives here rather than at module
+processes the work in the background (:mod:`.dispatch_service` decides when). That pool lives here rather than at module
 scope in the router so it has a single owner with an explicit lifecycle: the API
 lifespan shuts it down, instead of it being leaked on exit as an unreferenced
 module global.

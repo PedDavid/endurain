@@ -1,11 +1,7 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-from sqlalchemy.exc import SQLAlchemyError
 from tests._helpers.db import setup_mock_execute
 from tests._helpers.models import mock_model
-
-import core.exceptions as core_exceptions
 
 
 class TestCreateActivityLaps:
@@ -27,17 +23,6 @@ class TestCreateActivityLaps:
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
 
-    @patch("modules.activities.activity_laps.crud.activity_laps_models.ActivityLaps")
-    def test_db_error(self, mock_laps_model, mock_db):
-        import modules.activities.activity_laps.crud as crud
-
-        mock_laps_model.return_value = MagicMock()
-        mock_db.flush.side_effect = SQLAlchemyError("err")
-        laps = [{"lap_number": 1}]
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.create_activity_laps(laps, 1, mock_db)
-        assert e.value.status_code == 500
-
 
 class TestGetActivityLaps:
     """Persistence only — the access decision lives in ``activity_laps.service``."""
@@ -57,14 +42,6 @@ class TestGetActivityLaps:
 
         setup_mock_execute(mock_db, return_scalars_all=[])
         assert crud.get_activity_laps(activity_id=1, db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_laps.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activity_laps(activity_id=1, db=mock_db)
-        assert e.value.status_code == 500
 
 
 class TestGetActivitiesLaps:
@@ -92,11 +69,3 @@ class TestGetActivitiesLaps:
         mock_db.scalars.return_value.all.return_value = []
 
         assert crud.get_activities_laps(activity_ids=[1], db=mock_db) == []
-
-    def test_db_error(self, mock_db):
-        import modules.activities.activity_laps.crud as crud
-
-        mock_db.scalars.side_effect = SQLAlchemyError("err")
-        with pytest.raises(core_exceptions.ProcessingError) as e:
-            crud.get_activities_laps(activity_ids=[1], db=mock_db)
-        assert e.value.status_code == 500

@@ -3,13 +3,11 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-import core.decorators as core_decorators
 import modules.activities.activity_workout_steps.models as activity_workout_steps_models
 import modules.activities.activity_workout_steps.schema as activity_workout_steps_schema
 import modules.activities.activity_workout_steps.serializers as activity_workout_steps_serializers
 
 
-@core_decorators.handle_db_errors
 def get_activity_workout_steps(
     activity_id: int,
     db: Session,
@@ -30,9 +28,6 @@ def get_activity_workout_steps(
 
     Returns:
         The page of workout steps, empty when the activity has none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = (
         select(activity_workout_steps_models.ActivityWorkoutSteps)
@@ -46,7 +41,6 @@ def get_activity_workout_steps(
     return [activity_workout_steps_serializers.to_read_schema(step) for step in workout_steps]
 
 
-@core_decorators.handle_db_errors
 def count_activity_workout_steps(activity_id: int, db: Session) -> int:
     """Count an activity's planned workout steps.
 
@@ -56,9 +50,6 @@ def count_activity_workout_steps(activity_id: int, db: Session) -> int:
 
     Returns:
         The total number of workout steps.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     stmt = select(func.count()).select_from(
         select(activity_workout_steps_models.ActivityWorkoutSteps.id)
@@ -68,7 +59,6 @@ def count_activity_workout_steps(activity_id: int, db: Session) -> int:
     return db.scalar(stmt) or 0
 
 
-@core_decorators.handle_db_errors
 def get_activities_workout_steps(
     activity_ids: list[int],
     db: Session,
@@ -85,9 +75,6 @@ def get_activities_workout_steps(
 
     Returns:
         The workout steps of those activities, empty when there are none.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     if not activity_ids:
         return []
@@ -98,7 +85,6 @@ def get_activities_workout_steps(
     return [activity_workout_steps_serializers.to_read_schema(row) for row in db.scalars(stmt).all()]
 
 
-@core_decorators.handle_db_errors
 def create_activity_workout_steps(
     activity_workout_steps: list[activity_workout_steps_schema.ActivityWorkoutStepsRead],
     activity_id: int,
@@ -111,9 +97,6 @@ def create_activity_workout_steps(
             schemas to persist.
         activity_id: Activity ID to associate with.
         db: Database session.
-
-    Raises:
-        ProcessingError: If database error occurs.
     """
     workout_steps = [activity_workout_steps_serializers.to_orm(step, activity_id) for step in activity_workout_steps]
 

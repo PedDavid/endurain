@@ -18,7 +18,6 @@ from sqlalchemy import ColumnElement, Select, extract, func, select
 from sqlalchemy.orm import Session
 
 import core.calendar as core_calendar
-import core.decorators as core_decorators
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.models as activity_models
 import modules.activities.activity.query as activity_query
@@ -117,7 +116,6 @@ def _get_type_breakdown(
     return breakdown
 
 
-@core_decorators.handle_db_errors
 def get_weekly_summary(
     user_id: int,
     target_date: date,
@@ -139,9 +137,6 @@ def get_weekly_summary(
 
     Returns:
         Weekly summary with daily breakdowns.
-
-    Raises:
-        ProcessingError: On database error.
     """
     first_day_index = core_calendar.get_weekday_index(first_day_of_week)
     start_of_week = core_calendar.get_week_start(target_date, first_day_of_week)
@@ -217,7 +212,6 @@ def get_weekly_summary(
     )
 
 
-@core_decorators.handle_db_errors
 def get_monthly_summary(
     user_id: int,
     target_date: date,
@@ -239,9 +233,6 @@ def get_monthly_summary(
 
     Returns:
         Monthly summary with weekly breakdowns.
-
-    Raises:
-        ProcessingError: On database error.
     """
     start_of_month = target_date.replace(day=1)
     end_of_month = (start_of_month + timedelta(days=32)).replace(day=1)
@@ -306,7 +297,6 @@ def get_monthly_summary(
     )
 
 
-@core_decorators.handle_db_errors
 def get_yearly_summary(
     user_id: int,
     year: int,
@@ -325,9 +315,6 @@ def get_yearly_summary(
 
     Returns:
         Yearly summary with monthly breakdowns.
-
-    Raises:
-        ProcessingError: On database error.
     """
     start_of_year = date(year, 1, 1)
     end_of_year = date(year + 1, 1, 1)
@@ -396,7 +383,6 @@ def get_yearly_summary(
     )
 
 
-@core_decorators.handle_db_errors
 def get_lifetime_summary(
     user_id: int,
     db: Session,
@@ -413,9 +399,6 @@ def get_lifetime_summary(
 
     Returns:
         Lifetime summary with yearly breakdowns.
-
-    Raises:
-        ProcessingError: On database error.
     """
     # Overall metrics
     metrics_stmt = select(
