@@ -16,8 +16,18 @@ def prune_expired_ingestion_jobs() -> None:
     activity_ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)
 
 
+def fail_stale_ingestion_jobs() -> None:
+    """Fail ingestion jobs that stopped progressing.
+
+    Scheduler-invoked, with no request to carry the providers, so this entry
+    point resolves them.
+    """
+    platform = platform_runtime.get_active_platform()
+    activity_ingestion_service.fail_stale_ingestion_jobs(platform.lock, platform.clock, platform.storage)
+
+
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
-    """Return ingestion retention jobs.
+    """Return ingestion retention and stale-job jobs.
 
     Returns:
         The jobs to schedule.
@@ -27,5 +37,10 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
             prune_expired_ingestion_jobs,
             1440,
             "prune expired activity ingestion jobs",
+        ),
+        core_scheduler.ScheduledJob(
+            fail_stale_ingestion_jobs,
+            60,
+            "fail activity ingestion jobs that stopped progressing",
         ),
     )

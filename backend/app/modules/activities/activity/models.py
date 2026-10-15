@@ -76,6 +76,7 @@ class Activity(Base):
         tracker_model: Device model.
         map_thumbnail_path: Path to the static map thumbnail.
         dedup_key: Stable idempotency key (provider id now, content hash later) used to no-op re-imports.
+        location_next_lookup_at: Earliest time the location backfill may look this activity up again.
     """
 
     __tablename__ = "activities"
@@ -362,4 +363,9 @@ class Activity(Base):
         String(255),
         nullable=True,
         comment=("Stable idempotency key (provider id or content hash) to no-op re-imports"),
+    )
+    location_next_lookup_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Earliest time the location backfill retries an activity with no resolved location",
     )

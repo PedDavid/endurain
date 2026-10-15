@@ -516,6 +516,61 @@ def prune_expired_ingestion_jobs(
         logger.debug("Ingestion job prune: nothing to delete")
 
 
+# A pending or processing job that has not changed state for this long is no
+# longer being worked on: the local pool lost it in a restart, or its loop died.
+# Generous on purpose: a large local bulk import leaves later files ``pending``
+# for hours, and a durable job can sit out its retries and backoff. A job that
+# was in fact still queued and runs later overwrites this outcome with its own.
+_STALE_JOB_AGE = timedelta(hours=24)
+_STALE_LOCK_NAME = "activity_ingestion_jobs_fail_stale"
+
+
+def fail_stale_ingestion_jobs(
+    lock: platform_providers.LockProvider,
+    clock: platform_providers.ClockProvider,
+    storage: platform_providers.StorageProvider,
+) -> None:
+    """Fail ingestion jobs that stopped progressing, and drop their staged uploads.
+
+    Nothing else ever closes a job whose work was lost: the prune removes only
+    terminal rows, so the owner would poll ``pending`` forever and the staged
+    upload would stay in storage.
+
+    Args:
+        lock: The platform lock provider.
+        clock: The platform clock provider.
+        storage: The blob-storage provider the uploads were staged in.
+    """
+    with lock.try_acquire(_STALE_LOCK_NAME) as acquired:
+        if not acquired:
+            logger.debug("Stale ingestion jobs: another replica holds the lock; skipping")
+            return
+        with core_database.SessionLocal() as db:
+            failed = activity_ingestion_crud.fail_jobs_idle_since(
+                clock.now() - _STALE_JOB_AGE,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
+                db,
+            )
+            db.commit()
+
+    # After the rows are terminal, matching ``fail_ingestion_job``.
+    for _job_id, staged_key in failed:
+        if staged_key is not None:
+            activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
+
+    if failed:
+        logger.warning(
+            "Failed ingestion jobs that stopped progressing",
+            extra=core_logger.context(
+                failed=len(failed),
+                job_ids=[job_id for job_id, _ in failed],
+                idle_hours=_STALE_JOB_AGE.total_seconds() / 3600,
+            ),
+        )
+    else:
+        logger.debug("Stale ingestion jobs: none found")
+
+
 def _warn_about_unowned_files(user_id: int) -> None:
     """Warn when importable files sit in the shared root instead of a user directory.
 

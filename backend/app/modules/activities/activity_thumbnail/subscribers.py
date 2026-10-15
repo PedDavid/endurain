@@ -106,6 +106,11 @@ def _schedule_thumbnail_regeneration() -> None:
             description="thumbnail regeneration",
         )
         return
+    # TODO(jasil): safe at any library size once the job runner renews a running
+    # job's lease (heartbeat). Until then a pass that outlives JOBS_LEASE_SECONDS is
+    # requeued and run again (the backfill lock stops double rendering, not a second
+    # delete phase), and jobs claimed in the same batch can be requeued while they
+    # wait behind it. Revisit when jasil ships the heartbeat.
     logger.info("Thumbnail regeneration: no scheduler in this process; running it inline")
     activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails()
 

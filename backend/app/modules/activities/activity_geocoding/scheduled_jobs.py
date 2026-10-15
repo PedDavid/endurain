@@ -23,7 +23,7 @@ def run_missing_location_backfill() -> None:
             logger.debug("Geocoding scheduler: another replica holds the backfill lock; skipping")
             return
         with core_database.SessionLocal() as db:
-            activity_geocoding_service.backfill_missing_activity_locations(platform.geocoding, db)
+            activity_geocoding_service.backfill_missing_activity_locations(platform.geocoding, platform.clock, db)
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:

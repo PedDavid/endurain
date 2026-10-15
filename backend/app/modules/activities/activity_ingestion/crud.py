@@ -204,6 +204,19 @@ def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
     db.flush()
 
 
+def _fail(
+    orm_job: activity_ingestion_models.ActivityIngestionJob,
+    error_code: activity_ingestion_constants.IngestionJobErrorCode,
+    now: datetime,
+) -> None:
+    """Move a loaded job row to the failed state."""
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.FAILED.value
+    orm_job.error_code = error_code.value
+    orm_job.staged_key = None
+    orm_job.updated_at = now
+    orm_job.completed_at = now
+
+
 def mark_failed(
     job_id: str,
     error_code: activity_ingestion_constants.IngestionJobErrorCode,
@@ -219,13 +232,37 @@ def mark_failed(
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None:
         return
-    now = datetime.now(UTC)
-    orm_job.status = activity_ingestion_constants.IngestionJobStatus.FAILED.value
-    orm_job.error_code = error_code.value
-    orm_job.staged_key = None
-    orm_job.updated_at = now
-    orm_job.completed_at = now
+    _fail(orm_job, error_code, datetime.now(UTC))
     db.flush()
+
+
+def fail_jobs_idle_since(
+    cutoff: datetime,
+    error_code: activity_ingestion_constants.IngestionJobErrorCode,
+    db: Session,
+) -> list[tuple[str, str | None]]:
+    """Stage the failure of non-terminal jobs that have not changed state since a cutoff.
+
+    Args:
+        cutoff: Pending or processing jobs last updated before this are failed.
+        error_code: Sanitized failure reason shown to the owner.
+        db: Database session.
+
+    Returns:
+        ``(job id, staged key)`` for each failed job; the key is the staged upload
+        the job still held, or ``None``.
+    """
+    stmt = select(activity_ingestion_models.ActivityIngestionJob).where(
+        activity_ingestion_models.ActivityIngestionJob.completed_at.is_(None),
+        activity_ingestion_models.ActivityIngestionJob.updated_at < cutoff,
+    )
+    now = datetime.now(UTC)
+    failed: list[tuple[str, str | None]] = []
+    for orm_job in db.scalars(stmt).all():
+        failed.append((orm_job.id, orm_job.staged_key))
+        _fail(orm_job, error_code, now)
+    db.flush()
+    return failed
 
 
 def delete_jobs_before(cutoff: datetime, db: Session) -> int:

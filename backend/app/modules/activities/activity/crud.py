@@ -1302,19 +1302,19 @@ def update_activity_location(
 def get_activities_missing_location(
     db: Session,
     *,
+    due_at: datetime,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
-    """Return references to activities that have no resolved location.
+    """Return references to activities whose location is unresolved and due a lookup.
 
-    Rows where ``city``, ``town`` and ``country`` are all NULL — candidates for
-    the reverse-geocoding backfill. Ordered by id and paged via ``after_id``: a
-    row that can never be resolved (no GPS stream) stays a candidate forever, so
-    an unpaged "first ``limit`` rows" would be filled by those and never reach a
-    resolvable activity behind them.
+    Rows where ``city``, ``town`` and ``country`` are all NULL and whose
+    ``location_next_lookup_at`` is unset or not after ``due_at`` — candidates for
+    the reverse-geocoding backfill. Ordered by id and paged via ``after_id``.
 
     Args:
         db: Database session.
+        due_at: Only rows due at or before this instant are returned.
         after_id: Return only activities with ``id`` greater than this.
         limit: Maximum number of candidate rows to return.
 
@@ -1327,6 +1327,10 @@ def get_activities_missing_location(
             activity_models.Activity.city.is_(None),
             activity_models.Activity.town.is_(None),
             activity_models.Activity.country.is_(None),
+            or_(
+                activity_models.Activity.location_next_lookup_at.is_(None),
+                activity_models.Activity.location_next_lookup_at <= due_at,
+            ),
             activity_models.Activity.id > after_id,
         )
         .order_by(activity_models.Activity.id)
@@ -1334,6 +1338,24 @@ def get_activities_missing_location(
     )
     ids = db.execute(stmt).scalars().all()
     return [activity_contracts.ActivityLocationRef(id=activity_id) for activity_id in ids]
+
+
+def defer_location_lookups(activity_ids: Sequence[int], retry_at: datetime, db: Session) -> None:
+    """Stage the next lookup time for activities whose location did not resolve.
+
+    Args:
+        activity_ids: Activities to defer.
+        retry_at: Earliest time the backfill may look them up again.
+        db: Database session.
+    """
+    if not activity_ids:
+        return
+    db.execute(
+        sa_update(activity_models.Activity)
+        .where(activity_models.Activity.id.in_(activity_ids))
+        .values(location_next_lookup_at=retry_at)
+    )
+    db.flush()
 
 
 def clear_all_activity_thumbnail_paths(db: Session) -> None:

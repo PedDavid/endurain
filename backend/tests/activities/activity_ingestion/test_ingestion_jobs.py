@@ -366,6 +366,23 @@ class TestPruneExpiredUploadJobs:
         delete.assert_not_called()
 
 
+class TestFailStaleIngestionJobs:
+    def test_skips_when_another_replica_holds_the_lock(self):
+        platform = MagicMock()
+        platform.lock.try_acquire.return_value.__enter__.return_value = False
+        with patch.object(ingestion_jobs.activity_ingestion_crud, "fail_jobs_idle_since") as fail:
+            ingestion_jobs.fail_stale_ingestion_jobs(platform.lock, platform.clock, platform.storage)
+
+        fail.assert_not_called()
+
+    def test_runs_on_the_schedule(self):
+        import modules.activities.activity_ingestion.scheduled_jobs as scheduled_jobs
+
+        runners = [job.func for job in scheduled_jobs.recurring_jobs()]
+
+        assert scheduled_jobs.fail_stale_ingestion_jobs in runners
+
+
 class TestErrorCodeFor:
     @pytest.mark.parametrize(
         ("error", "expected"),

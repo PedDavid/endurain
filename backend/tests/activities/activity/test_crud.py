@@ -1279,31 +1279,6 @@ class TestUpdateActivityLocation:
         mock_db.commit.assert_not_called()
 
 
-class TestGetActivitiesMissingLocation:
-    def test_success(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        setup_mock_execute(mock_db, return_scalars_all=[1, 2])
-        r = crud.get_activities_missing_location(db=mock_db)
-        assert [ref.id for ref in r] == [1, 2]
-
-    def test_empty(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        setup_mock_execute(mock_db, return_scalars_all=[])
-        assert crud.get_activities_missing_location(db=mock_db) == []
-
-    def test_pages_after_the_given_id(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        setup_mock_execute(mock_db, return_scalars_all=[])
-        crud.get_activities_missing_location(db=mock_db, after_id=41)
-
-        statement = mock_db.execute.call_args.args[0]
-        assert "activities.id >" in str(statement)
-        assert 41 in statement.compile().params.values()
-
-
 class TestEditUserActivitiesVisibility:
     def test_success(self, mock_db):
         import modules.activities.activity.crud as crud

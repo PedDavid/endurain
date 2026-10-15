@@ -189,6 +189,64 @@ class TestPrune:
         assert _read_job(factory, "fresh") is not None
 
 
+class TestFailStaleJobs:
+    """Jobs whose work was lost (restart, dead loop) end terminal instead of ``pending`` forever."""
+
+    @staticmethod
+    def _run(factory) -> list[str]:
+        platform = MagicMock()
+        platform.lock.try_acquire.return_value.__enter__.return_value = True
+        platform.clock.now.return_value = datetime.now(UTC)
+        discarded: list[str] = []
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service,
+                "discard_staged_upload",
+                side_effect=lambda key, _storage: discarded.append(key),
+            ),
+        ):
+            ingestion_jobs.fail_stale_ingestion_jobs(platform.lock, platform.clock, platform.storage)
+        return discarded
+
+    def test_an_idle_upload_is_failed_and_its_blob_dropped(self, factory):
+        _add_job(factory, updated_at=datetime.now(UTC) - timedelta(hours=25))
+
+        discarded = self._run(factory)
+
+        job = _read_job(factory)
+        assert job.status == "failed"
+        assert job.error_code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED.value
+        assert job.staged_key is None
+        assert discarded == ["abc.gpx"]
+
+    def test_an_idle_job_without_a_blob_is_failed(self, factory):
+        _add_job(
+            factory,
+            kind="refresh",
+            status="processing",
+            staged_key=None,
+            updated_at=datetime.now(UTC) - timedelta(hours=25),
+        )
+
+        assert self._run(factory) == []
+        assert _read_job(factory).status == "failed"
+
+    def test_a_job_still_progressing_is_left_alone(self, factory):
+        _add_job(factory, updated_at=datetime.now(UTC) - timedelta(hours=1))
+
+        assert self._run(factory) == []
+        assert _read_job(factory).status == "pending"
+
+    def test_a_finished_job_is_left_alone(self, factory):
+        old = datetime.now(UTC) - timedelta(days=3)
+        _add_job(factory, status="completed", staged_key=None, updated_at=old, completed_at=old)
+
+        self._run(factory)
+
+        assert _read_job(factory).status == "completed"
+
+
 class TestBulkImportHandle:
     def test_a_transition_is_committed(self, factory):
         _add_job(factory, kind="bulk_import")

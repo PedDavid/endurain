@@ -38,5 +38,5 @@ class TestRunMissingLocationBackfill:
         run_missing_location_backfill()
 
         mock_service.backfill_missing_activity_locations.assert_called_once_with(
-            platform.geocoding, mock_db.SessionLocal.return_value.__enter__.return_value
+            platform.geocoding, platform.clock, mock_db.SessionLocal.return_value.__enter__.return_value
         )

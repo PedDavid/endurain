@@ -436,20 +436,35 @@ def list_activities_without_thumbnail(
 def list_activities_missing_location(
     db: Session,
     *,
+    due_at: datetime,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
-    """Return one id-ordered page of activity references whose location is unresolved.
+    """Return one id-ordered page of activities whose location is unresolved and due a lookup.
 
     Args:
         db: Database session.
+        due_at: Only activities due at or before this instant are returned.
         after_id: Return only activities with an id greater than this.
         limit: Maximum number of rows to return.
 
     Returns:
         One page of activity references whose location is unresolved.
     """
-    return activity_crud.get_activities_missing_location(db, after_id=after_id, limit=limit)
+    return activity_crud.get_activities_missing_location(db, due_at=due_at, after_id=after_id, limit=limit)
+
+
+def defer_location_lookups(activity_ids: Sequence[int], retry_at: datetime, db: Session) -> None:
+    """Stage when activities whose location did not resolve may be looked up again.
+
+    The caller commits.
+
+    Args:
+        activity_ids: Activities to defer.
+        retry_at: Earliest time the backfill may look them up again.
+        db: Database session.
+    """
+    activity_crud.defer_location_lookups(activity_ids, retry_at, db)
 
 
 def set_activity_location(
