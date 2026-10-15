@@ -11,6 +11,18 @@ modules (`activity`, `activity_laps`, `activity_streams`, and so on).
 follows one of these shapes; the existing modules are converted one at a time as
 they are reworked (see [Known debt](#known-debt)).
 
+## Rules at a glance
+
+The sections below are the authority; this is the part to keep in your head.
+
+- A file's name is its role; `__init__.py` is a docstring and nothing else.
+- Peers call only another module's `integration_service`, `contracts`, `schema`, `constants` and `events`.
+- `crud` stages (`flush`); `service` commits and publishes. A surface write stages and its caller commits, unless listed.
+- Providers and `core.config` are resolved at entry points and passed down.
+- Derived work is an event subscriber with a reconciliation net; delivery is at-least-once.
+- How code must *run* (transactions, claims, threads, storage lifecycle, bounded scans) is in
+  [Runtime behaviour](#runtime-behaviour).
+
 ## The two units
 
 | Unit | What it is | Example |
@@ -107,7 +119,9 @@ A surface function that only forwards its arguments is not a layer either. When
 `integration_service` → `service` → `crud` adds no decision, no access check and
 no transaction, the surface goes straight to CRUD, which the matrix below
 permits. What belongs in `service` is the *arrangement* of a write (stage,
-publish, commit), not the act of forwarding.
+publish, commit), not the act of forwarding. A read-only surface function calls its
+own `crud` directly; a `service` function added only to forward is the layer this
+paragraph rules out.
 
 `subscribers.py` is private (class 4). A module with subscribers publishes
 `subscriber_registry.py` (class 2) and the entrypoints import *that*, so
@@ -452,6 +466,35 @@ guard and the re-keying filter that laps, sets and workout steps share. Each
 child supplies only its CRUD write, its archive names and how one archived record
 becomes a stored row.
 
+## Runtime behaviour
+
+The import and layer rules say where code lives. These say how it must run, in one
+process and across replicas alike. Tests do not enforce them yet, so review does.
+
+- **No transaction across external I/O.** A service that has read rows and then calls the
+  network (tile server, geocoder, provider API), renders, parses a file or writes to object
+  storage ends the read transaction (`db.commit()`) first. An open transaction pins a pool
+  connection and a snapshot for as long as the call takes, and the pool is shared with every
+  request.
+- **Claim work with one conditional `UPDATE`.** Delivery is at-least-once, so a job or batch is
+  claimed with `UPDATE … WHERE status = 'pending' OR the claim is older than the lease` and the
+  caller checks the row count; read-then-write is a race. A failed attempt returns the job to
+  `pending` before re-raising, so the retry can claim it
+  (`activity_ingestion.crud.mark_processing`, `followers.crud.accept_follower`).
+- **Subscribers are cheap, idempotent and run off the request.** On the in-process bus they run
+  on a small background pool (`app/module_registry.py`); on Redis, on the consumer thread. Either
+  way a subscriber opens its own session, assumes it may run twice or not at all, and relies on
+  its reconciliation net. Nothing may assume a subscriber finished before the response.
+- **Threads inherit context.** Work handed to a pool runs under `contextvars.copy_context()`, so
+  the request id reaches its logs and events.
+- **Every storage area has an owner, a lifecycle and an erasure path.** The domain that writes an
+  area states who deletes its blobs when the parent goes, which sweep catches what an event
+  missed and, for user data, how account deletion removes it. An area missing one is incomplete.
+- **Maintenance scans are bounded.** A scheduled pass pages by id with a batch constant or lists
+  storage by prefix in batches; it never loads a whole table or area into memory.
+- **Every outbound call has a timeout**, and a request path never waits on a lock or the pool
+  longer than its client would.
+
 ## Enforcement
 
 Two mechanisms, deliberately:
@@ -595,8 +638,9 @@ one pattern. Recorded here so a review does not reopen them.
   (or `<Thing>Page`); the ORM class keeps `<Thing>`. A schema and an ORM class never
   share a name, and the OpenAPI component name is the schema's. A value object nested
   inside a read model (`SummaryMetrics`, `DaySummary`) keeps its descriptive name.
-- **Read models are stored rows.** A `<Thing>Read` always has a required `id`: it is
-  what the server returns, never what a producer sends. A shape that is written
+- **Read models are stored rows.** A `<Thing>Read` that carries an `id` requires it: it is
+  what the server returns, never what a producer sends. A read model identified by a natural
+  key (`FollowRelationshipRead`: follower and followee) has no `id` and needs none. A shape that is written
   before it has an id (parsed, archived or restored data) is `<Thing>Create` in
   `contracts.py`, and both derive from a shared `<Thing>Base` in `schema.py`
   (`activity_sets`, `activity_workout_steps`, `activity_exercise_titles`). An
@@ -678,6 +722,20 @@ one pattern. Recorded here so a review does not reopen them.
 
 Tracked here so it is visible rather than discovered. Each item is enumerated in
 the conformance test's allowlist.
+
+### Runtime rules not yet met
+
+- **Storage lifecycle.** The `bulk_import_errors` area has no sweep, retention or account-deletion
+  removal, and the thumbnail reconciliation lists its whole area each pass.
+- **Timeouts.** The pool (20 + 40, 180 s wait) and the absence of a `statement_timeout` are
+  constants in `core/database.py`, not settings, so an operator cannot bound them.
+- **Observability.** Logs and the admin event/job views are the only signal; queue depth, job
+  duration and dead-letter counts are not exported as metrics.
+- **Visibility across modules.** The followee set reaches `activity.crud` as an id list, which
+  grows with the follow count. A peer-published, read-only query fragment (a followee subquery)
+  would avoid the list but needs its own allowed-import entry and test, so it is undecided.
+- **Lease heartbeat.** A running job does not renew its lease (a `jasil` change), so a job that
+  outlives `JOBS_LEASE_SECONDS` can be claimed a second time.
 
 ### Pilot status and what the next conversion owns
 

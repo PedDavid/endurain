@@ -7,7 +7,7 @@ and returns a key. Everything CPU-bound — gzip decompression and the format
 parse — is in :func:`process_staged_upload`, which runs on a background worker.
 
 That split is the point of the module: parsing a large FIT file takes seconds of
-pure CPU, and doing it inline held one of Starlette's shared threadpool tokens
+pure CPU, and doing it inline would hold one of Starlette's shared threadpool tokens
 for the duration, so a handful of concurrent uploads could starve every other
 request in the process.
 

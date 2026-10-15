@@ -796,8 +796,7 @@ def delete_all_strava_activities(user_id: int, db: Session, *, source: str) -> i
 
     Emits one ``activity.deleted`` per removed activity, atomically with the
     deletes, so the thumbnail and source-file cleanup subscribers reclaim the
-    blobs each activity owned. Without it the rows vanished silently and their
-    artifacts were orphaned in storage permanently.
+    blobs each activity owned.
 
     Args:
         user_id: The owning user id.

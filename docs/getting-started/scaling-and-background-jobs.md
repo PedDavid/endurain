@@ -13,6 +13,8 @@ Some work happens after a request returns: map thumbnails, reverse geocoding, re
 | Best-effort (default) | `JOBS_ENABLED=false` | Subscribers run through the event bus. A failure is logged and swallowed; a scheduled backfill later repairs anything that was missed. |
 | Durable | `JOBS_ENABLED=true` | Events are written to the database outbox, relayed into per-subscriber jobs, and run by a worker with retry, backoff and a dead-letter state. |
 
+Without a Redis event bus, subscribers run on a small in-process thread pool (two threads) rather than inside the request, so a request never waits for a thumbnail or a cleanup. Work still queued when the process stops is repaired by the scheduled backfills and sweeps.
+
 Every derived-work subscriber also has a scheduled backfill, so a lost event is repaired in either mode. Durable mode makes recovery faster and visible; it is not required for correctness.
 
 ## Choosing a deployment shape

@@ -216,10 +216,9 @@ def reject_follow_request(requester_user_id: int, follower_id: int, db: Session)
 def delete_relationship(followee_id: int, follower_id: int, requester_user_id: int, db: Session) -> None:
     """Delete a follow relationship on behalf of either party.
 
-    One operation instead of separate unfollow/remove-follower endpoints: the
-    row is the same and the direction is explicit in the arguments, so the only
-    difference was which of the two parties asked. Splitting it meant two routes
-    distinguished by a singular/plural path segment.
+    One operation serves unfollow and remove-follower: the row is the same and
+    the direction is explicit in the arguments, so the only difference is which
+    of the two parties asked.
 
     Args:
         followee_id: The user being followed.

@@ -31,6 +31,8 @@ Use `jasil.admin` when a short-lived session of its own is needed.
 - Each domain owns a storage *area* constant (`ACTIVITY_FILE_STORAGE_AREA = "activity_files"`); an area is a single namespace component, so put hierarchy in the key (`processed/42.fit`).
 - Derive keys from ids; keep key builders next to the code that owns the area.
 - Local disk and object storage behave identically; never assume a filesystem path.
+- A new area needs an owner, a cleanup on parent deletion, a sweep for what an event missed and, for user data, removal on
+  account deletion.
 - User uploads still go through `core/file_uploads.py` first, then storage.
 - Do not use `redis` directly; only the platform capability imports it.
 
@@ -71,6 +73,9 @@ When no backfill is possible pass `None` plus `exempt_reason=...` explaining why
 - Runtime URIs come from settings: `STORAGE_URI` (default `local://`), `EVENTS_URI` -> `REDIS_URL` -> `memory://`, `JOBS_ENABLED`.
 - The same code runs in-process (local) or distributed (Redis Streams, object storage); do not branch on the profile in domain code.
 - Without `JOBS_ENABLED`, bus delivery is best-effort, which is why nets matter.
+- Profiles differ in *delivery*, not in code: local subscribers run on a small background pool in the API process, distributed
+  ones on a consumer or worker. Write every subscriber for the harder case: cheap, idempotent, own session, may run late, twice or never.
+- Never hold a DB transaction across a storage, network or render call; end the read first (guide: Runtime behaviour).
 
 ## Tests
 

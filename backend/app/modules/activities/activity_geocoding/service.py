@@ -3,9 +3,9 @@
 Owns *when* an activity's location is resolved and *where* the result is stored.
 It deliberately does not own *how* resolution happens: that is the platform's
 :class:`~jasil.providers.GeocodingProvider`, which holds the upstream service
-knowledge and the egress hardening that calling a third party requires. Before
-that split this module built provider URLs, validated the configured host against
-SSRF, throttled, and spoke HTTP — none of which is a fact about activities.
+knowledge and the egress hardening that calling a third party requires, so this
+module builds no provider URL, validates no host, throttles nothing and speaks no
+HTTP.
 
 Parsers emit an activity with no ``city``/``town``/``country``; the
 ``activity.created`` subscriber calls in here to resolve and persist the

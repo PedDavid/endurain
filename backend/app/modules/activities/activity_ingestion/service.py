@@ -372,8 +372,7 @@ def enqueue_scheduled_refreshes(
 ) -> int:
     """Queue one refresh job per user who has linked a provider.
 
-    Replaces walking every user in one long-running task: each user is an
-    independent job, so it is retried, rate-limited and spread across workers on
+    Each user is an independent job, so it is retried, rate-limited and spread across workers on
     its own, and one slow or failing account cannot hold up the rest. Users are
     read a page at a time from each provider's own notion of "linked", and a user
     linked to several providers gets one job, which syncs all of them.

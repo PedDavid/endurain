@@ -2,8 +2,8 @@
 
 ## Uploads
 - All `UploadFile` handling goes through `backend/app/core/file_uploads.py`.
-- Persist with `save_validated_upload(file, kind=UploadKind.X, upload_dir=..., filename=...)`.
-- In-memory only: `validate_upload(file, kind=...)`.
+- Route handlers are sync, so persist with `save_validated_upload_sync(file, kind=UploadKind.X, upload_dir=..., filename=...)`
+  and read into memory with `read_validated_upload_sync(file, kind=...)`. The `async` variants are for code already on the event loop.
 - Never instantiate `safeuploads.FileValidator` elsewhere.
 - Never join user-supplied filenames into paths; use server-generated names (UUID/hash/fixed).
 - Enforce size limits.

@@ -17,6 +17,8 @@ Enforced by ruff `D` with `convention = "google"` on the converted modules (`act
 - `Raises`: the exceptions the function raises or deliberately lets propagate, and especially the ones that carry a security meaning (`PermissionDeniedError`, `NotFoundError` as an anti-enumeration answer). Omit it when there are none; do not write `Raises: None.`.
 - Classes: summary plus `Attributes`.
 - No examples; extended explanation only where the *why* is not obvious from the code.
+- A docstring is not a design document: what, then why, in the fewest lines. Rationale that spans a
+  module belongs in the guide, and history in the commit message.
 - A docstring with backslashes is a raw string (`r"""`).
 
 ## SQLAlchemy 2
