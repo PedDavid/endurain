@@ -20,7 +20,7 @@ def _upload(filename: str = "ride.gpx") -> tuple[str, MagicMock]:
 
 def _received(fingerprint: str = "hash-of-this-file") -> upload_entry_service.ReceivedUpload:
     return upload_entry_service.ReceivedUpload(
-        incoming_path="/incoming/x.gpx", storage_key="abc.gpx", data=b"<gpx/>", fingerprint=fingerprint
+        incoming_path="/incoming/x.gpx", storage_key="abc.gpx", fingerprint=fingerprint
     )
 
 

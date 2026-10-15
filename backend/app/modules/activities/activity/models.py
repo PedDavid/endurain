@@ -77,6 +77,7 @@ class Activity(Base):
         map_thumbnail_path: Path to the static map thumbnail.
         dedup_key: Stable idempotency key (provider id now, content hash later) used to no-op re-imports.
         location_next_lookup_at: Earliest time the location backfill may look this activity up again.
+        thumbnail_next_attempt_at: Earliest time the thumbnail backfill may try this activity again.
     """
 
     __tablename__ = "activities"
@@ -368,4 +369,9 @@ class Activity(Base):
         DateTime(timezone=True),
         nullable=True,
         comment="Earliest time the location backfill retries an activity with no resolved location",
+    )
+    thumbnail_next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Earliest time the thumbnail backfill retries an activity that has no thumbnail",
     )

@@ -9,7 +9,9 @@ full regeneration triggered when tile settings change.
 Sessions are opened by the entry point (``integration_service``) and passed down.
 """
 
+import functools
 from collections.abc import Callable, Iterator
+from datetime import datetime, timedelta
 
 import jasil.providers as platform_providers
 from sqlalchemy.orm import Session
@@ -31,6 +33,10 @@ logger = core_logger.get_logger(__name__)
 
 #: An activity needs a start and an end point to draw a track.
 _MIN_WAYPOINTS = 2
+
+#: How long an activity that ended a backfill pass without a thumbnail waits
+#: before the next pass tries it again.
+THUMBNAIL_RETRY_DELAY = timedelta(hours=6)
 
 type _ActivityPageFetcher = Callable[..., list[activity_contracts.ActivityThumbnailRef]]
 
@@ -79,8 +85,10 @@ def _iter_activities_with_thumbnail(db: Session) -> Iterator[activity_contracts.
         yield from page
 
 
-def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activity_contracts.ActivityThumbnailRef]]:
-    """Yield pages of activities that have no thumbnail key.
+def _iter_activities_without_thumbnail(
+    due_at: datetime, db: Session
+) -> Iterator[list[activity_contracts.ActivityThumbnailRef]]:
+    """Yield pages of activities that have no thumbnail key and are due an attempt.
 
     Pages rather than rows: the caller batch-loads each page's waypoints in one
     query. The cursor always advances past the page it just read — re-reading
@@ -88,6 +96,7 @@ def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activity_co
     have no GPS stream to render.
 
     Args:
+        due_at: Activities deferred past this instant are skipped.
         db: Database session.
 
     Yields:
@@ -96,7 +105,9 @@ def _iter_activities_without_thumbnail(db: Session) -> Iterator[list[activity_co
     Returns:
         Pages of thumbnail references, in id order.
     """
-    yield from _iter_activity_pages(activity_integration.list_activities_without_thumbnail, db)
+    yield from _iter_activity_pages(
+        functools.partial(activity_integration.list_activities_without_thumbnail, due_at=due_at), db
+    )
 
 
 def resolve_tile_settings(db: Session) -> tuple[str, str, str | None]:
@@ -269,6 +280,7 @@ def delete_activity_thumbnail(activity_id: int, storage: platform_providers.Stor
 def delete_and_regenerate_all_activity_thumbnails(
     storage: platform_providers.StorageProvider,
     lock: platform_providers.LockProvider,
+    clock: platform_providers.ClockProvider,
     db: Session,
 ) -> None:
     """Delete all existing thumbnails and regenerate from scratch.
@@ -282,6 +294,7 @@ def delete_and_regenerate_all_activity_thumbnails(
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
+        clock: The platform clock.
         db: Database session.
     """
     logger.info("Thumbnail regeneration: deleting all existing thumbnails")
@@ -306,12 +319,13 @@ def delete_and_regenerate_all_activity_thumbnails(
     logger.info("Thumbnail regeneration: deleted thumbnails", extra=core_logger.context(deleted=deleted))
 
     # Regenerate all thumbnails
-    generate_missing_activity_thumbnails(storage, lock, db)
+    generate_missing_activity_thumbnails(storage, lock, clock, db)
 
 
 def generate_missing_activity_thumbnails(
     storage: platform_providers.StorageProvider,
     lock: platform_providers.LockProvider,
+    clock: platform_providers.ClockProvider,
     db: Session,
 ) -> None:
     """Generate thumbnails for activities that are missing one.
@@ -325,38 +339,63 @@ def generate_missing_activity_thumbnails(
     Args:
         storage: The blob-storage provider.
         lock: The coordination lock provider.
+        clock: The platform clock, for the due time and the retry time.
         db: Database session.
     """
     with lock.try_acquire("thumbnail_backfill") as acquired:
         if not acquired:
             logger.debug("Thumbnail scheduler: another replica holds the backfill lock; skipping")
             return
-        _run_missing_thumbnail_generation(storage, db)
+        _run_missing_thumbnail_generation(storage, clock.now(), db)
 
 
-def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvider, db: Session) -> None:
-    """Reconcile stale references and render any missing thumbnails.
+def _clear_references_to_missing_blobs(storage: platform_providers.StorageProvider, db: Session) -> None:
+    """Clear thumbnail keys whose stored blob no longer exists.
+
+    One listing of the area answers for every activity, instead of an existence
+    check per activity per pass (a HEAD request each on object storage). A key
+    missing from the listing is confirmed individually before it is cleared: the
+    listing was taken before the page was read, so a blob a subscriber stored in
+    between would otherwise look missing.
 
     Args:
         storage: The blob-storage provider.
         db: Database session.
     """
-    # Reconcile: clear DB references whose stored blob no longer exists so
-    # they are regenerated below.
+    existing = {key for key, _modified in storage.iter_objects(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA)}
     for activity in _iter_activities_with_thumbnail(db):
         key = activity.map_thumbnail_path
-        if key is not None and not storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
-            activity_integration.set_thumbnail_key(activity.id, None, db)
-            db.commit()
-            logger.info(
-                "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
-                extra=core_logger.context(activity_id=activity.id),
-            )
+        if key is None or key in existing:
+            continue
+        if storage.exists(activity_thumbnail_signing.THUMBNAIL_STORAGE_AREA, key):
+            continue
+        activity_integration.set_thumbnail_key(activity.id, None, db)
+        db.commit()
+        logger.info(
+            "Thumbnail scheduler: cleared a thumbnail path whose blob is missing",
+            extra=core_logger.context(activity_id=activity.id),
+        )
 
+
+def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvider, now: datetime, db: Session) -> None:
+    """Reconcile stale references and render any missing thumbnails.
+
+    An activity that ends the pass without a thumbnail (no GPS, a skipped or
+    failed render) is deferred by :data:`THUMBNAIL_RETRY_DELAY`, so the passes
+    in between neither re-read it nor repeat a tile-server round trip for it.
+
+    Args:
+        storage: The blob-storage provider.
+        now: The current time; activities deferred past it are skipped.
+        db: Database session.
+    """
+    _clear_references_to_missing_blobs(storage, db)
+
+    retry_at = now + THUMBNAIL_RETRY_DELAY
     generated = 0
     candidates = 0
     tile_settings: tuple[str, str, str | None] | None = None
-    for page in _iter_activities_without_thumbnail(db):
+    for page in _iter_activities_without_thumbnail(now, db):
         candidates += len(page)
         # Resolved on the first page rather than up front: it reads server
         # settings and decrypts the tile API key, which is wasted work on the
@@ -372,24 +411,42 @@ def _run_missing_thumbnail_generation(storage: platform_providers.StorageProvide
             db,
         )
 
+        unrendered: list[int] = []
         for activity in page:
             waypoints = waypoints_by_activity_id.get(activity.id)
 
             if not waypoints:
+                unrendered.append(activity.id)
                 continue
 
-            key = generate_and_store_thumbnail(
-                activity.id,
-                waypoints,
-                storage,
-                db,
-                tile_url=tile_url,
-                background_color=background_color,
-                api_key=api_key,
-            )
+            try:
+                key = generate_and_store_thumbnail(
+                    activity.id,
+                    waypoints,
+                    storage,
+                    db,
+                    tile_url=tile_url,
+                    background_color=background_color,
+                    api_key=api_key,
+                )
+            except Exception as err:
+                # One bad activity must not stop the rest of the pass.
+                db.rollback()
+                logger.warning(
+                    "Thumbnail scheduler: could not generate a thumbnail",
+                    exc_info=err,
+                    extra=core_logger.context(activity_id=activity.id),
+                )
+                key = None
 
-            if key is not None:
+            if key is None:
+                unrendered.append(activity.id)
+            else:
                 generated += 1
+
+        if unrendered:
+            activity_integration.defer_thumbnail_attempts(unrendered, retry_at, db)
+            db.commit()
 
     if not candidates:
         logger.debug("Thumbnail scheduler: no activities without thumbnail found")

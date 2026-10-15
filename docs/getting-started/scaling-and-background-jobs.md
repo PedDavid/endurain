@@ -113,3 +113,13 @@ Every replica must share the same database, Redis and bucket. Run one or more wo
 - With `JOBS_ENABLED=true` and `JOBS_RUN_IN_PROCESS_WORKER=false`, jobs accumulate unless a worker is running.
 - Dead-lettered jobs are kept for review and are never pruned automatically.
 - The admin event log and jobs views show event lifecycles and job states.
+
+## Sizing
+
+Each web process keeps its own database pool of up to 60 connections (20 plus 40 overflow) and about 40 request threads. A request waits up to 180 seconds for a free connection before it fails.
+
+- Total connections are `60 × (web workers + replicas + dedicated workers)`. Keep that below PostgreSQL's `max_connections` (100 by default), or put PgBouncer in front of the database.
+- Each coordination lock held through `postgres-advisory://` keeps one more connection open for as long as the job runs.
+- A long job lease matters: the job runner does not renew a lease while a handler runs, so a job that outlives `JOBS_LEASE_SECONDS` is requeued and may run twice. Handlers are written to be repeatable, but keep the lease above your slowest job.
+- S3 requests use the client's default connect and read timeouts (60 seconds) and retry up to three times, so an unreachable bucket can hold a thread for minutes. Prefer a bucket in the same region as the application.
+- Leftover work is cleaned up on a schedule: ingestion jobs that stop progressing are failed after 24 hours, staged uploads nothing references are removed after 2 days, and staged bulk-import files after 7 days.

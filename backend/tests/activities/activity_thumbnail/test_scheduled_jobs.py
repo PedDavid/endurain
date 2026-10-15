@@ -18,7 +18,9 @@ class TestMaintenanceEntryPoints:
 
         generate_missing_thumbnails()
 
-        mock_service.generate_missing_activity_thumbnails.assert_called_once_with(platform.storage, platform.lock, db)
+        mock_service.generate_missing_activity_thumbnails.assert_called_once_with(
+            platform.storage, platform.lock, platform.clock, db
+        )
 
     @patch(f"{MODULE}.activity_thumbnail_service")
     @patch(f"{MODULE}.core_database.SessionLocal")
@@ -33,5 +35,5 @@ class TestMaintenanceEntryPoints:
         regenerate_all_thumbnails()
 
         mock_service.delete_and_regenerate_all_activity_thumbnails.assert_called_once_with(
-            platform.storage, platform.lock, db
+            platform.storage, platform.lock, platform.clock, db
         )

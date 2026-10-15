@@ -26,8 +26,7 @@ import os
 import shutil
 import tempfile
 import uuid
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Protocol
 
 import jasil.providers as platform_providers
@@ -36,12 +35,12 @@ from sqlalchemy.orm import Session
 import core.config as core_config
 import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
-import core.hashing as core_hashing
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_file_storage.constants as activity_file_storage_constants
 import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
 import modules.activities.activity_ingestion.pipeline_service as activity_ingestion_pipeline_service
+import modules.activities.activity_ingestion.staging as activity_ingestion_staging
 
 logger = core_logger.get_logger(__name__)
 
@@ -49,7 +48,7 @@ logger = core_logger.get_logger(__name__)
 # hierarchy belongs in the key because JASIL storage areas are single path
 # components.
 UPLOAD_STAGING_STORAGE_AREA = activity_file_storage_constants.ACTIVITY_FILE_STORAGE_AREA
-_UPLOAD_STAGING_KEY_PREFIX = "upload_staging"
+UPLOAD_STAGING_KEY_PREFIX = "upload_staging/"
 
 
 def _upload_staging_storage_key(key: str) -> str:
@@ -61,7 +60,7 @@ def _upload_staging_storage_key(key: str) -> str:
     Returns:
         The prefixed storage key.
     """
-    return f"{_UPLOAD_STAGING_KEY_PREFIX}/{key}"
+    return f"{UPLOAD_STAGING_KEY_PREFIX}{key}"
 
 
 @dataclass(frozen=True)
@@ -71,7 +70,6 @@ class ReceivedUpload:
     Attributes:
         incoming_path: Local file holding the received bytes.
         storage_key: Server-generated key the upload will be stored under.
-        data: The received bytes, read once and reused for hashing and storage.
         fingerprint: SHA-256 of the received bytes, used to tell a genuine
             replay from a reused idempotency key carrying a different file.
             ``None`` when the caller sent no key, since nothing would read it.
@@ -79,9 +77,6 @@ class ReceivedUpload:
 
     incoming_path: str
     storage_key: str
-    # Excluded from repr: an activity file is up to 200 MiB and this object is
-    # logged on some error paths.
-    data: bytes = field(repr=False)
     fingerprint: str | None = None
 
 
@@ -161,13 +156,11 @@ def receive_upload(filename: str | None, save_upload: UploadSaver, *, fingerprin
         upload_dir=core_config.FILES_UPLOAD_INCOMING_DIR,
         filename=storage_key,
     )
-    # Read once: the same buffer serves the fingerprint and the storage write.
-    data = Path(incoming_path).read_bytes()
     return ReceivedUpload(
         incoming_path=incoming_path,
         storage_key=storage_key,
-        data=data,
-        fingerprint=core_hashing.sha256_hex(data) if fingerprint else None,
+        # Streamed from disk: the file can be up to 200 MiB.
+        fingerprint=core_file_uploads.sha256_file(incoming_path) if fingerprint else None,
     )
 
 
@@ -182,11 +175,12 @@ def store_received_upload(received: ReceivedUpload, storage: platform_providers.
         The storage key the upload was staged under.
     """
     try:
-        storage.save(
-            UPLOAD_STAGING_STORAGE_AREA,
-            _upload_staging_storage_key(received.storage_key),
-            received.data,
-        )
+        with open(received.incoming_path, "rb") as handle:
+            storage.save_stream(
+                UPLOAD_STAGING_STORAGE_AREA,
+                _upload_staging_storage_key(received.storage_key),
+                handle,
+            )
     finally:
         core_file_uploads.remove_files([received.incoming_path])
     return received.storage_key
@@ -231,19 +225,19 @@ def process_staged_upload(
             decompresses to an unsupported payload.
         ProcessingError: On an internal failure.
     """
-    data = storage.get(UPLOAD_STAGING_STORAGE_AREA, _upload_staging_storage_key(staged_key))
-    if data is None:
-        raise core_exceptions.InvalidInputError("The uploaded file is no longer available")
-
     _, file_extension = os.path.splitext(staged_key)
     # Private directory so the parsed file cannot collide with another job's,
     # and so its removal is unconditional.
     work_dir = tempfile.mkdtemp(prefix="activity-upload-")
     file_path = os.path.join(work_dir, staged_key)
-    Path(file_path).write_bytes(data)
     upload_artifacts: list[str] = [file_path]
 
     try:
+        if not activity_ingestion_staging.copy_blob_to_path(
+            UPLOAD_STAGING_STORAGE_AREA, _upload_staging_storage_key(staged_key), file_path, storage
+        ):
+            raise core_exceptions.InvalidInputError("The uploaded file is no longer available")
+
         if file_extension.lower() == ".gz":
             file_path, file_extension = core_file_uploads.decompress_gzip(file_path)
             # ``decompress_gzip`` returns a new temp file; track it next to the

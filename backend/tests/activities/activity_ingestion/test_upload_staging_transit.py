@@ -43,14 +43,14 @@ class TestStagingTransit:
 
         platform = MagicMock()
 
-        def record_save(area, key, data):
+        def record_save(area, key, source):
             # Snapshot the incoming dir at the exact moment storage is handed
             # the bytes, which is the only window the file exists in.
             observed["during"] = sorted(p.name for p in incoming.iterdir())
             observed["area"] = area
-            observed["bytes"] = data
+            observed["bytes"] = source.read()
 
-        platform.storage.save.side_effect = record_save
+        platform.storage.save_stream.side_effect = record_save
 
         upload = UploadFile(filename="ride.gpx", file=io.BytesIO(b"<gpx></gpx>"))
 
@@ -89,7 +89,7 @@ class TestStagingTransit:
         """Otherwise a failing bucket would slowly fill the data volume."""
         incoming = tmp_path / "upload_incoming"
         platform = MagicMock()
-        platform.storage.save.side_effect = RuntimeError("bucket down")
+        platform.storage.save_stream.side_effect = RuntimeError("bucket down")
         upload = UploadFile(filename="ride.gpx", file=io.BytesIO(b"<gpx></gpx>"))
 
         with (

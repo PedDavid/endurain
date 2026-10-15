@@ -23,6 +23,7 @@ of it.
 """
 
 import os
+import shutil
 import tempfile
 import uuid
 from collections.abc import Iterator
@@ -78,12 +79,32 @@ def stage_file(user_id: int, file_path: str, storage: platform_providers.Storage
     Returns:
         The storage key the bytes now live under.
     """
-    with open(file_path, "rb") as handle:
-        data = handle.read()
-
     key = build_key(user_id, os.path.basename(file_path))
-    storage.save(BULK_IMPORT_STORAGE_AREA, key, data)
+    # Streamed: an export file can be up to 200 MiB and a batch stages many of them.
+    with open(file_path, "rb") as handle:
+        storage.save_stream(BULK_IMPORT_STORAGE_AREA, key, handle)
     return key
+
+
+def copy_blob_to_path(area: str, key: str, path: str, storage: platform_providers.StorageProvider) -> bool:
+    """Copy a stored blob to a local file without holding it in memory.
+
+    Args:
+        area: The storage area the blob lives in.
+        key: The blob's storage key.
+        path: Destination file; created or overwritten.
+        storage: The blob-storage provider.
+
+    Returns:
+        ``True`` when copied, ``False`` when the blob does not exist.
+    """
+    try:
+        source = storage.open_stream(area, key)
+    except FileNotFoundError:
+        return False
+    with source, open(path, "wb") as destination:
+        shutil.copyfileobj(source, destination)
+    return True
 
 
 def settle(staged: list[tuple[str, str]], user_id: int) -> None:
@@ -144,17 +165,13 @@ def materialized(key: str, filename: str, storage: platform_providers.StoragePro
     Returns:
         The local path, or None when the blob is missing.
     """
-    data = storage.get(BULK_IMPORT_STORAGE_AREA, key)
-    if data is None:
-        yield None
-        return
-
     with tempfile.TemporaryDirectory(prefix="bulk_import_") as work_dir:
         # basename() because the name travels in a durable payload a worker
         # trusts; a crafted "../.." would otherwise escape the temp directory.
         path = os.path.join(work_dir, os.path.basename(filename))
-        with open(path, "wb") as handle:
-            handle.write(data)
+        if not copy_blob_to_path(BULK_IMPORT_STORAGE_AREA, key, path, storage):
+            yield None
+            return
         yield path
 
 

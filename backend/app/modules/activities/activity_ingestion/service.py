@@ -19,7 +19,9 @@ from a future CLI or scheduled trigger without constructing an HTTP response.
 import asyncio
 import os
 import uuid
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from itertools import batched
 from pathlib import Path
 
 import jasil.providers as platform_providers
@@ -569,6 +571,89 @@ def fail_stale_ingestion_jobs(
         )
     else:
         logger.debug("Stale ingestion jobs: none found")
+
+
+# Staged blobs are normally removed with their job. These sweep what a crash, a
+# lost event or a failed delete left behind. Both ages sit well past the longest
+# time a live job can still need its blob: the stale-job reaper fails an upload
+# after a day, and a durable bulk file retries for hours.
+_STAGED_UPLOAD_MIN_AGE = timedelta(days=2)
+_STAGED_BULK_FILE_MIN_AGE = timedelta(days=7)
+_STAGED_BLOB_BATCH_SIZE = 500
+_STAGED_SWEEP_LOCK_NAME = "activity_ingestion_staged_blob_sweep"
+
+
+def _aged_keys(storage: platform_providers.StorageProvider, area: str, prefix: str, older_than: float) -> Iterator[str]:
+    """Yield the keys under a prefix last modified before a cutoff.
+
+    Args:
+        storage: The blob-storage provider.
+        area: The storage area to scan.
+        prefix: Key root to scan.
+        older_than: Epoch seconds; newer blobs are skipped.
+    """
+    for key, modified in storage.iter_objects(area, prefix):
+        if modified < older_than:
+            yield key
+
+
+def sweep_stale_staged_blobs(
+    lock: platform_providers.LockProvider,
+    clock: platform_providers.ClockProvider,
+    storage: platform_providers.StorageProvider,
+) -> int:
+    """Delete staged upload and bulk-import blobs that nothing will read again.
+
+    A staged upload is removed with its job, but a crash between committing the
+    outcome and deleting the blob, or a failed delete, leaves one that no row
+    names. A staged bulk-import blob is named only by the durable job's payload,
+    so it can only be judged by age.
+
+    Args:
+        lock: The platform lock provider.
+        clock: The platform clock provider.
+        storage: The blob-storage provider.
+
+    Returns:
+        The number of blobs deleted.
+    """
+    removed = 0
+    with lock.try_acquire(_STAGED_SWEEP_LOCK_NAME) as acquired:
+        if not acquired:
+            logger.debug("Staged blob sweep: another replica holds the lock; skipping")
+            return 0
+        now = clock.now()
+        prefix = activity_ingestion_upload_entry_service.UPLOAD_STAGING_KEY_PREFIX
+        upload_keys = _aged_keys(
+            storage,
+            activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
+            prefix,
+            (now - _STAGED_UPLOAD_MIN_AGE).timestamp(),
+        )
+        with core_database.SessionLocal() as db:
+            for batch in batched(upload_keys, _STAGED_BLOB_BATCH_SIZE, strict=False):
+                referenced = activity_ingestion_crud.get_referenced_staged_keys(
+                    [key.removeprefix(prefix) for key in batch], db
+                )
+                for key in batch:
+                    if key.removeprefix(prefix) not in referenced:
+                        storage.delete(activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, key)
+                        removed += 1
+
+        for key in _aged_keys(
+            storage,
+            activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA,
+            "",
+            (now - _STAGED_BULK_FILE_MIN_AGE).timestamp(),
+        ):
+            storage.delete(activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA, key)
+            removed += 1
+
+    if removed:
+        logger.warning("Removed stale staged ingestion blobs", extra=core_logger.context(removed=removed))
+    else:
+        logger.debug("Staged blob sweep: nothing stale")
+    return removed
 
 
 def _warn_about_unowned_files(user_id: int) -> None:

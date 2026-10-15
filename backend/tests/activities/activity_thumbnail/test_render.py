@@ -2,6 +2,10 @@
 
 from unittest.mock import patch
 
+import pytest
+
+import core.exceptions as core_exceptions
+
 
 class TestRenderActivityThumbnail:
     @patch("modules.activities.activity_thumbnail.render.core_route_map")
@@ -80,14 +84,17 @@ class TestRenderActivityThumbnail:
 
         mock_route_map.render.side_effect = OSError("request failed: https://tiles.example.com?api_key=secret-key")
 
-        data = render_activity_thumbnail(
-            1,
-            [{"lat": 38.0, "lon": -9.0}, {"lat": 38.1, "lon": -9.1}],
-            tile_url="https://tiles.example.com/{z}/{x}/{y}.png",
-            api_key="secret-key",
-        )
+        with pytest.raises(core_exceptions.ProcessingError) as raised:
+            render_activity_thumbnail(
+                1,
+                [{"lat": 38.0, "lon": -9.0}, {"lat": 38.1, "lon": -9.1}],
+                tile_url="https://tiles.example.com/{z}/{x}/{y}.png",
+                api_key="secret-key",
+            )
 
-        assert data is None
+        # Not chained: callers log the raised error with a traceback.
+        assert raised.value.__cause__ is None
+        assert raised.value.__suppress_context__ is True
         warning_call = mock_logger.warning.call_args
         assert warning_call.args == ("Thumbnail generation failed",)
         assert warning_call.kwargs["extra"]["error_type"] == "OSError"

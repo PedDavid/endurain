@@ -1237,21 +1237,21 @@ class TestGetActivitiesWithoutThumbnail:
         import modules.activities.activity.crud as crud
 
         mock_db.execute.return_value = [SimpleNamespace(id=1, map_thumbnail_path=None)]
-        r = crud.get_activities_without_thumbnail(db=mock_db)
+        r = crud.get_activities_without_thumbnail(due_at=datetime(2026, 1, 1, tzinfo=UTC), db=mock_db)
         assert len(r) == 1
 
     def test_empty(self, mock_db):
         import modules.activities.activity.crud as crud
 
         mock_db.execute.return_value = []
-        assert crud.get_activities_without_thumbnail(db=mock_db) == []
+        assert crud.get_activities_without_thumbnail(due_at=datetime(2026, 1, 1, tzinfo=UTC), db=mock_db) == []
 
     def test_pages_from_the_cursor(self, mock_db):
         """The backfill walks the whole table, so it must do it in bounded steps."""
         import modules.activities.activity.crud as crud
 
         mock_db.execute.return_value = []
-        crud.get_activities_without_thumbnail(db=mock_db, after_id=7, limit=2)
+        crud.get_activities_without_thumbnail(due_at=datetime(2026, 1, 1, tzinfo=UTC), db=mock_db, after_id=7, limit=2)
         compiled = str(mock_db.execute.call_args.args[0].compile(compile_kwargs={"literal_binds": True}))
         assert "activities.id > 7" in compiled
         assert "LIMIT 2" in compiled

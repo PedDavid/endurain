@@ -26,6 +26,16 @@ def fail_stale_ingestion_jobs() -> None:
     activity_ingestion_service.fail_stale_ingestion_jobs(platform.lock, platform.clock, platform.storage)
 
 
+def sweep_stale_staged_blobs() -> None:
+    """Delete staged ingestion blobs that nothing will read again.
+
+    Scheduler-invoked, with no request to carry the providers, so this entry
+    point resolves them.
+    """
+    platform = platform_runtime.get_active_platform()
+    activity_ingestion_service.sweep_stale_staged_blobs(platform.lock, platform.clock, platform.storage)
+
+
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
     """Return ingestion retention and stale-job jobs.
 
@@ -42,5 +52,10 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
             fail_stale_ingestion_jobs,
             60,
             "fail activity ingestion jobs that stopped progressing",
+        ),
+        core_scheduler.ScheduledJob(
+            sweep_stale_staged_blobs,
+            1440,
+            "remove staged ingestion blobs nothing will read",
         ),
     )

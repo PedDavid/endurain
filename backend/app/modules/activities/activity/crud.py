@@ -1364,7 +1364,9 @@ def clear_all_activity_thumbnail_paths(db: Session) -> None:
     Args:
         db: Database session.
     """
-    db.execute(sa_update(activity_models.Activity).values(map_thumbnail_path=None))
+    # The deferral goes too: clearing keys is a request to render everything now,
+    # and a changed tile server is the usual cure for the failures it recorded.
+    db.execute(sa_update(activity_models.Activity).values(map_thumbnail_path=None, thumbnail_next_attempt_at=None))
 
 
 def get_activities_with_thumbnail(
@@ -1405,10 +1407,11 @@ def get_activities_with_thumbnail(
 def get_activities_without_thumbnail(
     db: Session,
     *,
+    due_at: datetime,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
-    """Return references to activities that have no map thumbnail.
+    """Return references to activities that have no map thumbnail and are due an attempt.
 
     Ordered by id and paged via ``after_id``. The caller advances the cursor
     rather than re-reading from zero: a batch whose thumbnails all fail to render
@@ -1416,6 +1419,7 @@ def get_activities_without_thumbnail(
 
     Args:
         db: Database session.
+        due_at: Only rows not deferred past this instant are returned.
         after_id: Return only activities with ``id`` greater than this.
         limit: Maximum number of rows to return.
 
@@ -1427,6 +1431,10 @@ def get_activities_without_thumbnail(
         select(activity_models.Activity.id, activity_models.Activity.map_thumbnail_path)
         .where(
             activity_models.Activity.map_thumbnail_path.is_(None),
+            or_(
+                activity_models.Activity.thumbnail_next_attempt_at.is_(None),
+                activity_models.Activity.thumbnail_next_attempt_at <= due_at,
+            ),
             activity_models.Activity.id > after_id,
         )
         .order_by(activity_models.Activity.id)
@@ -1436,6 +1444,24 @@ def get_activities_without_thumbnail(
         activity_contracts.ActivityThumbnailRef(id=row.id, map_thumbnail_path=row.map_thumbnail_path)
         for row in db.execute(stmt)
     ]
+
+
+def defer_thumbnail_attempts(activity_ids: Sequence[int], retry_at: datetime, db: Session) -> None:
+    """Stage the next attempt time for activities that did not get a thumbnail.
+
+    Args:
+        activity_ids: Activities to defer.
+        retry_at: Earliest time the backfill may try them again.
+        db: Database session.
+    """
+    if not activity_ids:
+        return
+    db.execute(
+        sa_update(activity_models.Activity)
+        .where(activity_models.Activity.id.in_(activity_ids))
+        .values(thumbnail_next_attempt_at=retry_at)
+    )
+    db.flush()
 
 
 def get_activities_with_legacy_thumbnail_path(

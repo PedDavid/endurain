@@ -247,6 +247,61 @@ class TestFailStaleJobs:
         assert _read_job(factory).status == "completed"
 
 
+class TestSweepStaleStagedBlobs:
+    """Blobs no live job will read are removed; ones a job still names, and fresh ones, are not."""
+
+    _NOW = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
+
+    def _run(self, factory, objects: dict[tuple[str, str], float]) -> list[tuple[str, str]]:
+        platform = MagicMock()
+        platform.lock.try_acquire.return_value.__enter__.return_value = True
+        platform.clock.now.return_value = self._NOW
+        deleted: list[tuple[str, str]] = []
+
+        def iter_objects(area, prefix=""):
+            return iter([(key, ts) for (a, key), ts in objects.items() if a == area and key.startswith(prefix)])
+
+        platform.storage.iter_objects.side_effect = iter_objects
+        platform.storage.delete.side_effect = lambda area, key: deleted.append((area, key))
+        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
+            ingestion_jobs.sweep_stale_staged_blobs(platform.lock, platform.clock, platform.storage)
+        return deleted
+
+    def _age(self, days: float) -> float:
+        return (self._NOW - timedelta(days=days)).timestamp()
+
+    def test_an_unreferenced_old_upload_is_removed(self, factory):
+        area = ingestion_jobs.activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
+
+        deleted = self._run(factory, {(area, "upload_staging/orphan.gpx"): self._age(3)})
+
+        assert deleted == [(area, "upload_staging/orphan.gpx")]
+
+    def test_an_upload_a_job_still_names_is_kept(self, factory):
+        _add_job(factory, staged_key="live.gpx")
+        area = ingestion_jobs.activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
+
+        assert self._run(factory, {(area, "upload_staging/live.gpx"): self._age(3)}) == []
+
+    def test_a_recent_upload_is_kept(self, factory):
+        area = ingestion_jobs.activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
+
+        assert self._run(factory, {(area, "upload_staging/new.gpx"): self._age(0.5)}) == []
+
+    def test_retained_activity_files_are_never_touched(self, factory):
+        """They share the area, under ``processed/``; only ``upload_staging/`` is scanned."""
+        area = ingestion_jobs.activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
+
+        assert self._run(factory, {(area, "processed/42.fit"): self._age(90)}) == []
+
+    def test_old_bulk_import_blobs_are_removed_and_recent_ones_kept(self, factory):
+        area = ingestion_jobs.activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA
+
+        deleted = self._run(factory, {(area, "3_old.gpx"): self._age(8), (area, "3_new.gpx"): self._age(1)})
+
+        assert deleted == [(area, "3_old.gpx")]
+
+
 class TestBulkImportHandle:
     def test_a_transition_is_committed(self, factory):
         _add_job(factory, kind="bulk_import")

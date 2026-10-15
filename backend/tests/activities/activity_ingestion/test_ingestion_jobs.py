@@ -15,7 +15,7 @@ import modules.activities.activity_ingestion.upload_entry_service as upload_entr
 def _received(fingerprint: str = "abc123") -> upload_entry_service.ReceivedUpload:
     """A received upload, already validated and on local disk."""
     return upload_entry_service.ReceivedUpload(
-        incoming_path="/incoming/x.gpx", storage_key="abc.gpx", data=b"<gpx/>", fingerprint=fingerprint
+        incoming_path="/incoming/x.gpx", storage_key="abc.gpx", fingerprint=fingerprint
     )
 
 

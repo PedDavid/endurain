@@ -417,20 +417,35 @@ def list_activities_with_thumbnail(
 def list_activities_without_thumbnail(
     db: Session,
     *,
+    due_at: datetime,
     after_id: int = 0,
     limit: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityThumbnailRef]:
-    """Return one bounded page of activity references that have no stored thumbnail key.
+    """Return one bounded page of activities with no stored thumbnail key that are due an attempt.
 
     Args:
         db: Database session.
+        due_at: Only activities not deferred past this instant are returned.
         after_id: Return only rows with an ID greater than this.
         limit: Maximum number of rows to return.
 
     Returns:
         One bounded page of activity references that have no stored thumbnail key.
     """
-    return activity_crud.get_activities_without_thumbnail(db, after_id=after_id, limit=limit)
+    return activity_crud.get_activities_without_thumbnail(db, due_at=due_at, after_id=after_id, limit=limit)
+
+
+def defer_thumbnail_attempts(activity_ids: Sequence[int], retry_at: datetime, db: Session) -> None:
+    """Stage when activities that did not get a thumbnail may be tried again.
+
+    The caller commits.
+
+    Args:
+        activity_ids: Activities to defer.
+        retry_at: Earliest time the backfill may try them again.
+        db: Database session.
+    """
+    activity_crud.defer_thumbnail_attempts(activity_ids, retry_at, db)
 
 
 def list_activities_missing_location(

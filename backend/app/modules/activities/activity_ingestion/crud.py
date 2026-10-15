@@ -4,6 +4,7 @@ Pure persistence: staging, parsing and executor choice live in ``service``,
 so this module never touches the filesystem and never publishes events.
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -263,6 +264,24 @@ def fail_jobs_idle_since(
         _fail(orm_job, error_code, now)
     db.flush()
     return failed
+
+
+def get_referenced_staged_keys(staged_keys: Sequence[str], db: Session) -> set[str]:
+    """Return which of the given staged-upload keys a job row still names.
+
+    Args:
+        staged_keys: Candidate staged-upload keys.
+        db: Database session.
+
+    Returns:
+        The subset that some job references.
+    """
+    if not staged_keys:
+        return set()
+    stmt = select(activity_ingestion_models.ActivityIngestionJob.staged_key).where(
+        activity_ingestion_models.ActivityIngestionJob.staged_key.in_(staged_keys)
+    )
+    return set(db.scalars(stmt).all())
 
 
 def delete_jobs_before(cutoff: datetime, db: Session) -> int:

@@ -183,3 +183,40 @@ class TestLocationLookupSchedule:
         second = activity_crud.create_activity(_core(start_time="2026-07-29T09:00:00"), db)
 
         assert self._ids(db, after_id=first.id) == [second.id]
+
+
+class TestThumbnailAttemptSchedule:
+    """The thumbnail backfill's candidate query, which only a real database can evaluate."""
+
+    _NOW = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
+
+    def _ids(self, db):
+        return [ref.id for ref in activity_crud.get_activities_without_thumbnail(db, due_at=self._NOW)]
+
+    def test_an_activity_with_no_thumbnail_is_a_candidate(self, db):
+        created = activity_crud.create_activity(_core(), db)
+
+        assert self._ids(db) == [created.id]
+
+    def test_a_deferred_activity_is_skipped_until_it_is_due(self, db):
+        later = activity_crud.create_activity(_core(), db)
+        earlier = activity_crud.create_activity(_core(start_time="2026-07-29T09:00:00"), db)
+        activity_crud.defer_thumbnail_attempts([later.id], self._NOW + timedelta(hours=1), db)
+        activity_crud.defer_thumbnail_attempts([earlier.id], self._NOW - timedelta(hours=1), db)
+
+        assert self._ids(db) == [earlier.id]
+
+    def test_an_activity_with_a_thumbnail_is_not_a_candidate(self, db):
+        created = activity_crud.create_activity(_core(), db)
+        activity_crud.set_activity_thumbnail_path(created.id, f"{created.id}.webp", db)
+
+        assert self._ids(db) == []
+
+    def test_clearing_every_key_also_clears_the_deferral(self, db):
+        """Regenerating after a tile-server change must retry what failed under the old one."""
+        created = activity_crud.create_activity(_core(), db)
+        activity_crud.defer_thumbnail_attempts([created.id], self._NOW + timedelta(days=1), db)
+
+        activity_crud.clear_all_activity_thumbnail_paths(db)
+
+        assert self._ids(db) == [created.id]

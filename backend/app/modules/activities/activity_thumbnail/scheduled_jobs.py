@@ -15,14 +15,18 @@ def generate_missing_thumbnails() -> None:
     """
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
-        activity_thumbnail_service.generate_missing_activity_thumbnails(platform.storage, platform.lock, db)
+        activity_thumbnail_service.generate_missing_activity_thumbnails(
+            platform.storage, platform.lock, platform.clock, db
+        )
 
 
 def regenerate_all_thumbnails() -> None:
     """Delete and regenerate every activity thumbnail."""
     platform = platform_runtime.get_active_platform()
     with core_database.SessionLocal() as db:
-        activity_thumbnail_service.delete_and_regenerate_all_activity_thumbnails(platform.storage, platform.lock, db)
+        activity_thumbnail_service.delete_and_regenerate_all_activity_thumbnails(
+            platform.storage, platform.lock, platform.clock, db
+        )
 
 
 def sweep_orphaned_thumbnails() -> None:

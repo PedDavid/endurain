@@ -10,6 +10,7 @@ bytes-in/bytes-out means the read path never has to import the rendering stack.
 import re
 from urllib.parse import urlparse
 
+import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.route_map as core_route_map
 from core.route_map import RouteMapRenderRequest
@@ -113,8 +114,13 @@ def render_activity_thumbnail(
         height: Thumbnail height in pixels.
 
     Returns:
-        WebP-encoded bytes, or None if generation was skipped or failed; a
-        failure is logged, not raised.
+        WebP-encoded bytes, or None when generation was deliberately skipped
+        (too few waypoints, a tile provider that needs a key).
+
+    Raises:
+        ProcessingError: When rendering was attempted and failed (tile server
+            unreachable, malformed waypoints). Distinct from a skip so a durable
+            job is retried instead of recorded as done.
     """
     if not waypoints or len(waypoints) < 2:
         logger.debug(
@@ -173,6 +179,9 @@ def render_activity_thumbnail(
         return data
 
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
+        # The exception text can carry the tile URL, which includes the API key,
+        # so only its type is logged and it is not chained onto the error that
+        # callers log with a traceback.
         logger.warning(
             "Thumbnail generation failed",
             extra=core_logger.context(
@@ -180,4 +189,4 @@ def render_activity_thumbnail(
                 error_type=type(exc).__name__,
             ),
         )
-        return None
+        raise core_exceptions.ProcessingError() from None
