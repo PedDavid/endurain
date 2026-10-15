@@ -310,7 +310,8 @@ def delete_and_regenerate_all_activity_thumbnails(
         except Exception as err:
             logger.warning(
                 "Thumbnail regeneration: could not delete the existing thumbnail",
-                extra=core_logger.context(activity_id=activity.id, reason=str(err)),
+                exc_info=err,
+                extra=core_logger.context(activity_id=activity.id),
             )
     # Clear DB references so generate_missing picks them all up.
     activity_integration.clear_all_thumbnail_keys(db)

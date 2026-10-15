@@ -35,7 +35,7 @@ def publish_file_uploaded(job_id: str, user_id: int, db: Session, *, commit: Cal
         source="api:upload",
         db=db,
         commit=commit,
-        metadata={"user_id": user_id},
+        metadata={core_event_metadata.META_USER_ID: user_id},
         schema_version=payload.SCHEMA_VERSION,
     )
 
@@ -56,7 +56,7 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
         source="api:refresh",
         db=db,
         commit=commit,
-        metadata={"user_id": user_id},
+        metadata={core_event_metadata.META_USER_ID: user_id},
         schema_version=payload.SCHEMA_VERSION,
     )
 
@@ -83,7 +83,7 @@ def publish_refresh_requests(
         activity_ingestion_events.ACTIVITY_REFRESH_REQUESTED,
         [activity_ingestion_events.RefreshRequestedPayload(job_id=job_id).model_dump() for job_id, _ in jobs],
         source="scheduler:provider_refresh",
-        metadata_for=lambda payload: {"user_id": owner_of[payload["job_id"]]},
+        metadata_for=lambda payload: {core_event_metadata.META_USER_ID: owner_of[payload["job_id"]]},
         db=db,
         commit=commit,
         schema_version=activity_ingestion_events.RefreshRequestedPayload.SCHEMA_VERSION,

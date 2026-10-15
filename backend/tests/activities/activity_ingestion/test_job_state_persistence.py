@@ -186,6 +186,37 @@ class TestPrune:
         assert _read_job(factory, "fresh") is not None
 
 
+class TestFinishedJobsAreNotReopened:
+    """A duplicate delivery of a finished job's event must not flip it back to processing."""
+
+    def test_a_completed_refresh_is_not_run_again_or_reopened(self, factory):
+        done_at = datetime.now(UTC) - timedelta(minutes=5)
+        _add_job(factory, kind="refresh", staged_key=None, status="completed", completed_at=done_at, activity_ids=[1])
+
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
+            patch.object(ingestion_jobs.activity_ingestion_refresh_entry_service, "sync_linked_providers") as sync,
+        ):
+            ingestion_jobs.run_refresh_job("job-1", "storage")
+
+        sync.assert_not_called()
+        job = _read_job(factory)
+        assert job.status == "completed"
+        assert job.activity_ids == [1]
+
+    def test_a_job_that_is_still_pending_moves_to_processing(self, factory):
+        _add_job(factory, kind="refresh", staged_key=None)
+        with factory() as db:
+            assert ingestion_jobs.activity_ingestion_crud.mark_processing("job-1", db) is True
+            db.commit()
+
+        assert _read_job(factory).status == "processing"
+
+    def test_an_unknown_job_is_reported_as_not_runnable(self, factory):
+        with factory() as db:
+            assert ingestion_jobs.activity_ingestion_crud.mark_processing("missing", db) is False
+
+
 class TestFailStaleJobs:
     """Jobs whose work was lost (restart, dead loop) end terminal instead of ``pending`` forever."""
 

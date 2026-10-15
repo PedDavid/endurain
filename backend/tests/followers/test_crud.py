@@ -216,7 +216,9 @@ class TestCreateFollower:
         import modules.followers.models as m
 
         mock_get_follow.return_value = None
-        mock_db.flush.side_effect = IntegrityError("stmt", "params", "orig")
+        mock_db.flush.side_effect = IntegrityError(
+            "stmt", "params", Exception("UNIQUE constraint failed: followers.follower_id, followers.followee_id")
+        )
 
         with (
             patch.object(crud.followers_models, "Follower", return_value=MagicMock(spec=m.Follower)),
@@ -227,17 +229,34 @@ class TestCreateFollower:
         # The transaction owner rolls back, not persistence.
         mock_db.rollback.assert_not_called()
 
+    @patch("modules.followers.crud.get_follower_for_user_id_and_target_user_id")
+    def test_a_target_user_that_does_not_exist_is_not_found_not_a_conflict(self, mock_get_follow, mock_db):
+        """The foreign key to ``users`` fails, which is not "relationship already exists"."""
+        import modules.followers.crud as crud
+        import modules.followers.models as m
+
+        mock_get_follow.return_value = None
+        mock_db.flush.side_effect = IntegrityError(
+            "stmt", "params", Exception('insert or update on table "followers" violates foreign key constraint')
+        )
+
+        with (
+            patch.object(crud.followers_models, "Follower", return_value=MagicMock(spec=m.Follower)),
+            pytest.raises(core_exceptions.NotFoundError) as e,
+        ):
+            crud.create_follower(user_id=1, target_user_id=999, db=mock_db)
+        assert e.value.status_code == 404
+
 
 class TestAcceptFollower:
     def test_success(self, mock_db):
         import modules.followers.crud as crud
         import modules.followers.models as m
 
-        accept_follow = MagicMock(spec=m.Follower, id=1, follower_id=2, followee_id=1, status="pending")
-        mock_db.scalars.return_value.first.return_value = accept_follow
+        accept_follow = MagicMock(spec=m.Follower, id=1, follower_id=2, followee_id=1, status="accepted")
+        mock_db.execute.return_value.scalars.return_value.first.return_value = accept_follow
 
         crud.accept_follower(user_id=1, target_user_id=2, db=mock_db)
-        assert accept_follow.status == "accepted"
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
         mock_db.refresh.assert_called_once_with(accept_follow)
@@ -245,7 +264,7 @@ class TestAcceptFollower:
     def test_not_found(self, mock_db):
         import modules.followers.crud as crud
 
-        mock_db.scalars.return_value.first.return_value = None
+        mock_db.execute.return_value.scalars.return_value.first.return_value = None
         with pytest.raises(core_exceptions.NotFoundError) as e:
             crud.accept_follower(user_id=1, target_user_id=999, db=mock_db)
         assert e.value.status_code == 404
@@ -273,3 +292,25 @@ class TestDeleteFollower:
         assert e.value.status_code == 404
         mock_db.flush.assert_not_called()
         mock_db.rollback.assert_not_called()
+
+
+class TestAcceptIsAtomic:
+    """Against a real session: the accept is one conditional UPDATE."""
+
+    def test_the_second_accept_of_a_request_finds_nothing_to_accept(self):
+        import modules.followers.crud as crud
+        from tests._helpers.db import create_sqlite_session
+
+        db = create_sqlite_session()
+        try:
+            crud.create_follower(2, 1, db)
+
+            first = crud.accept_follower(user_id=1, target_user_id=2, db=db)
+            assert first.status == "accepted"
+
+            # What a concurrent second request would do; it must not be a second success.
+            with pytest.raises(core_exceptions.NotFoundError):
+                crud.accept_follower(user_id=1, target_user_id=2, db=db)
+        finally:
+            db.close()
+            db.bind.dispose()

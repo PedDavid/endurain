@@ -112,6 +112,26 @@ class TestPublishActivitiesUpdated:
         assert metadata_for({"activity_id": 4}) == {"activity_id": 4, "user_id": 2}
 
     @patch("modules.activities.activity.event_publishers.platform_publisher")
+    def test_declares_the_payload_version_it_writes(self, mock_publisher):
+        from modules.activities.activity.event_publishers import publish_activities_updated
+        from modules.activities.activity.events import ActivityUpdatedPayload
+
+        publish_activities_updated([4], 2, object(), commit=MagicMock(), changed_fields=["name"], source="api:bulk")
+
+        kwargs = mock_publisher.publish_many_committing.call_args.kwargs
+        assert kwargs["schema_version"] == ActivityUpdatedPayload.SCHEMA_VERSION
+
+    @patch("modules.activities.activity.event_publishers.platform_publisher")
+    def test_a_bulk_delete_declares_the_payload_version_it_writes(self, mock_publisher):
+        from modules.activities.activity.event_publishers import publish_activities_deleted
+        from modules.activities.activity.events import ActivityDeletedPayload
+
+        publish_activities_deleted([4], 2, object(), commit=MagicMock(), source="api:bulk")
+
+        kwargs = mock_publisher.publish_many_committing.call_args.kwargs
+        assert kwargs["schema_version"] == ActivityDeletedPayload.SCHEMA_VERSION
+
+    @patch("modules.activities.activity.event_publishers.platform_publisher")
     def test_empty_batch_still_commits_once(self, mock_publisher):
         from modules.activities.activity.event_publishers import publish_activities_updated
 

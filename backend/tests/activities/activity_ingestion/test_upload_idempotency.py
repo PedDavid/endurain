@@ -237,3 +237,27 @@ class TestRefreshIsUnaffected:
 
         assert create.call_args.args[2] == activity_ingestion_constants.IngestionJobKind.REFRESH
         assert "idempotency_key" not in create.call_args.kwargs
+
+
+class TestReceivedUploadIsNeverLeftBehind:
+    def test_a_failing_idempotency_lookup_discards_the_received_upload(self):
+        from unittest.mock import MagicMock, patch
+
+        import pytest
+
+        import modules.activities.activity_ingestion.service as ingestion_jobs
+
+        received = _received()
+        with (
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service, "receive_upload", return_value=received
+            ),
+            patch.object(
+                ingestion_jobs.activity_ingestion_crud, "get_job_for_idempotency", side_effect=RuntimeError("db down")
+            ),
+            patch.object(ingestion_jobs.activity_ingestion_upload_entry_service, "discard_received_upload") as discard,
+            pytest.raises(RuntimeError),
+        ):
+            ingestion_jobs.accept_upload(7, "ride.gpx", MagicMock(), "storage", MagicMock(), idempotency_key="k")
+
+        discard.assert_called_once_with(received)

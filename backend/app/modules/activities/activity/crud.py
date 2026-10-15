@@ -5,7 +5,6 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, cast
 
-from pydantic import BaseModel
 from sqlalchemy import (
     CursorResult,
     and_,
@@ -28,7 +27,6 @@ from sqlalchemy.orm import Session
 import core.exceptions as core_exceptions
 import core.logger as core_logger
 import core.pagination as core_pagination
-import core.sanitization as core_sanitization
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.contracts as activity_contracts
@@ -1451,22 +1449,7 @@ def edit_activity(
     if db_activity is None:
         raise core_exceptions.NotFoundError("Activity not found")
 
-    # Both `Activity` and `ActivityEdit` are Pydantic models;
-    # `exclude_unset=True` lets callers explicitly clear nullable
-    # fields (e.g. private_notes=None) without them being silently discarded.
-    if not isinstance(activity_attributes, BaseModel):
-        raise TypeError("activity_attributes must be a Pydantic model")
-    activity_data = activity_attributes.model_dump(exclude_unset=True)
-
-    if "description" in activity_data:
-        activity_data["description"] = core_sanitization.sanitize_markdown(activity_data["description"])
-    if "private_notes" in activity_data:
-        activity_data["private_notes"] = core_sanitization.sanitize_markdown(activity_data["private_notes"])
-
-    # ``id`` is the primary key — never overwrite it
-    activity_data.pop("id", None)
-
-    for key, value in activity_data.items():
+    for key, value in activity_serializers.to_update_values(activity_attributes).items():
         setattr(db_activity, key, value)
 
     # The version bump lives in the ORM's UPDATE, so flush before reading it

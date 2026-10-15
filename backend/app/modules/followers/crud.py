@@ -2,7 +2,7 @@
 
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, delete, func, select
+from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,9 @@ logger = core_logger.get_logger(__name__)
 # so the cache cannot outlive the request that filled it.
 _FOLLOWEE_CACHE_KEY = "followers.accepted_followee_ids"
 
+#: The name of the model's unique (follower, followee) constraint.
+_UNIQUE_PAIR_CONSTRAINT = "uq_followers_follower_followee"
+
 
 def _invalidate_followee_cache(db: Session) -> None:
     """Drop the session's memoized followee lists after a write to the graph.
@@ -29,6 +32,22 @@ def _invalidate_followee_cache(db: Session) -> None:
         db: Database session whose cache is cleared.
     """
     db.info.pop(_FOLLOWEE_CACHE_KEY, None)
+
+
+def _is_duplicate_pair(err: IntegrityError) -> bool:
+    """Whether an integrity error is the unique (follower, followee) pair.
+
+    Args:
+        err: The integrity error raised by the flush.
+
+    Returns:
+        True for the unique-pair violation; False for anything else, which for
+        this insert is the foreign key to ``users``.
+    """
+    constraint = getattr(getattr(err.orig, "diag", None), "constraint_name", None)
+    if constraint is not None:
+        return constraint == _UNIQUE_PAIR_CONSTRAINT
+    return "unique" in str(err.orig).lower()
 
 
 def get_all_followers_by_user_id(
@@ -277,15 +296,20 @@ def create_follower(
         db.refresh(new_follow)
         _invalidate_followee_cache(db)
     except IntegrityError as err:
-        # The pre-check above races, so a concurrent follow lands here and must be
-        # a 409, not a 500. Rolling the session back is the transaction owner's
-        # job (``service`` / ``core.database.get_db``), not persistence's.
+        # Two different constraints can land here. The pre-check above races, so a
+        # concurrent follow hits the unique pair and must be a 409, not a 500; a
+        # target user that does not exist hits the foreign key and is a 404, not a
+        # claim that a relationship already exists. Rolling the session back is the
+        # transaction owner's job (``service`` / ``core.database.get_db``), not
+        # persistence's.
         logger.warning(
             "Integrity error in create_follower",
             exc_info=err,
             extra=core_logger.context(error=type(err).__name__),
         )
-        raise core_exceptions.ConflictError("Follow relationship already exists") from err
+        if _is_duplicate_pair(err):
+            raise core_exceptions.ConflictError("Follow relationship already exists") from err
+        raise core_exceptions.NotFoundError("User not found") from err
 
     return followers_serializers.to_read_schema(new_follow)
 
@@ -312,17 +336,25 @@ def accept_follower(
     Raises:
         NotFoundError: If no pending request exists.
     """
-    stmt = select(followers_models.Follower).where(
-        followers_models.Follower.follower_id == target_user_id,
-        followers_models.Follower.followee_id == user_id,
-        followers_models.Follower.status == followers_constants.FollowStatus.PENDING.value,
+    # One conditional UPDATE rather than read-then-write: two concurrent accepts
+    # of the same request cannot both succeed, so only one of them publishes the
+    # acceptance event.
+    stmt = (
+        update(followers_models.Follower)
+        .where(
+            followers_models.Follower.follower_id == target_user_id,
+            followers_models.Follower.followee_id == user_id,
+            followers_models.Follower.status == followers_constants.FollowStatus.PENDING.value,
+        )
+        .values(status=followers_constants.FollowStatus.ACCEPTED.value)
+        .returning(followers_models.Follower)
+        .execution_options(synchronize_session="fetch")
     )
 
-    accept_follow = db.scalars(stmt).first()
+    accept_follow = db.execute(stmt).scalars().first()
     if accept_follow is None:
         raise core_exceptions.NotFoundError("Follower record not found")
 
-    accept_follow.status = followers_constants.FollowStatus.ACCEPTED.value
     db.flush()
     db.refresh(accept_follow)
     _invalidate_followee_cache(db)

@@ -195,7 +195,7 @@ class TestDeleteAndRegenerateThumbnails:
         warning = mock_logger.warning.call_args
         assert warning.args[0] == "Thumbnail regeneration: could not delete the existing thumbnail"
         assert warning.kwargs["extra"]["activity_id"] == 1
-        assert warning.kwargs["extra"]["reason"] == "boom"
+        assert str(warning.kwargs["exc_info"]) == "boom"
         mock_activities.clear_all_thumbnail_keys.assert_called_once()
         mock_gen.assert_called_once()
 

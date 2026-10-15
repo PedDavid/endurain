@@ -75,7 +75,7 @@ def accept_upload(
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Stage an uploaded file and queue it for background import.
 
-    The activity_ingestion_staging write happens before the row is created so a rejected file never
+    The staging write happens before the row is created so a rejected file never
     leaves a job behind. The row and the event are then committed together, so a
     crash between them cannot produce a job nobody will ever run.
 
@@ -113,9 +113,14 @@ def accept_upload(
     )
 
     if idempotency_key:
-        prior = activity_ingestion_crud.get_job_for_idempotency(
-            idempotency_key, token_user_id, activity_ingestion_constants.IngestionJobKind.UPLOAD, db
-        )
+        try:
+            prior = activity_ingestion_crud.get_job_for_idempotency(
+                idempotency_key, token_user_id, activity_ingestion_constants.IngestionJobKind.UPLOAD, db
+            )
+        except Exception:
+            # The upload is on local disk and nothing else will remove it.
+            activity_ingestion_upload_entry_service.discard_received_upload(received)
+            raise
         if prior is not None:
             replayed, fingerprint = prior
             activity_ingestion_upload_entry_service.discard_received_upload(received)
@@ -136,7 +141,7 @@ def accept_upload(
             token_user_id,
             activity_ingestion_constants.IngestionJobKind.UPLOAD,
             db,
-            # ``filename`` is non-None here: activity_ingestion_staging rejects a missing one.
+            # ``filename`` is non-None here: ``receive_upload`` rejects a missing one.
             filename=str(filename),
             staged_key=staged_key,
             idempotency_key=idempotency_key,
@@ -144,7 +149,7 @@ def accept_upload(
         )
         # Durable profile: staged in the transactional outbox on this session
         # and committed with the job row, then relayed into a retryable
-        # processing_jobs row. A activity_ingestion_staging failure propagates, so the caller gets
+        # processing_jobs row. A staging failure propagates, so the caller gets
         # a 500 rather than a 202 for an upload that was never queued.
         activity_ingestion_dispatch_service.commit_or_publish(
             db,
@@ -321,7 +326,9 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         if scope is None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
-        activity_ingestion_crud.mark_processing(job_id, db)
+        if not activity_ingestion_crud.mark_processing(job_id, db):
+            logger.info("Skipping a refresh job that already finished", extra=core_logger.context(job_id=job_id))
+            return
         db.commit()
     owner, provider, window_start, window_end = scope
 
@@ -465,7 +472,9 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             )
             return
         user_id, staged_key = work_item
-        activity_ingestion_crud.mark_processing(job_id, db)
+        if not activity_ingestion_crud.mark_processing(job_id, db):
+            logger.info("Skipping an upload job that already finished", extra=core_logger.context(job_id=job_id))
+            return
         db.commit()
 
     with core_database.SessionLocal() as db:
@@ -478,8 +487,15 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         ) as err:
             # The file itself is the problem, so every retry reaches the same
             # verdict: record it now and drop the blob nothing will read again.
+            # Returning rather than raising keeps the runner from spending an
+            # attempt (and a backoff) re-running a job that is already terminal;
+            # the outcome the owner reads is on the job row.
             fail_ingestion_job(job_id, error_code_for(err), storage, staged_key)
-            raise
+            logger.warning(
+                "Upload job rejected its file",
+                extra=core_logger.context(user_id=user_id, job_id=job_id, error_code=error_code_for(err).value),
+            )
+            return
         except Exception:
             # Server-side, possibly transient. Keep the blob for the retry, and
             # only give up here when there is no retry to wait for.

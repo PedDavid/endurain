@@ -1,7 +1,7 @@
 """Entry point for a file uploaded directly through the API.
 
 Split across the request/background boundary. The request half
-(:func:`stage_uploaded_activity_file`) only has to receive bytes: it validates
+(:func:`receive_upload` then :func:`store_received_upload`) only has to receive bytes: it validates
 the filename and extension, hands the upload to the platform storage provider,
 and returns a key. Everything CPU-bound — gzip decompression and the format
 parse — is in :func:`process_staged_upload`, which runs on a background worker.
@@ -212,7 +212,7 @@ def process_staged_upload(
 
     Args:
         token_user_id: The user the activities belong to.
-        staged_key: Key returned by :func:`stage_uploaded_activity_file`.
+        staged_key: Key returned by :func:`store_received_upload`.
         storage: The blob-storage provider.
         db: Database session.
 

@@ -15,6 +15,7 @@ server configuration, they could not be round-tripped, and they duplicated an
 instant that then had to be masked in two places.
 """
 
+import pydantic
 from sqlalchemy import func
 
 import core.sanitization as core_sanitization
@@ -119,6 +120,28 @@ def serialize_and_mask(
         )
         result.append(schema)
     return result
+
+
+def to_update_values(activity_attributes: pydantic.BaseModel) -> dict:
+    """Build the column values an edit writes from the fields the caller set.
+
+    Only fields the caller explicitly set are returned, so a nullable field can be
+    cleared (``private_notes=None``) without unset fields being overwritten. The
+    markdown fields are sanitized on the way in, as :func:`to_orm` does for a new
+    row, and the primary key is never written.
+
+    Args:
+        activity_attributes: The edit (or read model) carrying the new values.
+
+    Returns:
+        Column name -> value for the fields to update.
+    """
+    values = activity_attributes.model_dump(exclude_unset=True)
+    for markdown_field in ("description", "private_notes"):
+        if markdown_field in values:
+            values[markdown_field] = core_sanitization.sanitize_markdown(values[markdown_field])
+    values.pop("id", None)
+    return values
 
 
 def to_orm(

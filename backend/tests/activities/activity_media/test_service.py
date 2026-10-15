@@ -173,6 +173,26 @@ class TestStoreActivityMedia:
 
     @patch(f"{_SVC}.activity_media_crud")
     @patch(f"{_SVC}.activity_integration")
+    def test_removes_blob_when_the_commit_fails(self, mock_activities_service, mock_media_crud):
+        """A database failure that is not a domain error still leaves no orphan blob."""
+        from sqlalchemy.exc import OperationalError
+
+        from modules.activities.activity_media.service import store_activity_media
+
+        mock_activities_service.owns_activity.return_value = True
+        storage = MagicMock()
+        db = MagicMock()
+        db.commit.side_effect = OperationalError("stmt", {}, Exception("connection lost"))
+        mock_media_crud.get_activity_media_by_content_hash.return_value = None
+
+        with pytest.raises(OperationalError):
+            store_activity_media(1, 2, "ride.jpg", b"bytes", storage, db)
+
+        stored_key = storage.save.call_args.args[1]
+        storage.delete.assert_called_once_with("activity_media", stored_key)
+
+    @patch(f"{_SVC}.activity_media_crud")
+    @patch(f"{_SVC}.activity_integration")
     def test_race_lost_to_a_concurrent_store_returns_the_winner(self, mock_activities_service, mock_media_crud):
         """The pre-check is read-then-write; losing the race to the unique index
         must return the winner rather than surfacing a conflict for what the

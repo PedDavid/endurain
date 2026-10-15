@@ -51,7 +51,7 @@ def _requester_may_view_network(target_user_id: int, requester_user_id: int, db:
 
 
 def _ensure_may_view_network(target_user_id: int, requester_user_id: int, db: Session) -> None:
-    """Raise :class:`NotFoundError` unless the requester may view the target's network.
+    """Raise :class:`AccessConcealedError` unless the requester may view the target's network.
 
     Args:
         target_user_id: The user whose network is being listed.
@@ -94,7 +94,8 @@ def list_followers(
         filter, not just this page.
 
     Raises:
-        NotFoundError: When the requester may not view this network.
+        AccessConcealedError: When the requester may not view this network;
+            answered like a missing user.
     """
     # Checked once here so the page and its total share a single authorisation
     # decision rather than each re-deriving it.
@@ -139,7 +140,8 @@ def list_following(
         filter, not just this page.
 
     Raises:
-        NotFoundError: When the requester may not view this network.
+        AccessConcealedError: When the requester may not view this network;
+            answered like a missing user.
     """
     _ensure_may_view_network(target_user_id, requester_user_id, db)
     effective_accepted_only = accepted_only or requester_user_id != target_user_id
@@ -286,6 +288,7 @@ def follow_user(requester_user_id: int, target_user_id: int, db: Session) -> fol
     Raises:
         InvalidInputError: If the requester targets themselves.
         ConflictError: If the relationship already exists.
+        NotFoundError: If the target user does not exist.
     """
     if requester_user_id == target_user_id:
         # Prevent self-follow, which would otherwise pollute counts and

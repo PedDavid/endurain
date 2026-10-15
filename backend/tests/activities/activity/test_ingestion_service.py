@@ -158,8 +158,11 @@ class TestStoreParsedActivity:
 
         db = MagicMock()
 
-        with pytest.raises(core_exceptions.ProcessingError, match="unregistered"):
+        with pytest.raises(core_exceptions.ProcessingError) as raised:
             ingestion_service.store_parsed_activity(_parsed(components={"unregistered": [{}]}), db)
+
+        # The component key is internal; it is logged, not returned to the client.
+        assert "unregistered" not in raised.value.detail
 
         mock_crud.create_activity.assert_not_called()
         db.rollback.assert_called_once()
@@ -175,8 +178,10 @@ class TestStoreParsedActivity:
             source=schema.ImportSource(kind="strava", dedup_key="strava:123"),
         )
 
-        with pytest.raises(core_exceptions.ProcessingError, match="unregistered"):
+        with pytest.raises(core_exceptions.ProcessingError) as raised:
             ingestion_service.store_parsed_activity(parsed, db)
+
+        assert "unregistered" not in raised.value.detail
 
         mock_crud.get_activity_by_dedup_key.assert_not_called()
         mock_crud.create_activity.assert_not_called()

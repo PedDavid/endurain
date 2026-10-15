@@ -332,13 +332,6 @@ class TestEditActivity:
             crud.edit_activity(user_id=1, activity_id=999, activity_attributes=A(), db=mock_db)
         assert e.value.status_code == 404
 
-    def test_invalid_type(self, mock_db):
-        import modules.activities.activity.crud as crud
-
-        setup_mock_execute(mock_db, return_one_or_none=MagicMock())
-        with pytest.raises(TypeError, match="Pydantic"):
-            crud.edit_activity(user_id=1, activity_id=1, activity_attributes=type("Nope", (), {"id": 1})(), db=mock_db)
-
     @patch("modules.activities.activity.crud.activity_serializers.to_read_schema")
     @patch("modules.activities.activity.serializers.core_sanitization.sanitize_markdown")
     def test_sanitization(self, mock_sanitize, mock_ser, mock_db):

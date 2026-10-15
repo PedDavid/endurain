@@ -229,7 +229,11 @@ def store_activities_from_file(
             continue
         contributor = activities_contributor_registry.get_file_ingestion_contributor(key)
         if contributor is None:
-            raise core_exceptions.ProcessingError(f"No file ingestion contributor registered for '{key}'")
+            logger.error(
+                "No file ingestion contributor is registered for a parsed component",
+                extra=core_logger.context(component=key),
+            )
+            raise core_exceptions.ProcessingError()
         file_component_work.append((contributor, data))
 
     for contributor, data in file_component_work:

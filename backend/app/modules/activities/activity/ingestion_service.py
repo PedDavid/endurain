@@ -101,7 +101,11 @@ def store_parsed_activity(
                 continue
             contributor = activities_contributor_registry.get_activity_ingestion_contributor(key)
             if contributor is None:
-                raise core_exceptions.ProcessingError(f"No activity ingestion contributor registered for '{key}'")
+                logger.error(
+                    "No activity ingestion contributor is registered for a parsed component",
+                    extra=core_logger.context(component=key),
+                )
+                raise core_exceptions.ProcessingError()
             component_work.append((contributor, data))
 
         if dedup_key is not None and parsed.activity.user_id is not None:

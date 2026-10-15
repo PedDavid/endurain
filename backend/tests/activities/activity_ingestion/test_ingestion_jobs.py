@@ -231,9 +231,10 @@ class TestRunUploadJob:
                 "process_staged_upload",
                 side_effect=core_exceptions.InvalidInputError("bad payload"),
             ),
-            pytest.raises(core_exceptions.InvalidInputError),
         ):
             session_local.return_value.__enter__.return_value = MagicMock()
+            # Recorded as terminal and returned, not raised: raising would hand the
+            # runner a job it would retry and then find already finished.
             ingestion_jobs.run_upload_job("job-1", "storage")
 
         assert fail.call_args.args[1] == activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE

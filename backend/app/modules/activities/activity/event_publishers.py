@@ -172,6 +172,7 @@ def publish_activities_updated(
         },
         db=db,
         commit=commit,
+        schema_version=activity_events.ActivityUpdatedPayload.SCHEMA_VERSION,
     )
 
 
@@ -223,11 +224,11 @@ def publish_activities_deleted(
     """Publish one ``activity.deleted`` per activity removed by a bulk delete.
 
     Bulk removals (unlinking Strava, deleting a user account) must publish too:
-    the thumbnail and source-file cleanup subscribers are deliberately
-    reconciliation-net exempt (a teardown has no create-derived state to
-    re-derive), so nothing else would reclaim their blobs. Emitting the same fact
-    the single-activity delete route emits keeps every consumer's contract
-    identical regardless of how the rows were removed.
+    the cleanup subscribers key a blob off the deleted activity's id, and no row
+    remains to find it from afterwards. Their storage sweeps are the net for a
+    dropped event, but the event is what reclaims the blobs promptly. Emitting the
+    same fact the single-activity delete route emits keeps every consumer's
+    contract identical regardless of how the rows were removed.
 
     The whole batch is staged in the caller's transaction and committed once via
     :func:`jasil.publisher.publish_many_committing`, so the deletes and their
@@ -251,4 +252,5 @@ def publish_activities_deleted(
         },
         db=db,
         commit=commit,
+        schema_version=activity_events.ActivityDeletedPayload.SCHEMA_VERSION,
     )

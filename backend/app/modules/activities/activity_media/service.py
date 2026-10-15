@@ -156,7 +156,8 @@ def _cleanup_orphaned_blob(storage: platform_providers.StorageProvider, storage_
     except Exception as storage_err:
         logger.warning(
             "Failed to clean up an orphaned activity media blob",
-            extra=core_logger.context(activity_id=activity_id, storage_key=storage_key, reason=str(storage_err)),
+            exc_info=storage_err,
+            extra=core_logger.context(activity_id=activity_id, storage_key=storage_key),
         )
 
 
@@ -221,7 +222,9 @@ def _persist_media_bytes(
         if winner is None:
             raise
         return winner
-    except core_exceptions.DomainError:
+    except Exception:
+        # Any failure to record the row (a domain error, a failed commit) leaves
+        # the blob no row names.
         _cleanup_orphaned_blob(storage, storage_key, activity_id)
         raise
 
@@ -470,7 +473,8 @@ def delete_activity_media(
         except Exception as storage_err:
             logger.warning(
                 "Failed to remove the stored blob for a deleted activity media record",
-                extra=core_logger.context(media_id=media_id, reason=str(storage_err)),
+                exc_info=storage_err,
+                extra=core_logger.context(media_id=media_id),
             )
 
     logger.info(
@@ -506,7 +510,8 @@ def delete_media_files_for_activity(activity_id: int, storage: platform_provider
         except Exception as storage_err:
             logger.warning(
                 "Failed to remove an activity media blob",
-                extra=core_logger.context(activity_id=activity_id, storage_key=key, reason=str(storage_err)),
+                exc_info=storage_err,
+                extra=core_logger.context(activity_id=activity_id, storage_key=key),
             )
 
     if removed:

@@ -180,7 +180,7 @@ class TestStoreActivitiesFromFile:
                 "parse_file",
                 return_value=activity_contracts.ParsedFile(components={"unknown": [{}]}),
             ),
-            pytest.raises(core_exceptions.ProcessingError, match="unknown"),
+            pytest.raises(core_exceptions.ProcessingError) as raised,
         ):
             pipeline.store_activities_from_file(
                 1,
@@ -191,6 +191,8 @@ class TestStoreActivitiesFromFile:
                 source=sources.UploadSource(),
                 storage=MagicMock(),
             )
+
+        assert "unknown" not in raised.value.detail
 
     def test_a_file_that_yields_no_activities_is_still_cleaned_up(self, tmp_path):
         # A parse that produces nothing must not leave the staged file behind for

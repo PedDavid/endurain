@@ -114,7 +114,7 @@ def get_ingestion_job(
 def get_job_work_item(job_id: str, db: Session) -> tuple[int, str] | None:
     """Read the owner and staged key of a job, for the background executor.
 
-    Not user-scoped, unlike :func:`get_upload_job`: the caller here is the
+    Not user-scoped, unlike :func:`get_ingestion_job`: the caller here is the
     worker acting on an event it was handed, not an HTTP client naming a job.
     Returning the stored ``user_id`` is what keeps the parse attributed to the
     uploader even if the event payload were tampered with.
@@ -308,7 +308,7 @@ def record_bulk_progress(job_id: str, cursor: str | None, files_done: int, files
         db: Database session.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
-    if orm_job is None:
+    if orm_job is None or orm_job.completed_at is not None:
         return
     orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
     orm_job.cursor = cursor
@@ -346,19 +346,27 @@ def mark_bulk_completed(job_id: str, cursor: str | None, files_done: int, files_
     db.flush()
 
 
-def mark_processing(job_id: str, db: Session) -> None:
+def mark_processing(job_id: str, db: Session) -> bool:
     """Stage a move of a job to the processing state (not committed).
+
+    A job that already reached a terminal state is left alone: a duplicate delivery
+    of its event must not flip a finished job back to ``processing``.
 
     Args:
         job_id: The job identifier.
         db: Database session.
+
+    Returns:
+        ``True`` when the job is now (or already was) processing, ``False`` when it
+        is unknown or already finished and must not be run again.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
-    if orm_job is None:
-        return
+    if orm_job is None or orm_job.completed_at is not None:
+        return False
     orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
     orm_job.updated_at = datetime.now(UTC)
     db.flush()
+    return True
 
 
 def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:
