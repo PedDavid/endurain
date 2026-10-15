@@ -165,8 +165,9 @@ class TestStoreActivitiesFromFile:
         assert result == []
         get_contributor.assert_called_once_with("exercise_titles")
         contributor.persist.assert_called_once_with([{"exercise_name": "Press"}], db)
-        # File-scoped reference data is committed ahead of the activity unit.
-        db.commit.assert_called_once()
+        # One commit ends the read transaction before the parse, one persists the
+        # file-scoped reference data ahead of the activity unit.
+        assert db.commit.call_count == 2
 
     def test_unknown_file_component_fails_closed(self, tmp_path):
         source_file = tmp_path / "unknown.fit"
@@ -187,7 +188,7 @@ class TestStoreActivitiesFromFile:
                 str(source_file),
                 ".fit",
                 "unknown.fit",
-                "db",
+                MagicMock(),
                 source=sources.UploadSource(),
                 storage=MagicMock(),
             )
@@ -212,7 +213,7 @@ class TestStoreActivitiesFromFile:
                 str(source),
                 ".fit",
                 "empty.fit",
-                "db",
+                MagicMock(),
                 source=sources.UploadSource(),
                 storage=MagicMock(),
             )
@@ -235,7 +236,7 @@ class TestStoreActivitiesFromFile:
                 str(source),
                 ".gpx",
                 "keep.gpx",
-                "db",
+                MagicMock(),
                 source=sources.UploadSource(),
                 storage=MagicMock(),
             )

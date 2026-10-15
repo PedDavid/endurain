@@ -81,6 +81,9 @@ def geocode_and_store_activity_location(activity_id: int, geocoding: GeocodingPr
         return False
 
     first_waypoint = stream.stream_waypoints[0]
+    # End the read transaction before the network call so no connection is held
+    # while the geocoder answers.
+    db.commit()
     location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
     if location is None:
         return False
@@ -150,6 +153,8 @@ def backfill_missing_activity_locations(
             [ref.id for ref in candidates], db
         )
         unresolved = [ref.id for ref in candidates if not waypoints_by_activity.get(ref.id)]
+        # The lookups below are network calls; do not hold the read transaction.
+        db.commit()
         for ref in candidates:
             waypoints = waypoints_by_activity.get(ref.id)
             if not waypoints:

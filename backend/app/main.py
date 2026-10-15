@@ -315,6 +315,7 @@ def shutdown_event(fastapi_app: FastAPI) -> None:
     # Stop the bulk-import background pool (no-op when it was never started, i.e.
     # when durable jobs handle imports instead).
     activity_ingestion_integration.shutdown_background_ingestion()
+    runtime_module_registry.shutdown_deferred_subscribers()
 
     core_scheduler.stop_scheduler()
 

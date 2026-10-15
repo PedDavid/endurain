@@ -326,8 +326,13 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         if scope is None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
-        if not activity_ingestion_crud.mark_processing(job_id, db):
-            logger.info("Skipping a refresh job that already finished", extra=core_logger.context(job_id=job_id))
+        if not activity_ingestion_crud.mark_processing(
+            job_id, db, stale_before=activity_ingestion_dispatch_service.claim_stale_before()
+        ):
+            logger.info(
+                "Skipping a refresh job that already finished or is claimed elsewhere",
+                extra=core_logger.context(job_id=job_id),
+            )
             return
         db.commit()
     owner, provider, window_start, window_end = scope
@@ -341,6 +346,8 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
             # Nothing will retry, so leave the caller a terminal state
             # instead of a job stuck at "processing".
             fail_ingestion_job(job_id, activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE, storage)
+        else:
+            release_ingestion_job(job_id)
         raise
 
     activity_ids = [activity.id for activity in activities if activity.id is not None]
@@ -472,8 +479,13 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             )
             return
         user_id, staged_key = work_item
-        if not activity_ingestion_crud.mark_processing(job_id, db):
-            logger.info("Skipping an upload job that already finished", extra=core_logger.context(job_id=job_id))
+        if not activity_ingestion_crud.mark_processing(
+            job_id, db, stale_before=activity_ingestion_dispatch_service.claim_stale_before()
+        ):
+            logger.info(
+                "Skipping an upload job that already finished or is claimed elsewhere",
+                extra=core_logger.context(job_id=job_id),
+            )
             return
         db.commit()
 
@@ -506,6 +518,8 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
                     storage,
                     staged_key,
                 )
+            else:
+                release_ingestion_job(job_id)
             raise
 
         # ``Activity.id`` is typed optional on the read model even though a
@@ -533,6 +547,27 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         logger.info(
             "Upload job imported activities",
             extra=core_logger.context(user_id=user_id, job_id=job_id, activity_count=len(activity_ids)),
+        )
+
+
+def release_ingestion_job(job_id: str) -> None:
+    """Return a failed attempt's job to ``pending`` so the runner's retry can claim it.
+
+    Separate session because the caller's may be in a failed transaction. A
+    failure here is logged, not raised: the retry then waits out the lease.
+
+    Args:
+        job_id: The job identifier.
+    """
+    try:
+        with core_database.SessionLocal() as db:
+            activity_ingestion_crud.release_job(job_id, db)
+            db.commit()
+    except Exception as err:
+        logger.error(
+            "Could not release an ingestion job for retry",
+            exc_info=err,
+            extra=core_logger.context(job_id=job_id),
         )
 
 

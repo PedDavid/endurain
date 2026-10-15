@@ -1,12 +1,16 @@
 """Application composition for installed module runtime contributions."""
 
+import contextvars
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from jasil.jobs.reconciliation import DurableSubscriberNet
 from jasil.jobs.registry import JobHandlerRegistry
 from jasil.providers import EventBusProvider
 
+import core.config as core_config
+import core.logger as core_logger
 import core.scheduler as core_scheduler
 import modules.activities.activity_exercise_titles.integration_service as activity_exercise_titles_integration
 import modules.activities.activity_file_storage.scheduled_jobs as activity_file_storage_scheduled_jobs
@@ -27,6 +31,81 @@ import modules.activities.activity_thumbnail.subscriber_registry as activity_thu
 import modules.activities.activity_workout_steps.integration_service as activity_workout_steps_integration
 import modules.activities.contributor_registry as activities_contributor_registry
 import modules.notifications.subscriber_registry as notifications_subscriber_registry
+
+logger = core_logger.get_logger(__name__)
+
+# Small on purpose: derived work (thumbnails, cleanup, notifications) must not
+# compete with request threads for the process.
+_DEFERRED_SUBSCRIBER_WORKERS = 2
+
+_deferred_executor: ThreadPoolExecutor | None = None
+
+
+def _get_deferred_executor() -> ThreadPoolExecutor:
+    """Return the pool in-process bus subscribers run on, creating it on first use.
+
+    Returns:
+        The shared subscriber thread pool.
+    """
+    global _deferred_executor
+    if _deferred_executor is None:
+        _deferred_executor = ThreadPoolExecutor(
+            max_workers=_DEFERRED_SUBSCRIBER_WORKERS, thread_name_prefix="event-subscriber"
+        )
+    return _deferred_executor
+
+
+def shutdown_deferred_subscribers() -> None:
+    """Stop the subscriber pool without waiting; queued work is repaired by the reconciliation nets."""
+    global _deferred_executor
+    if _deferred_executor is not None:
+        _deferred_executor.shutdown(wait=False, cancel_futures=True)
+        _deferred_executor = None
+
+
+def _log_deferred_failure(handler_name: str, future) -> None:
+    """Log an exception escaping a deferred subscriber.
+
+    Args:
+        handler_name: The subscriber's name.
+        future: The completed future.
+    """
+    error = future.exception()
+    if error is not None:
+        logger.error(
+            "Deferred event subscriber failed", exc_info=error, extra=core_logger.context(handler=handler_name)
+        )
+
+
+class _DeferredSubscriptions:
+    """Event-bus facade that runs each subscriber on a background pool.
+
+    The in-process bus calls subscribers inline, so a request that publishes
+    would wait for every subscriber (map tiles, storage deletes, notifications).
+    Handlers registered through this facade are queued instead, and run with the
+    publisher's context so the request id still correlates their logs. Only
+    ``subscribe`` is exposed: that is all a module's registration needs.
+    """
+
+    def __init__(self, events: EventBusProvider) -> None:
+        self._events = events
+
+    def subscribe(self, event_type: str, handler: Callable) -> None:
+        """Subscribe a handler that runs off the publishing thread.
+
+        Args:
+            event_type: The event channel.
+            handler: The subscriber to run.
+        """
+
+        def deferred(event) -> None:
+            context = contextvars.copy_context()
+            future = _get_deferred_executor().submit(context.run, handler, event)
+            future.add_done_callback(lambda done: _log_deferred_failure(handler.__name__, done))
+
+        deferred.__name__ = handler.__name__
+        self._events.subscribe(event_type, deferred)
+
 
 RegisterBus = Callable[[EventBusProvider], None]
 RegisterDurable = Callable[[JobHandlerRegistry], None]
@@ -147,10 +226,18 @@ def configure_activity_contributors() -> None:
 
 
 def register_bus_subscribers(events: EventBusProvider) -> None:
-    """Register bus subscribers from every installed module."""
+    """Register bus subscribers from every installed module.
+
+    On the in-process bus (``memory://``) subscribers would run inside the
+    publishing request, so they are deferred to a background pool. A Redis bus
+    already delivers on its own consumer thread, and acknowledges after the
+    handler returns, so it is left alone.
+    """
+    in_process = core_config.settings.resolved_events_uri.startswith("memory://")
+    target = _DeferredSubscriptions(events) if in_process else events
     for module in MODULES:
         if module.register_bus is not None:
-            module.register_bus(events)
+            module.register_bus(target)  # type: ignore[arg-type]
 
 
 def register_durable_handlers(registry: JobHandlerRegistry) -> None:

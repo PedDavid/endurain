@@ -200,6 +200,10 @@ def store_activities_from_file(
         source.activity_name if not isinstance(source, activity_ingestion_contracts.BulkImportSource) else None
     )
 
+    # Parsing takes seconds; end the read transaction so the connection goes back
+    # to the pool instead of idling in it.
+    db.commit()
+
     # CPU-bound + sync I/O parsing (gpxpy, geopy, timezonefinder). This runs
     # directly: every entry point reaches here on a worker thread (a sync route
     # on Starlette's threadpool, the bulk-import ThreadPoolExecutor, or

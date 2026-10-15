@@ -6,8 +6,9 @@ so this module never touches the filesystem and never publishes events.
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import CursorResult, or_, select, update
 from sqlalchemy.orm import Session
 
 import modules.activities.activity_ingestion.constants as activity_ingestion_constants
@@ -297,7 +298,15 @@ def attach_bulk_archive(job_id: str, staged_key: str, files_total: int, db: Sess
     db.flush()
 
 
-def record_bulk_progress(job_id: str, cursor: str | None, files_done: int, files_failed: int, db: Session) -> None:
+def record_bulk_progress(
+    job_id: str,
+    cursor: str | None,
+    files_done: int,
+    files_failed: int,
+    db: Session,
+    *,
+    release: bool = False,
+) -> None:
     """Stage a bulk import's resume point and counters (not committed).
 
     Args:
@@ -306,11 +315,17 @@ def record_bulk_progress(job_id: str, cursor: str | None, files_done: int, files
         files_done: Files imported so far.
         files_failed: Files that could not be imported.
         db: Database session.
+        release: Leave the job ``pending`` instead of ``processing``, so the
+            continuation queued with this checkpoint can claim it.
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     if orm_job is None or orm_job.completed_at is not None:
         return
-    orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
+    orm_job.status = (
+        activity_ingestion_constants.IngestionJobStatus.PENDING.value
+        if release
+        else activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
+    )
     orm_job.cursor = cursor
     orm_job.files_done = files_done
     orm_job.files_failed = files_failed
@@ -346,27 +361,64 @@ def mark_bulk_completed(job_id: str, cursor: str | None, files_done: int, files_
     db.flush()
 
 
-def mark_processing(job_id: str, db: Session) -> bool:
-    """Stage a move of a job to the processing state (not committed).
+def mark_processing(job_id: str, db: Session, *, stale_before: datetime) -> bool:
+    """Stage the claim of a job for execution (not committed).
 
-    A job that already reached a terminal state is left alone: a duplicate delivery
-    of its event must not flip a finished job back to ``processing``.
+    One conditional ``UPDATE``, so of two concurrent deliveries of the same job
+    only one claims it. A job is claimable while it is ``pending`` or while its
+    last claim is older than ``stale_before`` (the worker died or its lease
+    expired); a job that reached a terminal state never is.
 
     Args:
         job_id: The job identifier.
         db: Database session.
+        stale_before: A ``processing`` job last touched before this is treated as
+            abandoned and may be claimed again.
 
     Returns:
-        ``True`` when the job is now (or already was) processing, ``False`` when it
-        is unknown or already finished and must not be run again.
+        ``True`` when this caller now owns the job, ``False`` when it is unknown,
+        finished, or being worked on by someone else.
     """
-    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
-    if orm_job is None or orm_job.completed_at is not None:
-        return False
-    orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
-    orm_job.updated_at = datetime.now(UTC)
+    model = activity_ingestion_models.ActivityIngestionJob
+    stmt = (
+        update(model)
+        .where(
+            model.id == job_id,
+            model.completed_at.is_(None),
+            or_(
+                model.status == activity_ingestion_constants.IngestionJobStatus.PENDING.value,
+                model.updated_at < stale_before,
+            ),
+        )
+        .values(
+            status=activity_ingestion_constants.IngestionJobStatus.PROCESSING.value,
+            updated_at=datetime.now(UTC),
+        )
+    )
+    result = cast("CursorResult[Any]", db.execute(stmt))
     db.flush()
-    return True
+    return result.rowcount == 1
+
+
+def release_job(job_id: str, db: Session) -> None:
+    """Stage returning a claimed job to ``pending`` so a retry can claim it (not committed).
+
+    Args:
+        job_id: The job identifier.
+        db: Database session.
+    """
+    model = activity_ingestion_models.ActivityIngestionJob
+    stmt = (
+        update(model)
+        .where(
+            model.id == job_id,
+            model.completed_at.is_(None),
+            model.status == activity_ingestion_constants.IngestionJobStatus.PROCESSING.value,
+        )
+        .values(status=activity_ingestion_constants.IngestionJobStatus.PENDING.value, updated_at=datetime.now(UTC))
+    )
+    db.execute(stmt)
+    db.flush()
 
 
 def mark_completed(job_id: str, activity_ids: list[int], db: Session) -> None:

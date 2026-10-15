@@ -15,6 +15,7 @@ read the setting. The job bodies are identical in both profiles.
 """
 
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -34,6 +35,16 @@ def worker_retries() -> bool:
         and nothing will retry it.
     """
     return core_config.settings.JOBS_ENABLED
+
+
+def claim_stale_before() -> datetime:
+    """Return the instant before which a ``processing`` job counts as abandoned.
+
+    Returns:
+        ``JOBS_LEASE_SECONDS`` ago: a job claimed longer ago than the lease has
+        been requeued by the runner, so its previous owner is presumed gone.
+    """
+    return datetime.now(UTC) - timedelta(seconds=core_config.settings.JOBS_LEASE_SECONDS)
 
 
 def commit_or_publish(db: Session, *, publish: Callable[[Callable[[], None]], None]) -> None:

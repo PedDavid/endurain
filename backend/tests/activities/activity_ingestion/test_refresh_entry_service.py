@@ -51,11 +51,15 @@ class TestSyncLinkedProviders:
 
         assert refresh_entry_service.sync_linked_providers(7) == ["g1"]
 
-    def test_a_failing_provider_does_not_take_the_others_down(self):
+    def test_a_failing_provider_does_not_take_the_others_down_but_fails_the_sync(self):
+        """The others still run, and the sync raises so the job is retried."""
         _provider("a", raises=RuntimeError("provider down"))
-        _provider("b", ["g1"])
+        healthy = _provider("b", ["g1"])
 
-        assert refresh_entry_service.sync_linked_providers(7) == ["g1"]
+        with pytest.raises(core_exceptions.ProcessingError):
+            refresh_entry_service.sync_linked_providers(7)
+
+        assert healthy[0] is not None
 
     def test_no_registered_providers_is_not_an_error(self):
         assert refresh_entry_service.sync_linked_providers(7) == []

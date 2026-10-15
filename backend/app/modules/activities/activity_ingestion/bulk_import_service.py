@@ -467,6 +467,8 @@ def run_bulk_import_job(job_id: str, storage: platform_providers.StorageProvider
             activity_ingestion_service.fail_ingestion_job(
                 job_id, activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, storage
             )
+        else:
+            activity_ingestion_service.release_ingestion_job(job_id)
         raise
 
 
@@ -498,7 +500,13 @@ def _run_batch(job_id: str, storage: platform_providers.StorageProvider) -> None
         if state.staged_key is None:
             # The folder is still being packed; the continuation is queued once it is.
             return
-        activity_ingestion_crud.record_bulk_progress(job_id, state.cursor, state.files_done, state.files_failed, db)
+        if not activity_ingestion_crud.mark_processing(
+            job_id, db, stale_before=activity_ingestion_dispatch_service.claim_stale_before()
+        ):
+            logger.info(
+                "Skipping a bulk import batch that is claimed elsewhere", extra=core_logger.context(job_id=job_id)
+            )
+            return
         db.commit()
 
     try:
@@ -703,7 +711,7 @@ def _checkpoint_and_continue(job_id: str, user_id: int, cursor: str | None, done
         failed: Files that failed.
     """
     with core_database.SessionLocal() as db:
-        activity_ingestion_crud.record_bulk_progress(job_id, cursor, done, failed, db)
+        activity_ingestion_crud.record_bulk_progress(job_id, cursor, done, failed, db, release=True)
         activity_ingestion_dispatch_service.commit_or_publish(
             db,
             publish=lambda commit: activity_ingestion_event_publishers.publish_bulk_import_continue(

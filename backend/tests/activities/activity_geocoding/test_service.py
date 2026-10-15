@@ -93,7 +93,8 @@ class TestGeocodeAndStore:
         assert geocode_and_store_activity_location(42, MagicMock(), db) is True
         mock_update.assert_called_once_with(42, "Lisbon", "Belem", "Portugal", db)
         # The surface only stages; the geocoding service owns the commit.
-        db.commit.assert_called_once()
+        # One commit ends the read transaction before the geocoder call, one persists the result.
+        assert db.commit.call_count == 2
 
     @patch(f"{_SVC}.reverse_geocode", return_value=GeocodedPlace("Lisbon", "Belem", "Portugal"))
     @patch(f"{_SVC}.activity_streams_integration.get_stream_for_derivation")
@@ -102,7 +103,8 @@ class TestGeocodeAndStore:
         db = MagicMock()
         mock_stream.return_value = MagicMock(stream_waypoints=[{"lat": 38.0, "lon": -9.0}])
         geocode_and_store_activity_location(999, MagicMock(), db)
-        db.commit.assert_not_called()
+        # Only the read transaction is ended before the lookup; nothing is persisted.
+        assert db.commit.call_count == 1
 
     @patch(f"{_SVC}.reverse_geocode")
     @patch(f"{_SVC}.activity_streams_integration.get_stream_for_derivation")
@@ -152,7 +154,8 @@ class TestBackfill:
 
         assert backfill_missing_activity_locations(MagicMock(), _clock(), db) == 1
         mock_update.assert_called_once_with(1, "Lisbon", None, "Portugal", db)
-        db.commit.assert_called_once()
+        # One commit ends the read transaction before the lookups, one persists the result.
+        assert db.commit.call_count == 2
         mock_defer.assert_not_called()
 
     def test_an_activity_without_gps_is_deferred_without_a_lookup(
@@ -192,7 +195,8 @@ class TestBackfill:
         mock_update.return_value = False
 
         assert backfill_missing_activity_locations(MagicMock(), _clock(), db) == 0
-        db.commit.assert_not_called()
+        # Only the read transaction is ended before the lookups; the row did not change.
+        assert db.commit.call_count == 1
 
     def test_pages_past_activities_that_cannot_resolve(
         self, mock_geo, mock_waypoints, mock_candidates, mock_update, _defer

@@ -91,8 +91,9 @@ class TestGenerateAndStoreThumbnail:
         assert result == "1.webp"
         storage.save.assert_called_once_with("activity_thumbnails", "1.webp", b"data", "image/webp")
         mock_activities.set_thumbnail_key.assert_called_once_with(1, "1.webp", db)
-        # The surface only stages; the thumbnail service owns the commit.
-        db.commit.assert_called_once()
+        # The surface only stages; the thumbnail service owns the commits: one ends
+        # the read transaction before the tile fetches, one persists the key.
+        assert db.commit.call_count == 2
 
 
 class TestGenerateThumbnailForActivity:

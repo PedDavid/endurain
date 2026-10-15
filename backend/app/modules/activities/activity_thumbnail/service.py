@@ -155,6 +155,9 @@ def generate_and_store_thumbnail(
     Returns:
         The stored storage key, or ``None`` when rendering was skipped/failed.
     """
+    # End the read transaction before the tile fetches: it would otherwise pin a
+    # pool connection and a snapshot for as long as the tile server takes.
+    db.commit()
     data = activity_thumbnail_render.render_activity_thumbnail(
         activity_id,
         waypoints,

@@ -35,8 +35,9 @@ def sync_linked_providers(
 
     A provider the user has not linked returns nothing rather than failing, so
     one unlinked integration does not fail the whole refresh. A provider that
-    raises is logged and skipped for the same reason; the default window overlaps
-    the next scheduled run, so what it missed is picked up there.
+    raises is logged and the remaining providers still run, but the sync then
+    fails, so the durable runner retries it with backoff (or the job is recorded
+    as failed when nothing retries).
 
     Args:
         user_id: The user whose providers to sync.
@@ -48,9 +49,10 @@ def sync_linked_providers(
         The activities the providers produced, in registration order.
 
     Raises:
-        ProcessingError: When a named provider is not registered in this process.
-            A worker that lacks a registration the API has would otherwise
-            complete the job having synced nothing.
+        ProcessingError: When a named provider is not registered in this process
+            (a worker that lacks a registration the API has would otherwise
+            complete the job having synced nothing), or when any provider's
+            fetch raised.
     """
     end = window_end or datetime.now(UTC)
     start = window_start or end - _REFRESH_WINDOW
@@ -73,6 +75,7 @@ def sync_linked_providers(
             )
 
     activities: list[activity_schema.ActivityRead] = []
+    first_failure: Exception | None = None
     for candidate in providers:
         try:
             produced = candidate.fetch_window(user_id, start, end)
@@ -82,7 +85,14 @@ def sync_linked_providers(
                 exc_info=err,
                 extra=core_logger.context(user_id=user_id, provider=candidate.name),
             )
+            first_failure = first_failure or err
             continue
         activities.extend(activity for activity in (produced or []) if activity is not None)
+
+    if first_failure is not None:
+        # Raised only after every provider was tried, so one outage does not starve
+        # the others; the retry re-reads the window, and ingestion dedup makes
+        # that a no-op for what already arrived.
+        raise core_exceptions.ProcessingError() from first_failure
 
     return activities

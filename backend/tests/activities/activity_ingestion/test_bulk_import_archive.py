@@ -253,7 +253,7 @@ class TestBatches:
             bulk.run_bulk_import_job(job_id, storage)
 
         row = _job(factory, job_id)
-        assert (row.status, row.files_done, row.cursor) == ("processing", 2, "b.fit")
+        assert (row.status, row.files_done, row.cursor) == ("pending", 2, "b.fit")
         assert pipeline == ["a.fit", "b.fit"]
         # The progress and the continuation are one transaction.
         publish.assert_called_once()
@@ -298,8 +298,9 @@ class TestBatches:
         ):
             bulk.run_bulk_import_job(job_id, storage)
 
-        # Durable: the runner retries it, so it is not closed here.
-        assert _job(factory, job_id).status == "processing"
+        # Durable: the runner retries it, so it is not closed here, and it is
+        # released so the retry can claim it.
+        assert _job(factory, job_id).status == "pending"
 
 
 class TestProviderFormat:

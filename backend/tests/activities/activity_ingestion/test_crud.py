@@ -133,15 +133,19 @@ class TestTerminalTransitions:
         assert row.error_code == "invalid_file"
         assert row.staged_key is None
 
-    def test_mark_processing(self, mock_db):
-        row = _row()
-        mock_db.get.return_value = row
-        ingestion_crud.mark_processing("job-1", mock_db)
-        assert row.status == "processing"
+    def test_mark_processing_is_one_conditional_update(self, mock_db):
+        mock_db.execute.return_value.rowcount = 1
+        claimed = ingestion_crud.mark_processing("job-1", mock_db, stale_before=datetime.now(UTC))
+        assert claimed is True
+        mock_db.execute.assert_called_once()
+        mock_db.flush.assert_called_once()
+
+    def test_mark_processing_reports_a_lost_claim(self, mock_db):
+        mock_db.execute.return_value.rowcount = 0
+        assert ingestion_crud.mark_processing("job-1", mock_db, stale_before=datetime.now(UTC)) is False
 
     def test_transitions_on_a_missing_row_are_no_ops(self, mock_db):
         mock_db.get.return_value = None
-        ingestion_crud.mark_processing("gone", mock_db)
         ingestion_crud.mark_completed("gone", [1], mock_db)
         ingestion_crud.mark_failed("gone", activity_ingestion_constants.IngestionJobErrorCode.INVALID_FILE, mock_db)
         mock_db.commit.assert_not_called()
