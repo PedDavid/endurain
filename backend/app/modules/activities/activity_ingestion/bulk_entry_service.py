@@ -11,17 +11,13 @@ they do when it fails.
   dead-letter.
 """
 
-import gzip
 import os
-import shutil
 from pathlib import Path
 
 import jasil.providers as platform_providers
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import core.config as core_config
-import core.exceptions as core_exceptions
 import core.file_uploads as core_file_uploads
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
@@ -147,20 +143,11 @@ def store_activity_file(
             source=source,
             storage=storage,
         )
-    except (
-        core_exceptions.DomainError,
-        OSError,
-        EOFError,
-        gzip.BadGzipFile,
-        shutil.Error,
-        SQLAlchemyError,
-        ValueError,
-        RuntimeError,
-        KeyError,
-        TypeError,
-    ) as err:
-        # This entry swallows the failure so the batch continues on the same
-        # session, so it is the one that has to leave that session usable.
+    except Exception as err:
+        # Any failure, not a whitelist: this entry's contract is that one bad
+        # file never stops the batch, and a parser can raise more than the
+        # types a list would anticipate. It is also the one that has to leave
+        # the shared session usable.
         db.rollback()
         if isinstance(source, activity_ingestion_contracts.BulkImportSource):
             logger.error(

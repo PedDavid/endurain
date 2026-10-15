@@ -176,6 +176,27 @@ class TestProcessBulkImportFileForEvent:
                 error = err
         return run, discard, move, error, jobs
 
+    def test_the_blob_is_discarded_after_the_job_is_recorded_completed(self):
+        """A failed delete, or a crash before it, must not undo or repeat a finished import."""
+        order: list[str] = []
+        with (
+            patch.object(
+                bulk_import_subscribers.activity_ingestion_staging,
+                "discard",
+                side_effect=lambda *_a: order.append("discard"),
+            ),
+            patch.object(bulk_import_subscribers, "activity_ingestion_service") as jobs,
+            patch.object(bulk_import_subscribers.activity_ingestion_staging, "materialized") as materialized,
+            patch.object(bulk_import_subscribers.core_database, "SessionLocal"),
+            patch.object(bulk_import_subscribers.activity_ingestion_bulk_entry_service, "store_bulk_import_file"),
+        ):
+            materialized.return_value.__enter__.return_value = "/tmp/work/x.gpx"
+            materialized.return_value.__exit__.return_value = False
+            jobs.mark_bulk_import_job_completed.side_effect = lambda *_a: order.append("completed")
+            bulk_import_subscribers.process_bulk_import_file_for_event(_event(_payload()))
+
+        assert order == ["completed", "discard"]
+
     def test_imports_the_materialized_file_then_discards_the_blob(self):
         run, discard, move, error, _jobs = self._run(_event(_payload()))
 

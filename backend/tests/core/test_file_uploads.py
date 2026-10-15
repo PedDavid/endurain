@@ -1306,7 +1306,7 @@ def test_remove_files_swallows_errors(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_decompress_gzip_returns_inner_payload(tmp_path: Path):
-    """A ``.gz`` is expanded to a temp file and the staging archive is consumed."""
+    """A ``.gz`` is expanded to a temp file; the caller owns removing both files."""
     from core.file_uploads import decompress_gzip
 
     payload = _make_gpx_bytes()
@@ -1318,8 +1318,8 @@ def test_decompress_gzip_returns_inner_payload(tmp_path: Path):
     try:
         assert extension == ".gpx"
         assert Path(temp_path).read_bytes() == payload
-        # The compressed staging copy is redundant once expanded.
-        assert not archive.exists()
+        # Left in place: a failed import still needs the user's original.
+        assert archive.exists()
     finally:
         Path(temp_path).unlink(missing_ok=True)
 

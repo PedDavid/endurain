@@ -411,6 +411,9 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
                 db,
             )
             db.commit()
+            # After the outcome is committed: a crash before this line retries
+            # against the blob rather than finding it gone.
+            activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
             logger.info(
                 "Upload job produced no activities",
                 extra=core_logger.context(user_id=user_id, job_id=job_id),
@@ -418,6 +421,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
             return
         activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
+        activity_ingestion_upload_entry_service.discard_staged_upload(staged_key, storage)
         logger.info(
             "Upload job imported activities",
             extra=core_logger.context(user_id=user_id, job_id=job_id, activity_count=len(activity_ids)),

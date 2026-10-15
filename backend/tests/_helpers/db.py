@@ -37,6 +37,7 @@ def setup_mock_execute(
     mock_db.execute.return_value = execute_mock
     # Support db.scalars(stmt) pattern (used by some sub-module CRUDs)
     scalars_direct_mock = MagicMock()
+    scalars_direct_mock.first.return_value = return_one_or_none
     if return_scalars_all is not None:
         scalars_direct_mock.all.return_value = return_scalars_all
     elif return_all is not None:

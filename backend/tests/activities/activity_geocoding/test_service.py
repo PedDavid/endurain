@@ -124,9 +124,12 @@ class TestBackfill:
     @patch(f"{_SVC}.activity_integration.set_activity_location")
     def test_stores_for_gps_candidates(self, mock_update, mock_candidates, mock_waypoints, _mock_geo):
         db = MagicMock()
-        mock_candidates.return_value = [
-            MagicMock(id=1),
-            MagicMock(id=2),  # no GPS -> skipped
+        mock_candidates.side_effect = [
+            [
+                MagicMock(id=1),
+                MagicMock(id=2),  # no GPS -> skipped
+            ],
+            [],
         ]
         mock_waypoints.return_value = {1: [{"lat": 38.0, "lon": -9.0}]}
         stored = backfill_missing_activity_locations(MagicMock(), db)
@@ -144,7 +147,7 @@ class TestBackfill:
     ):
         """An activity deleted between listing and writing is neither stored nor committed."""
         db = MagicMock()
-        mock_candidates.return_value = [MagicMock(id=1)]
+        mock_candidates.side_effect = [[MagicMock(id=1)], []]
         mock_waypoints.return_value = {1: [{"lat": 38.0, "lon": -9.0}]}
         assert backfill_missing_activity_locations(MagicMock(), db) == 0
         db.commit.assert_not_called()
@@ -154,7 +157,7 @@ class TestBackfill:
     @patch(f"{_SVC}.activity_integration.list_activities_missing_location")
     @patch(f"{_SVC}.activity_integration.set_activity_location")
     def test_skips_empty_waypoints(self, mock_update, mock_candidates, mock_waypoints, mock_geo):
-        mock_candidates.return_value = [MagicMock(id=1)]
+        mock_candidates.side_effect = [[MagicMock(id=1)], []]
         mock_waypoints.return_value = {1: []}
         assert backfill_missing_activity_locations(MagicMock(), MagicMock()) == 0
         mock_geo.assert_not_called()
@@ -167,7 +170,37 @@ class TestBackfill:
     def test_unresolved_candidates_are_left_for_the_next_pass(
         self, mock_update, mock_candidates, mock_waypoints, _mock_geo
     ):
-        mock_candidates.return_value = [MagicMock(id=1)]
+        mock_candidates.side_effect = [[MagicMock(id=1)], []]
         mock_waypoints.return_value = {1: [{"lat": 38.0, "lon": -9.0}]}
         assert backfill_missing_activity_locations(MagicMock(), MagicMock()) == 0
         mock_update.assert_not_called()
+
+    @patch(f"{_SVC}.reverse_geocode", return_value=GeocodedPlace("Lisbon", None, "Portugal"))
+    @patch(f"{_SVC}.activity_streams_integration.get_gps_waypoints_for_activities")
+    @patch(f"{_SVC}.activity_integration.list_activities_missing_location")
+    @patch(f"{_SVC}.activity_integration.set_activity_location")
+    def test_activities_without_gps_do_not_hide_later_ones(self, mock_update, mock_candidates, mock_waypoints, _geo):
+        """A head of unresolvable activities must not stop the pass reaching a resolvable one."""
+        db = MagicMock()
+        mock_candidates.side_effect = [[MagicMock(id=1), MagicMock(id=2)], [MagicMock(id=3)], []]
+        mock_waypoints.side_effect = [{}, {3: [{"lat": 38.0, "lon": -9.0}]}]
+
+        assert backfill_missing_activity_locations(MagicMock(), db) == 1
+        mock_update.assert_called_once_with(3, "Lisbon", None, "Portugal", db)
+        # The cursor advanced past the page it had already read.
+        assert [call.kwargs["after_id"] for call in mock_candidates.call_args_list] == [0, 2, 3]
+
+    @patch(f"{_SVC}.reverse_geocode", return_value=None)
+    @patch(f"{_SVC}.activity_streams_integration.get_gps_waypoints_for_activities")
+    @patch(f"{_SVC}.activity_integration.list_activities_missing_location")
+    def test_geocoding_requests_are_capped_per_pass(self, mock_candidates, mock_waypoints, mock_geo):
+        mock_candidates.side_effect = [[MagicMock(id=1), MagicMock(id=2), MagicMock(id=3)], []]
+        mock_waypoints.return_value = {
+            1: [{"lat": 1.0, "lon": 1.0}],
+            2: [{"lat": 2.0, "lon": 2.0}],
+            3: [{"lat": 3.0, "lon": 3.0}],
+        }
+
+        backfill_missing_activity_locations(MagicMock(), MagicMock(), max_lookups=2)
+
+        assert mock_geo.call_count == 2

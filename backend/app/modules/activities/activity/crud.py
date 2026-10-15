@@ -981,11 +981,18 @@ def get_activity_by_start_time(
         start_time = datetime.fromisoformat(start_time)
     if start_time.tzinfo is None:
         start_time = start_time.replace(tzinfo=UTC)
-    stmt = select(activity_models.Activity).where(
-        activity_models.Activity.user_id == user_id,
-        activity_models.Activity.start_time == start_time,
+    # ``first`` rather than ``scalar_one_or_none``: a start-time duplicate is
+    # stored (hidden), not rejected, so several rows can share the instant and
+    # the lookup would otherwise raise on the third import.
+    stmt = (
+        select(activity_models.Activity)
+        .where(
+            activity_models.Activity.user_id == user_id,
+            activity_models.Activity.start_time == start_time,
+        )
+        .order_by(activity_models.Activity.id)
     )
-    activity = db.execute(stmt).scalar_one_or_none()
+    activity = db.scalars(stmt).first()
     if not activity:
         return None
     return activity_serializers.to_read_schema(activity)
@@ -1295,17 +1302,20 @@ def update_activity_location(
 def get_activities_missing_location(
     db: Session,
     *,
+    after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
     """Return references to activities that have no resolved location.
 
     Rows where ``city``, ``town`` and ``country`` are all NULL — candidates for
-    the reverse-geocoding backfill. Bounded by ``limit`` so a single backfill
-    pass makes at most ``limit`` (rate-limited) geocoding requests; the
-    remainder are picked up on the next scheduled run.
+    the reverse-geocoding backfill. Ordered by id and paged via ``after_id``: a
+    row that can never be resolved (no GPS stream) stays a candidate forever, so
+    an unpaged "first ``limit`` rows" would be filled by those and never reach a
+    resolvable activity behind them.
 
     Args:
         db: Database session.
+        after_id: Return only activities with ``id`` greater than this.
         limit: Maximum number of candidate rows to return.
 
     Returns:
@@ -1317,6 +1327,7 @@ def get_activities_missing_location(
             activity_models.Activity.city.is_(None),
             activity_models.Activity.town.is_(None),
             activity_models.Activity.country.is_(None),
+            activity_models.Activity.id > after_id,
         )
         .order_by(activity_models.Activity.id)
         .limit(limit)

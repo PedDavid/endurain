@@ -5,6 +5,7 @@ plumbing the pipeline used to own — gzip expansion, content hashing, artifact
 cleanup — now lives in ``core.file_uploads`` and is tested there.
 """
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -255,3 +256,93 @@ class TestParseFileTimezoneFallback:
             pipeline_service.parse_file(1, ".gpx", "/f.gpx")
 
         assert parser.call_args.args[3] == core_config.settings.TZ
+
+
+class TestGzipArtifacts:
+    """A ``.gz`` import owns two files: the archive and its decompressed temp copy."""
+
+    @staticmethod
+    def _archive(tmp_path):
+        import gzip
+
+        archive = tmp_path / "ride.gpx.gz"
+        archive.write_bytes(gzip.compress(b"<gpx/>"))
+        return archive
+
+    @staticmethod
+    def _run(archive, *, store):
+        seen: list[str] = []
+
+        def _store(_user_id, file_path, *_args, **_kwargs):
+            seen.append(file_path)
+            return store()
+
+        with (
+            patch.object(pipeline.core_file_uploads, "validate_local_file_sync"),
+            patch.object(pipeline, "store_activities_from_file", side_effect=_store),
+        ):
+            try:
+                result = pipeline.validate_prepare_and_store_file(
+                    3,
+                    str(archive),
+                    MagicMock(),
+                    source=sources.BulkImportSource(import_initiated_time="2026-07-21T00:00:00"),
+                    storage=MagicMock(),
+                )
+            except Exception as err:
+                return None, err, seen
+        return result, None, seen
+
+    def test_a_failed_import_removes_the_temp_copy_and_keeps_the_archive(self, tmp_path):
+        """The archive is what the caller moves to the error directory."""
+        archive = self._archive(tmp_path)
+
+        def _fail():
+            raise RuntimeError("parser")
+
+        _result, error, seen = self._run(archive, store=_fail)
+
+        assert isinstance(error, RuntimeError)
+        assert archive.exists()
+        assert len(seen) == 1
+        assert not os.path.exists(seen[0])
+
+    def test_a_successful_import_consumes_the_archive_and_the_temp_copy(self, tmp_path):
+        archive = self._archive(tmp_path)
+
+        result, error, seen = self._run(archive, store=lambda: ["activity"])
+
+        assert error is None
+        assert result == ["activity"]
+        assert not archive.exists()
+        assert not os.path.exists(seen[0])
+
+    def test_an_unsupported_inner_payload_leaves_no_temp_copy(self, tmp_path):
+        import gzip
+
+        archive = tmp_path / "ride.exe.gz"
+        archive.write_bytes(gzip.compress(b"MZ"))
+        temp_paths: list[str] = []
+        real_decompress = pipeline.core_file_uploads.decompress_gzip
+
+        def _record(path):
+            temp_path, extension = real_decompress(path)
+            temp_paths.append(temp_path)
+            return temp_path, extension
+
+        with (
+            patch.object(pipeline.core_file_uploads, "validate_local_file_sync"),
+            patch.object(pipeline.core_file_uploads, "decompress_gzip", side_effect=_record),
+            pytest.raises(core_exceptions.InvalidInputError),
+        ):
+            pipeline.validate_prepare_and_store_file(
+                3,
+                str(archive),
+                MagicMock(),
+                source=sources.BulkImportSource(import_initiated_time="2026-07-21T00:00:00"),
+                storage=MagicMock(),
+            )
+
+        assert archive.exists()
+        assert len(temp_paths) == 1
+        assert not os.path.exists(temp_paths[0])

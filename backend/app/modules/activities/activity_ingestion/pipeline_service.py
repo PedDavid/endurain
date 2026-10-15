@@ -355,6 +355,9 @@ def validate_prepare_and_store_file(
     dead-letters). Does no error-directory handling itself — the caller owns the
     failure policy.
 
+    A ``.gz`` is decompressed to a temp file that is always removed here; the
+    ``.gz`` itself is removed only after a successful import.
+
     Args:
         token_user_id: ID of the authenticated user performing the import.
         file_path: Absolute path to the activity file to parse.
@@ -393,23 +396,35 @@ def validate_prepare_and_store_file(
     if isinstance(source, activity_ingestion_contracts.GarminSource):
         garmin_connect_activity_id = os.path.basename(file_path).split("_")[0]
 
-    if file_extension == ".gz":
-        file_path, file_extension = core_file_uploads.decompress_gzip(file_path)
-        file_extension = file_extension.lower()
-        if file_extension not in core_config.SUPPORTED_FILE_FORMATS or file_extension == ".gz":
-            raise core_exceptions.InvalidInputError("Decompressed file extension is not supported")
-        core_file_uploads.validate_local_file_sync(
-            file_path,
-            kind=core_file_uploads.UploadKind.ACTIVITY,
-        )
+    original_path = file_path
+    decompressed_path: str | None = None
+    try:
+        if file_extension == ".gz":
+            file_path, file_extension = core_file_uploads.decompress_gzip(original_path)
+            decompressed_path = file_path
+            file_extension = file_extension.lower()
+            if file_extension not in core_config.SUPPORTED_FILE_FORMATS or file_extension == ".gz":
+                raise core_exceptions.InvalidInputError("Decompressed file extension is not supported")
+            core_file_uploads.validate_local_file_sync(
+                file_path,
+                kind=core_file_uploads.UploadKind.ACTIVITY,
+            )
 
-    return store_activities_from_file(
-        token_user_id,
-        file_path,
-        file_extension,
-        file_base_name,
-        db,
-        source=source,
-        storage=storage,
-        garmin_connect_activity_id=garmin_connect_activity_id,
-    )
+        created = store_activities_from_file(
+            token_user_id,
+            file_path,
+            file_extension,
+            file_base_name,
+            db,
+            source=source,
+            storage=storage,
+            garmin_connect_activity_id=garmin_connect_activity_id,
+        )
+        if decompressed_path is not None:
+            # The archive is consumed only once its contents are imported, so a
+            # failure leaves it for the caller to move to the error directory.
+            core_file_uploads.remove_files([original_path])
+        return created
+    finally:
+        if decompressed_path is not None:
+            core_file_uploads.remove_files([decompressed_path])

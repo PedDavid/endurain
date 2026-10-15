@@ -143,6 +143,54 @@ class TestRunUploadJob:
         assert completed.call_args.args[0] == "job-1"
         assert completed.call_args.args[1] == [11, 12]
 
+    @pytest.mark.parametrize("created", [[MagicMock(id=11)], []], ids=["imported", "nothing_parsed"])
+    def test_the_blob_is_discarded_only_after_the_outcome_is_committed(self, created):
+        """A crash before the commit must retry against the blob, not find it gone."""
+        events: list[str] = []
+        db = MagicMock()
+        db.commit.side_effect = lambda: events.append("commit")
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
+            patch.object(ingestion_jobs.activity_ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.activity_ingestion_crud, "mark_processing"),
+            patch.object(ingestion_jobs.activity_ingestion_crud, "mark_completed"),
+            patch.object(ingestion_jobs.activity_ingestion_crud, "mark_failed"),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service, "process_staged_upload", return_value=created
+            ),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service,
+                "discard_staged_upload",
+                side_effect=lambda *_a: events.append("discard"),
+            ),
+        ):
+            session_local.return_value.__enter__.return_value = db
+            ingestion_jobs.run_upload_job("job-1", "storage")
+
+        # The first commit is ``processing``; the outcome's commit must precede the discard.
+        assert events == ["commit", "commit", "discard"]
+
+    def test_the_blob_survives_when_recording_the_outcome_fails(self):
+        db = MagicMock()
+        db.commit.side_effect = [None, RuntimeError("db down")]
+        with (
+            patch.object(ingestion_jobs.core_database, "SessionLocal") as session_local,
+            patch.object(ingestion_jobs.activity_ingestion_crud, "get_job_work_item", return_value=(7, "abc.gpx")),
+            patch.object(ingestion_jobs.activity_ingestion_crud, "mark_processing"),
+            patch.object(ingestion_jobs.activity_ingestion_crud, "mark_completed"),
+            patch.object(
+                ingestion_jobs.activity_ingestion_upload_entry_service,
+                "process_staged_upload",
+                return_value=[MagicMock(id=11)],
+            ),
+            patch.object(ingestion_jobs.activity_ingestion_upload_entry_service, "discard_staged_upload") as discard,
+            pytest.raises(RuntimeError),
+        ):
+            session_local.return_value.__enter__.return_value = db
+            ingestion_jobs.run_upload_job("job-1", "storage")
+
+        discard.assert_not_called()
+
     def test_a_consumed_job_is_a_no_op(self):
         """A retry after a successful import must not import the file twice."""
         with (

@@ -133,3 +133,17 @@ class TestDuplicateStartTime:
         assert created.is_hidden is True
         # The write contract is not mutated on the way through.
         assert duplicate.is_hidden is False
+
+    def test_a_third_activity_with_the_same_start_is_still_imported(self, db):
+        """Duplicates are stored hidden, so the lookup sees several matching rows.
+
+        ``scalar_one_or_none`` raised ``MultipleResultsFound`` on the third import,
+        failing it with a 500 instead of storing another hidden duplicate.
+        """
+        activity_crud.create_activity(_core(), db)
+        activity_crud.create_activity(_core(name="Second"), db)
+
+        third = activity_crud.create_activity(_core(name="Third"), db)
+
+        assert third.is_hidden is True
+        assert third.id is not None

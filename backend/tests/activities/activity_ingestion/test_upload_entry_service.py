@@ -141,11 +141,8 @@ class TestProcessStagedUpload:
         )
         assert store.call_args.args[0] == 7
         assert store.call_args.args[3] == "abc.gpx"
-        # Consumed on success.
-        platform.storage.delete.assert_called_once_with(
-            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
-            "upload_staging/abc.gpx",
-        )
+        # Left for the caller, which removes it only once the outcome is committed.
+        platform.storage.delete.assert_not_called()
 
     def test_rejects_a_blob_that_is_gone(self):
         db = MagicMock()
@@ -156,7 +153,7 @@ class TestProcessStagedUpload:
         ):
             upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
-    def test_discards_the_blob_when_nothing_parsed(self):
+    def test_keeps_the_blob_when_nothing_parsed(self):
         db = MagicMock()
         platform = _platform()
         platform.storage.get.return_value = b"<gpx/>"
@@ -171,10 +168,7 @@ class TestProcessStagedUpload:
             result = upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, db)
 
         assert result is None
-        platform.storage.delete.assert_called_once_with(
-            upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
-            "upload_staging/abc.gpx",
-        )
+        platform.storage.delete.assert_not_called()
 
     def test_keeps_the_blob_when_the_failure_may_be_transient(self):
         """A retry has to have something left to read."""
@@ -292,9 +286,12 @@ class TestLocalStorageStaging:
                 assert upload_entry_service.process_staged_upload(7, "abc.gpx", platform.storage, MagicMock()) == []
 
             assert parsed_data == [b"<gpx/>"]
-            assert local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None
+            # Processing leaves the blob; only the caller's explicit discard removes it.
+            assert (
+                local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx")
+                == b"<gpx/>"
+            )
 
-            upload_entry_service.store_received_upload(received, platform.storage)
             upload_entry_service.discard_staged_upload("abc.gpx", platform.storage)
 
         assert local_storage.get(upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, "upload_staging/abc.gpx") is None

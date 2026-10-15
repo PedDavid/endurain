@@ -436,18 +436,20 @@ def list_activities_without_thumbnail(
 def list_activities_missing_location(
     db: Session,
     *,
+    after_id: int = 0,
     limit: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
 ) -> list[activity_contracts.ActivityLocationRef]:
-    """Return bounded activity references whose location is unresolved.
+    """Return one id-ordered page of activity references whose location is unresolved.
 
     Args:
         db: Database session.
+        after_id: Return only activities with an id greater than this.
         limit: Maximum number of rows to return.
 
     Returns:
-        Bounded activity references whose location is unresolved.
+        One page of activity references whose location is unresolved.
     """
-    return activity_crud.get_activities_missing_location(db, limit=limit)
+    return activity_crud.get_activities_missing_location(db, after_id=after_id, limit=limit)
 
 
 def set_activity_location(

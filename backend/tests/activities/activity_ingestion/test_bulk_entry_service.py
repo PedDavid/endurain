@@ -74,6 +74,29 @@ class TestStoreActivityFile:
         # The batch carries on with this session, so a failed file leaves it clean.
         db.rollback.assert_called_once()
 
+    @pytest.mark.parametrize(
+        "error",
+        [IndexError("no lap"), AttributeError("no record"), ZeroDivisionError("zero"), RuntimeError("parser")],
+        ids=lambda error: type(error).__name__,
+    )
+    def test_any_parser_failure_leaves_the_batch_running(self, error):
+        """One bad file must not abort the loop that holds every other job."""
+        source = sources.BulkImportSource(import_initiated_time="2026-07-21T00:00:00")
+        db = MagicMock()
+        with (
+            patch.object(
+                bulk_entry_service.activity_ingestion_pipeline_service,
+                "validate_prepare_and_store_file",
+                side_effect=error,
+            ),
+            patch.object(bulk_entry_service, "_move_failed_file_to_error_directory") as move,
+        ):
+            result = bulk_entry_service.store_activity_file(3, "/tmp/x.gpx", "storage", db, source=source)
+
+        assert result is None
+        db.rollback.assert_called_once()
+        move.assert_called_once_with(source, "/tmp/x.gpx")
+
     def test_a_failed_garmin_file_is_not_quarantined(self):
         # Only bulk imports have an error directory; the Garmin sync cleans up
         # its own extracted file instead.

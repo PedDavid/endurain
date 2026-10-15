@@ -93,12 +93,21 @@ on_activity_deleted_cleanup_thumbnail = best_effort(cleanup_activity_thumbnail_f
 
 
 def _schedule_thumbnail_regeneration() -> None:
-    """Queue a delete-and-regenerate pass over every thumbnail."""
-    core_scheduler.run_once(
-        activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails,
-        job_id="endurain_regenerate_all_thumbnails",
-        description="thumbnail regeneration",
-    )
+    """Run a delete-and-regenerate pass over every thumbnail, off the request path.
+
+    Queued on the scheduler when this process runs one. A dedicated worker
+    (``APP_ROLE=worker``) does not: a one-shot queued there is accepted and never
+    runs. There the handler is already on a worker thread, so the pass runs inline.
+    """
+    if core_scheduler.scheduler.running:
+        core_scheduler.run_once(
+            activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails,
+            job_id="endurain_regenerate_all_thumbnails",
+            description="thumbnail regeneration",
+        )
+        return
+    logger.info("Thumbnail regeneration: no scheduler in this process; running it inline")
+    activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails()
 
 
 def regenerate_thumbnails_for_tile_settings_event(event: Event) -> None:

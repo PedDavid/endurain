@@ -211,9 +211,10 @@ def process_staged_upload(
 
     Runs on a background worker, on any node: the bytes come back from the
     storage provider and are materialised into a private temp directory, because
-    the parsers work from a path. The staged blob is removed once it has been
-    consumed — including when nothing parsed, since a retry would fail the same
-    way.
+    the parsers work from a path. The staged blob is deliberately left in place:
+    the caller removes it with :func:`discard_staged_upload` only after the job's
+    outcome is committed, so a crash in between retries against the blob instead
+    of finding it gone.
 
     Args:
         token_user_id: The user the activities belong to.
@@ -245,9 +246,8 @@ def process_staged_upload(
     try:
         if file_extension.lower() == ".gz":
             file_path, file_extension = core_file_uploads.decompress_gzip(file_path)
-            # ``decompress_gzip`` consumes (removes) the staging .gz and
-            # returns the decompressed temp file; track it so a later failure
-            # cleans it up.
+            # ``decompress_gzip`` returns a new temp file; track it next to the
+            # staging .gz so a later failure cleans both up.
             upload_artifacts.append(file_path)
             # Re-validate after decompression so the inner payload
             # still matches one of the supported activity formats.
@@ -272,7 +272,6 @@ def process_staged_upload(
             source=activity_ingestion_contracts.UploadSource(),
             storage=storage,
         )
-        discard_staged_upload(staged_key, storage)
         return created_activities
     except core_exceptions.DomainError:
         # Caught only so the partial artifacts are cleaned up before the error

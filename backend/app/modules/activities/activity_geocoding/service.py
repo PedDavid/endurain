@@ -20,6 +20,7 @@ from jasil.providers import GeocodedPlace, GeocodingProvider
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
+import core.pagination as core_pagination
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.integration_service as activity_streams_integration
@@ -96,52 +97,69 @@ def geocode_and_store_activity_location(activity_id: int, geocoding: GeocodingPr
     return True
 
 
-def backfill_missing_activity_locations(geocoding: GeocodingProvider, db: Session) -> int:
+def backfill_missing_activity_locations(
+    geocoding: GeocodingProvider,
+    db: Session,
+    *,
+    max_lookups: int = core_pagination.DEFAULT_EXTERNAL_IO_BATCH_SIZE,
+) -> int:
     """Resolve locations for GPS activities that still have none.
 
-    Reconciliation net for the ``activity.created`` geocoding subscriber: it lists
-    activities with an all-NULL location (bounded per pass), fetches their GPS
-    waypoints in one batch, and reverse-geocodes each. Activities without a GPS
-    stream are skipped.
+    Reconciliation net for the ``activity.created`` geocoding subscriber. It pages
+    through the activities with an all-NULL location and fetches each page's GPS
+    waypoints in one batch. Only an activity that has a GPS stream costs a
+    (rate-limited) geocoding request, so ``max_lookups`` bounds the external I/O
+    of a pass while activities that can never resolve (no GPS) are stepped over
+    instead of occupying the pass.
 
     Args:
         geocoding: The platform geocoding provider.
         db: Database session.
+        max_lookups: Maximum reverse-geocoding requests this pass may make; the
+            remainder is picked up on the next scheduled run.
 
     Returns:
         The number of activities whose location was resolved and stored.
     """
-    candidates = activity_integration.list_activities_missing_location(db)
-    if not candidates:
-        logger.debug("Geocoding scheduler: no activities missing location")
-        return 0
-
-    candidate_ids = [ref.id for ref in candidates]
-    waypoints_by_activity = activity_streams_integration.get_gps_waypoints_for_activities(candidate_ids, db)
-
     stored = 0
-    for activity_id, waypoints in waypoints_by_activity.items():
-        if not waypoints:
-            continue
-        first_waypoint = waypoints[0]
-        location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
-        if location is None:
-            continue
-        if activity_integration.set_activity_location(
-            activity_id,
-            location.city,
-            location.town,
-            location.country,
-            db,
-        ):
-            db.commit()
-            stored += 1
+    lookups = 0
+    scanned = 0
+    after_id = 0
+    while lookups < max_lookups:
+        candidates = activity_integration.list_activities_missing_location(db, after_id=after_id)
+        if not candidates:
+            break
+        scanned += len(candidates)
+        after_id = candidates[-1].id
+
+        waypoints_by_activity = activity_streams_integration.get_gps_waypoints_for_activities(
+            [ref.id for ref in candidates], db
+        )
+        for activity_id, waypoints in waypoints_by_activity.items():
+            if not waypoints:
+                continue
+            if lookups >= max_lookups:
+                break
+            lookups += 1
+            first_waypoint = waypoints[0]
+            location = reverse_geocode(geocoding, first_waypoint.get("lat"), first_waypoint.get("lon"))
+            if location is None:
+                continue
+            if activity_integration.set_activity_location(
+                activity_id,
+                location.city,
+                location.town,
+                location.country,
+                db,
+            ):
+                db.commit()
+                stored += 1
 
     # Level varies so an idle scheduler pass stays at debug instead of emitting
     # an INFO line every tick.
     logger.log(
         logging.INFO if stored else logging.DEBUG,
         "Geocoding scheduler pass complete",
-        extra=core_logger.context(stored=stored, gps_candidates=len(waypoints_by_activity)),
+        extra=core_logger.context(stored=stored, lookups=lookups, scanned=scanned),
     )
     return stored

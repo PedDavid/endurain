@@ -224,8 +224,27 @@ class TestTileSettingsRegeneration:
     def _event(payload):
         return new_event("server_settings.tile_settings_changed", payload, source="test")
 
+    @patch(
+        "modules.activities.activity_thumbnail.subscribers.activity_thumbnail_scheduled_jobs.regenerate_all_thumbnails"
+    )
+    @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.scheduler")
     @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")
-    def test_queues_regeneration_when_requested(self, mock_run_once):
+    def test_runs_inline_when_the_process_has_no_scheduler(self, mock_run_once, mock_scheduler, mock_regenerate):
+        """A dedicated worker never starts the scheduler; a queued one-shot would be dropped."""
+        from modules.activities.activity_thumbnail.subscribers import regenerate_thumbnails_for_tile_settings_event
+
+        mock_scheduler.running = False
+        regenerate_thumbnails_for_tile_settings_event(
+            self._event({"changed_fields": ["tile_url"], "regenerate_thumbnails": True})
+        )
+
+        mock_regenerate.assert_called_once_with()
+        mock_run_once.assert_not_called()
+
+    @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.scheduler")
+    @patch("modules.activities.activity_thumbnail.subscribers.core_scheduler.run_once")
+    def test_queues_regeneration_when_requested(self, mock_run_once, mock_scheduler):
+        mock_scheduler.running = True
         from modules.activities.activity_thumbnail import scheduled_jobs
         from modules.activities.activity_thumbnail.subscribers import regenerate_thumbnails_for_tile_settings_event
 

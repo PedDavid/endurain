@@ -7,6 +7,7 @@ received the file and the worker that imports it, and a mock cannot show that.
 
 import os
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from jasil.backends.storage_local import LocalStorage
@@ -136,6 +137,15 @@ class TestDiscard:
         staging.discard("3_abc.gpx", storage)
 
         assert storage.get(staging.BULK_IMPORT_STORAGE_AREA, "3_abc.gpx") is None
+
+    def test_a_failed_delete_does_not_raise(self):
+        """The job is already recorded as done; a stray blob must not turn it into a retry."""
+        storage = MagicMock()
+        storage.delete.side_effect = OSError("storage unavailable")
+
+        staging.discard("3_abc.gpx", storage)
+
+        storage.delete.assert_called_once()
 
 
 class TestMoveToErrors:

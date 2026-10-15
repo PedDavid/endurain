@@ -1295,8 +1295,9 @@ def decompress_gzip(file_path: str | os.PathLike) -> tuple[str, str]:
     The output is capped at the same limit a direct activity upload gets, so a
     decompression bomb cannot fill the disk (defense in depth: the wrapping
     ``.gz`` upload is already size-checked before it reaches here). The source
-    ``.gz`` is consumed (removed) on success — the decompressed payload is what
-    downstream code retains.
+    ``.gz`` is left in place: the caller removes it once the payload has been
+    imported, so a failed import still has the user's original to hand back.
+    The returned temp file is the caller's to remove.
 
     Args:
         file_path: Path to the gzipped file.
@@ -1339,11 +1340,6 @@ def decompress_gzip(file_path: str | os.PathLike) -> tuple[str, str]:
             f"Decompressed {path} with inner type {inner_file_extension} to {temp_file_path}",
             extra=core_logger.context(console=True),
         )
-
-        # The original .gz is consumed once decompressed: the decompressed file is
-        # what downstream code retains, so remove the staging archive.
-        with contextlib.suppress(OSError):
-            os.remove(str(path))
 
         return temp_file_path, inner_file_extension
     except core_exceptions.DomainError:

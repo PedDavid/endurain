@@ -157,10 +157,12 @@ def process_bulk_import_file_for_event(event: Event) -> None:
                 activities = activity_ingestion_bulk_entry_service.store_bulk_import_file(
                     payload.user_id, file_path, payload.import_initiated_time, storage, db
                 )
-        activity_ingestion_staging.discard(payload.storage_key, storage)
         activity_ingestion_service.mark_bulk_import_job_completed(
             payload.job_id, [activity.id for activity in activities or [] if activity.id is not None]
         )
+        # After the outcome is recorded: a failure up to here retries against the
+        # blob, and a failed delete here must not undo a finished import.
+        activity_ingestion_staging.discard(payload.storage_key, storage)
         logger.debug(
             "Imported a bulk-import file",
             extra=core_logger.context(user_id=payload.user_id, file=payload.filename),

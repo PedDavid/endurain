@@ -159,13 +159,23 @@ def materialized(key: str, filename: str, storage: platform_providers.StoragePro
 
 
 def discard(key: str, storage: platform_providers.StorageProvider) -> None:
-    """Delete a staged blob after its import succeeded.
+    """Delete a staged blob after its import succeeded, ignoring failures.
+
+    Best-effort: the job is already recorded as done, so failing to delete the
+    blob must not turn a finished import into a retry.
 
     Args:
         key: The staged blob's storage key.
         storage: The blob-storage provider.
     """
-    storage.delete(BULK_IMPORT_STORAGE_AREA, key)
+    try:
+        storage.delete(BULK_IMPORT_STORAGE_AREA, key)
+    except Exception as err:
+        logger.warning(
+            "Bulk import: could not remove an imported blob",
+            exc_info=err,
+            extra=core_logger.context(storage_key=key),
+        )
 
 
 def move_to_errors(key: str, user_id: int, filename: str, storage: platform_providers.StorageProvider) -> None:
