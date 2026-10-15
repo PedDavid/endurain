@@ -8,7 +8,6 @@ persistence layer. Visibility masking is an access decision and lives in
 
 from typing import overload
 
-import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.models as activity_streams_models
 import modules.activities.activity_streams.schema as activity_streams_schema
 
@@ -39,21 +38,3 @@ def to_read_schema(
     if isinstance(activity_streams, list):
         return [activity_streams_schema.ActivityStreamsRead.model_validate(stream) for stream in activity_streams]
     return activity_streams_schema.ActivityStreamsRead.model_validate(activity_streams)
-
-
-def to_hr_record(
-    stream: activity_streams_models.ActivityStreams,
-) -> activity_streams_contracts.HrStreamRecord:
-    """Project one stream ORM row into a package-owned record.
-
-    Args:
-        stream: The stream ORM row to project.
-
-    Returns:
-        The HR stream record.
-    """
-    return activity_streams_contracts.HrStreamRecord(
-        stream_id=stream.id,
-        activity_id=stream.activity_id,
-        waypoints=stream.stream_waypoints or [],
-    )

@@ -6,7 +6,6 @@ Use only the public functions exported by users.users.__init__ for external
 consumption.
 """
 
-import datetime
 from typing import TYPE_CHECKING, Literal, overload
 from urllib.parse import unquote
 
@@ -22,7 +21,6 @@ from sqlalchemy.orm import Session
 import core.decorators as core_decorators
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
-import modules.activities.activity_streams.integration_service as activity_streams_integration
 import modules.auth.password_policy as auth_password_policy
 import modules.health.health_weight.utils as health_weight_utils
 import modules.server_settings.schema as server_settings_schema
@@ -106,8 +104,6 @@ def _get_user_model_by_id_or_404(user_id: int, db: Session) -> users_models.User
 def _persist_user_edits(
     db_users: users_models.Users,
     height_before: int | None,
-    max_heart_rate_before: int | None,
-    birthdate_before: datetime.date | None,
     recalculate_bmi_on_height_change: bool,
     db: Session,
 ) -> users_schema.UsersRead:
@@ -116,20 +112,14 @@ def _persist_user_edits(
 
     Bundles the blocking portion of an edit into a single unit so
     callers can offload it with ``run_in_threadpool`` and keep the API
-    event loop responsive. The commit/refresh, the bulk BMI
-    recalculation, and the HR zone recomputation are all synchronous
-    SQLAlchemy calls.
+    event loop responsive. The commit/refresh and the bulk BMI
+    recalculation are synchronous SQLAlchemy calls.
 
     Args:
         db_users: Mapped ``Users`` row carrying pending in-memory
             changes that have not yet been committed.
         height_before: User height prior to the edit, used to detect a
             change that requires recalculating BMI.
-        max_heart_rate_before: Max heart rate prior to the edit, used
-            to detect a change that requires recomputing HR zones.
-        birthdate_before: Birthdate prior to the edit; it feeds the
-            age-derived max-HR fallback, so a change can also require
-            recomputing HR zones.
         recalculate_bmi_on_height_change: When ``True`` and the height
             actually changed, recompute BMI for every weight entry.
         db: SQLAlchemy database session.
@@ -143,25 +133,6 @@ def _persist_user_edits(
     if recalculate_bmi_on_height_change and height_before != db_users.height:
         # Update the user's health data
         health_weight_utils.calculate_bmi_all_user_entries(db_users.id, db)
-
-    # HR zones are pre-computed and stored per stream at import time
-    # from the user's resolved max heart rate. Recompute them when the
-    # max heart rate or birthdate changes so previously imported
-    # activities show up-to-date zones (issue #776). Imported lazily to
-    # avoid a users <-> activity_streams import cycle. The edit is already
-    # committed, so a recompute failure is logged rather than failing the
-    # request; the zones stay stale until the next recompute.
-    if max_heart_rate_before != db_users.max_heart_rate or birthdate_before != db_users.birthdate:
-        try:
-            activity_streams_integration.recompute_hr_zones_for_user(db_users.id, db)
-            db.commit()
-        except Exception as err:
-            db.rollback()
-            logger.error(
-                "Failed to recompute HR zone percentages after profile edit",
-                exc_info=err,
-                extra=core_logger.context(user_id=db_users.id),
-            )
 
     return _transform_users(db_users)
 
@@ -698,8 +669,6 @@ async def edit_user(user_id: int, user: users_schema.UsersRead, db: Session) -> 
         db_users = await run_in_threadpool(_get_user_model_by_id_or_404, user_id, db)
 
         height_before = db_users.height
-        max_heart_rate_before = db_users.max_heart_rate
-        birthdate_before = db_users.birthdate
 
         user.username = user.username.lower()
 
@@ -730,8 +699,6 @@ async def edit_user(user_id: int, user: users_schema.UsersRead, db: Session) -> 
             _persist_user_edits,
             db_users,
             height_before,
-            max_heart_rate_before,
-            birthdate_before,
             True,
             db,
         )
@@ -804,8 +771,6 @@ async def edit_profile_user(
         db_users = await run_in_threadpool(_get_user_model_by_id_or_404, user_id, db)
 
         height_before = db_users.height
-        max_heart_rate_before = db_users.max_heart_rate
-        birthdate_before = db_users.birthdate
 
         # exclude_unset means only fields the caller actually sent
         # are considered. The intersection with the allow-list is
@@ -828,8 +793,6 @@ async def edit_profile_user(
             _persist_user_edits,
             db_users,
             height_before,
-            max_heart_rate_before,
-            birthdate_before,
             "height" in updates,
             db,
         )

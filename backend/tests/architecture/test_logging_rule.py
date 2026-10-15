@@ -59,7 +59,6 @@ _HELPERS_THAT_LOG: dict[str, str] = {
     "activities/activity_file_import/gpx_utils.py": "Parser anomalies the file itself carries.",
     "activities/activity_file_import/tcx_utils.py": "Parser anomalies the file itself carries.",
     "activities/activity_ingestion/background.py": "Owns the in-process pool, whose failures nothing else would see.",
-    "activities/activity_ingestion/staging.py": "Stages and discards blobs outside any request.",
     "activities/activity_thumbnail/render.py": "A failed render returns ``None``; the reason has to be said here.",
 }
 

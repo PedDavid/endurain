@@ -1,7 +1,8 @@
-import threading
 import time
 from datetime import UTC, datetime, timedelta
 
+import jasil.providers as platform_providers
+import jasil.runtime as platform_runtime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from stravalib.client import Client as StravaClient
@@ -11,7 +12,6 @@ import core.cryptography as core_cryptography
 import core.logger as core_logger
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activity_schema
-import modules.users.users.crud as users_crud
 import modules.users.users_integrations.crud as user_integrations_crud
 import modules.users.users_integrations.schema as user_integrations_schema
 from core.database import SessionLocal
@@ -20,67 +20,62 @@ logger = core_logger.get_logger(__name__)
 
 
 class StravaRateLimitTracker:
-    """
-    Tracks Strava API rate limit state.
+    """Tracks Strava API rate limit state in the platform's shared state.
 
-    Attributes:
-        _lock: Thread lock for safe access.
-        _short_term_reset: Short-term reset timestamp.
-        _long_term_reset: Long-term reset timestamp.
+    The limits are Strava's, per application, so every process and replica has to
+    see the same answer: a process-local flag would let each worker keep
+    hammering an API another one was already told to back off from. The flags are
+    TTL keys in the platform ``StateProvider`` (in-process under the ``local``
+    profile, Redis when distributed), so they expire on their own.
     """
 
     # Short-term limits reset every 15 minutes
     SHORT_TERM_COOLDOWN_SECONDS = 15 * 60
-    # Long-term limits reset at UTC midnight
-    LONG_TERM_COOLDOWN_SECONDS = 24 * 60 * 60
 
-    def __init__(self):
-        """Initialize the rate limit tracker."""
-        self._lock = threading.Lock()
-        self._short_term_reset: datetime | None = None
-        self._long_term_reset: datetime | None = None
+    _SHORT_TERM_KEY = "strava:rate_limited:short"
+    _LONG_TERM_KEY = "strava:rate_limited:long"
+
+    @staticmethod
+    def _state() -> platform_providers.StateProvider:
+        return platform_runtime.get_active_platform().state
 
     def mark_rate_limited(self, is_long_term: bool = False) -> None:
         """
         Record that a rate limit was hit.
 
         Args:
-            is_long_term: True for daily limit,
-                False for 15-min limit.
+            is_long_term: True for the daily limit (resets at UTC midnight),
+                False for the 15-minute limit.
         """
         now = datetime.now(UTC)
-        with self._lock:
-            if is_long_term:
-                # Reset at next UTC midnight
-                tomorrow = (now + timedelta(days=1)).replace(
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-                self._long_term_reset = tomorrow
-                logger.warning(f"Strava daily rate limit hit. Skipping until {tomorrow}")
-            else:
-                reset_at = now + timedelta(seconds=self.SHORT_TERM_COOLDOWN_SECONDS)
-                self._short_term_reset = reset_at
-                logger.warning(f"Strava 15-min rate limit hit. Skipping until {reset_at}")
+        if is_long_term:
+            tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            key, ttl = self._LONG_TERM_KEY, max(1, int((tomorrow - now).total_seconds()))
+            logger.warning(f"Strava daily rate limit hit. Skipping until {tomorrow}")
+        else:
+            key, ttl = self._SHORT_TERM_KEY, self.SHORT_TERM_COOLDOWN_SECONDS
+            logger.warning(f"Strava 15-min rate limit hit. Skipping for {ttl} seconds")
+        try:
+            self._state().set(key, b"1", ttl_seconds=ttl)
+        except platform_providers.StateBackendUnavailableError as err:
+            logger.error("Could not record the Strava rate limit", exc_info=err)
 
     def is_rate_limited(self) -> bool:
         """
         Check if Strava API calls should be skipped.
 
+        Fails open when the shared state is unreachable: a missed back-off costs
+        one rejected call, which marks the limit again, whereas failing closed
+        would stop every sync for as long as the state store is down.
+
         Returns:
             True if currently rate-limited.
         """
-        now = datetime.now(UTC)
-        with self._lock:
-            if self._long_term_reset and now < self._long_term_reset:
-                return True
-            if self._short_term_reset and now < self._short_term_reset:
-                return True
-            # Clear expired entries
-            self._long_term_reset = None
-            self._short_term_reset = None
+        try:
+            state = self._state()
+            return state.get(self._LONG_TERM_KEY) is not None or state.get(self._SHORT_TERM_KEY) is not None
+        except platform_providers.StateBackendUnavailableError as err:
+            logger.warning("Could not read the Strava rate limit state; assuming not limited", exc_info=err)
             return False
 
 
@@ -138,78 +133,63 @@ def _noop_rate_limiter(response_headers: dict, method: str) -> None:
     pass
 
 
-def refresh_strava_tokens(is_startup: bool = False):
-    # Skip if Strava rate limit is active
+def refresh_user_strava_token(user_id: int) -> None:
+    """Refresh a user's Strava access token when it is about to expire.
+
+    Called at the start of the user's own sync job, so tokens are kept current
+    without a separate pass over every user. The integration is read in one short
+    session, the Strava call runs with none open, and the new tokens are written in
+    another. A failure is logged and left to the sync that follows, which will fail
+    visibly if the token really is unusable.
+
+    Args:
+        user_id: The user whose token to refresh.
+    """
     if rate_limit_tracker.is_rate_limited():
-        logger.warning("Strava rate limit active, skipping token refresh")
+        logger.warning(f"User {user_id}: Strava rate limit active, skipping token refresh")
         return
 
-    # Create a new database session using context manager
     with SessionLocal() as db:
-        # Get all users
-        users = users_crud.get_all_users(db)
-
-        # Iterate through all users
-        if users:
-            for user in users:
-                refresh_user_strava_token(user.id, db, is_startup)
-
-
-def refresh_user_strava_token(user_id: int, db: Session, is_startup: bool = False):
-    # Get the user integrations by user ID
-    user_integrations = user_integrations_crud.get_user_integrations_by_user_id(user_id, db)
+        user_integrations = user_integrations_crud.get_user_integrations_by_user_id(user_id, db)
 
     if user_integrations is None:
-        # Log an informational event if the user integrations are not found
         logger.info(f"User {user_id}: User integrations not found. Will skip processing")
-
-        # Return early since we cannot refresh tokens without user integrations
         return
 
-    # Check if user_integrations strava token is not None
-    if (
+    if not (
         user_integrations.strava_token is not None
         and user_integrations.strava_refresh_token is not None
         and user_integrations.strava_token_expires_at is not None
         and user_integrations.strava_client_id is not None
         and user_integrations.strava_client_secret is not None
     ):
-        refresh_time = user_integrations.strava_token_expires_at.replace(tzinfo=UTC) - timedelta(minutes=60)
-
-        if datetime.now(UTC) > refresh_time:
-            try:
-                strava_client = create_strava_client(user_integrations)
-                tokens = strava_client.refresh_access_token(
-                    client_id=core_cryptography.decrypt_token_fernet(user_integrations.strava_client_id),
-                    client_secret=core_cryptography.decrypt_token_fernet(user_integrations.strava_client_secret),
-                    refresh_token=core_cryptography.decrypt_token_fernet(user_integrations.strava_refresh_token),
-                )
-
-                # Update the user integrations with the tokens
-                user_integrations_crud.link_strava_account(user_integrations.user_id, tokens, db)
-
-                logger.info(f"User {user_id}: Strava tokens refreshed")
-            except Exception as err:
-                # Check for rate limit errors
-                if is_strava_rate_limit_error(err):
-                    err_str = str(err).lower()
-                    is_long = "long" in err_str or "daily" in err_str
-                    rate_limit_tracker.mark_rate_limited(is_long_term=is_long)
-                    logger.warning(f"User {user_id}: Strava rate limit hit during token refresh")
-                    return
-
-                # Log the exception
-                logger.error(f"Error in refresh_strava_token: {err}")
-
-                # Raise an HTTPException with a 500 Internal Server Error status code
-                if not is_startup:
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Internal Server Error",
-                    ) from err
-    else:
-        # Log an informational event if the user does not have a Strava token
         logger.info(f"User {user_id}: No Strava token found. Will skip processing")
+        return
+
+    refresh_time = user_integrations.strava_token_expires_at.replace(tzinfo=UTC) - timedelta(minutes=60)
+    if datetime.now(UTC) <= refresh_time:
+        return
+
+    try:
+        strava_client = create_strava_client(user_integrations)
+        tokens = strava_client.refresh_access_token(
+            client_id=core_cryptography.decrypt_token_fernet(user_integrations.strava_client_id),
+            client_secret=core_cryptography.decrypt_token_fernet(user_integrations.strava_client_secret),
+            refresh_token=core_cryptography.decrypt_token_fernet(user_integrations.strava_refresh_token),
+        )
+    except Exception as err:
+        if is_strava_rate_limit_error(err):
+            err_str = str(err).lower()
+            is_long = "long" in err_str or "daily" in err_str
+            rate_limit_tracker.mark_rate_limited(is_long_term=is_long)
+            logger.warning(f"User {user_id}: Strava rate limit hit during token refresh")
+            return
+        logger.error(f"User {user_id}: Error refreshing the Strava token", exc_info=err)
+        return
+
+    with SessionLocal() as db:
+        user_integrations_crud.link_strava_account(user_id, tokens, db)
+    logger.info(f"User {user_id}: Strava tokens refreshed")
 
 
 def fetch_and_validate_activity(activity_id: int, user_id: int, db: Session) -> activity_schema.ActivityRead | None:

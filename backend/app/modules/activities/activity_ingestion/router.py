@@ -17,6 +17,7 @@ from fastapi import (
     APIRouter,
     Depends,
     Header,
+    Query,
     Request,
     Security,
     UploadFile,
@@ -28,6 +29,7 @@ import core.database as core_database
 import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
+import modules.activities.activity_ingestion.bulk_import_service as bulk_import_service
 import modules.activities.activity_ingestion.dependencies as activity_ingestion_dependencies
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as activity_ingestion_service
@@ -147,10 +149,58 @@ def read_activity_ingestion_job(
 @router.post(
     "/bulk-import",
     status_code=status.HTTP_202_ACCEPTED,
-    response_model=list[activity_ingestion_schema.ActivityIngestionJobRead],
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
 @core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
-def create_activity_with_bulk_import(
+def create_bulk_import_from_archive(
+    request: Request,
+    token_user_id: Annotated[
+        int,
+        Depends(auth_dependencies.get_sub_from_access_token),
+    ],
+    file: UploadFile,
+    _check_scopes: Annotated[Callable, Security(auth_dependencies.check_scopes, scopes=["activities:write"])],
+    db: Annotated[Session, Depends(core_database.get_db)],
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
+    ],
+    source: Annotated[
+        str,
+        Query(
+            max_length=50,
+            description="The archive layout: `generic` for plain activity files, or a provider export such as `strava`.",
+        ),
+    ] = bulk_import_service.GENERIC_FORMAT_NAME,
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
+    """Import every activity file in an uploaded ZIP archive.
+
+    Returns ``202`` once the archive is stored and queued: nothing inside it is
+    read in the request beyond its directory listing. Poll
+    ``GET /activities/ingestion-jobs/{job_id}`` for progress (``files_done`` and
+    ``files_failed`` against ``files_total``); a finished import with failed files
+    still ends ``completed``.
+
+    One bulk import runs per user at a time; a second request while one is running
+    is answered ``409``.
+    """
+    return bulk_import_service.accept_archive(
+        token_user_id,
+        file.filename,
+        partial(core_file_uploads.save_validated_upload_sync, file),
+        source,
+        storage,
+        db,
+    )
+
+
+@router.post(
+    "/bulk-import/folder",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
+)
+@core_rate_limit.limiter.limit(core_rate_limit.UPLOAD)
+def create_bulk_import_from_folder(
     request: Request,
     token_user_id: Annotated[
         int,
@@ -162,23 +212,26 @@ def create_activity_with_bulk_import(
         platform_providers.StorageProvider,
         Depends(core_dependencies.get_storage),
     ],
-) -> list[activity_ingestion_schema.ActivityIngestionJobRead]:
-    """Queue every importable file in the caller's bulk-import directory.
+    source: Annotated[
+        str,
+        Query(
+            max_length=50,
+            description="The folder layout: `generic` for plain activity files, or a provider export such as `strava`.",
+        ),
+    ] = bulk_import_service.GENERIC_FORMAT_NAME,
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
+    """Import the files in the caller's folder on the server.
 
-    Returns ``202``: the files are validated and queued in the request, but
-    parsing them happens on a background worker.
+    The folder is per user (`bulk_import/<user_id>` for plain files, or the
+    provider export's own per-user folder). Returns ``202`` with a job handle;
+    packing and staging the folder happens in the background, and the files are
+    removed from the folder only once they are safely staged. Poll
+    ``GET /activities/ingestion-jobs/{job_id}`` for progress.
 
-    One job handle per queued file, so the caller polls
-    ``GET /activities/ingestion-jobs/{job_id}`` for each exactly as it does for a
-    single upload. Per file rather than per batch because each file is retried,
-    dead-lettered and completed independently — there is no shared outcome a
-    batch-level handle could report. An empty list means nothing importable was
-    found in the directory.
-
-    Fails with a processing error if the directory cannot be read or the jobs
-    cannot be queued.
+    One bulk import runs per user at a time; a second request while one is running
+    is answered ``409``.
     """
-    return activity_ingestion_service.start_bulk_import(token_user_id, storage, db)
+    return bulk_import_service.start_from_directory(token_user_id, source, storage, db)
 
 
 @router.post(

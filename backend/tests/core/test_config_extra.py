@@ -756,10 +756,6 @@ class TestCheckRequiredDirs:
             patch("core.config.FILES_PROCESSED_DIR", str(test_data / "activity_files" / "processed")),
             patch("core.config.FILES_BULK_IMPORT_DIR", str(test_data / "activity_files" / "bulk_import")),
             patch(
-                "core.config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR",
-                str(test_data / "activity_files" / "bulk_import" / "import_errors"),
-            ),
-            patch(
                 "core.config.FILES_UPLOAD_INCOMING_DIR",
                 str(test_data / "activity_files" / "upload_incoming"),
             ),
@@ -781,7 +777,6 @@ class TestCheckRequiredDirs:
             patch("core.config.SERVER_IMAGES_DIR", str(tmp_path / "server_images")),
             patch("core.config.FILES_PROCESSED_DIR", str(tmp_path / "processed")),
             patch("core.config.FILES_BULK_IMPORT_DIR", str(tmp_path / "bulk_import")),
-            patch("core.config.FILES_BULK_IMPORT_IMPORT_ERRORS_DIR", str(tmp_path / "import_errors")),
             pytest.raises(OSError, match="Required directory is not a directory"),
         ):
             check_required_dirs()

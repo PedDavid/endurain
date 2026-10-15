@@ -1,16 +1,22 @@
 from datetime import UTC, date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+import jasil.providers as platform_providers
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 import core.database as core_database
+import core.dependencies as core_dependencies
+import core.exceptions as core_exceptions
 import core.logger as core_logger
+import core.rate_limit as core_rate_limit
+import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
+import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.auth.dependencies as auth_dependencies
-import modules.garmin.activity_utils as garmin_activity_utils
 import modules.garmin.gear_utils as garmin_gear_utils
 import modules.garmin.health_utils as garmin_health_utils
 import modules.garmin.mfa_code_store as garmin_mfa_code_store
+import modules.garmin.provider_registry as garmin_provider_registry
 import modules.garmin.schema as garmin_schema
 import modules.garmin.utils as garmin_utils
 import modules.users.users_integrations.crud as user_integrations_crud
@@ -76,8 +82,11 @@ async def garminconnect_mfa_code(
 @router.get(
     "/activities",
     status_code=202,
+    response_model=activity_ingestion_schema.ActivityIngestionJobRead,
 )
-async def garminconnect_retrieve_activities_days(
+@core_rate_limit.limiter.limit(core_rate_limit.PROVIDER_SYNC)
+def garminconnect_retrieve_activities_days(
+    request: Request,
     start_date: date,
     end_date: date,
     token_user_id: Annotated[
@@ -85,28 +94,30 @@ async def garminconnect_retrieve_activities_days(
         Depends(auth_dependencies.get_sub_from_access_token),
     ],
     db: Annotated[Session, Depends(core_database.get_db)],
-    websocket_manager: Annotated[
-        websocket_manager.WebSocketManager,
-        Depends(websocket_manager.get_websocket_manager),
+    storage: Annotated[
+        platform_providers.StorageProvider,
+        Depends(core_dependencies.get_storage),
     ],
-    background_tasks: BackgroundTasks,
-):
-    start_datetime = datetime.combine(start_date, datetime.min.time(), tzinfo=UTC)
-    end_datetime = datetime.combine(end_date, datetime.max.time(), tzinfo=UTC)
+) -> activity_ingestion_schema.ActivityIngestionJobRead:
+    """Queue a Garmin Connect sync of an explicit date range.
 
-    # Process Garmin Connect activities in the background
-    background_tasks.add_task(
-        garmin_activity_utils.get_user_garminconnect_activities_by_dates,
-        start_datetime,
-        end_datetime,
+    Returns ``202`` with a job handle; poll ``GET /activities/ingestion-jobs/{job_id}``
+    for the outcome. The range is fetched by a background job, never on this
+    request or an API worker thread.
+    """
+    if start_date > end_date:
+        raise core_exceptions.InvalidInputError("start_date must not be after end_date")
+
+    job = activity_ingestion_integration.request_provider_sync(
         token_user_id,
-        websocket_manager,
+        garmin_provider_registry.PROVIDER_NAME,
+        datetime.combine(start_date, datetime.min.time(), tzinfo=UTC),
+        datetime.combine(end_date, datetime.max.time(), tzinfo=UTC),
+        storage,
         db,
     )
-
-    # Return success message and status code 202
-    logger.info(f"Garmin Connect activities will be processed in the background for user {token_user_id}")
-    return {"detail": f"Garmin Connect activities will be processed in the background for for {token_user_id}"}
+    logger.info(f"Garmin Connect activities queued for user {token_user_id}")
+    return job
 
 
 @router.get("/gear", status_code=202)

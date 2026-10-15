@@ -17,11 +17,11 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
 
 DURABLE_SUBSCRIBER_NETS: tuple[DurableSubscriberNet, ...] = (
     DurableSubscriberNet(
-        activity_ingestion_subscribers.BULK_IMPORT_FILE_SUBSCRIBER_ID,
+        activity_ingestion_subscribers.BULK_IMPORT_SUBSCRIBER_ID,
         None,
         exempt_reason=(
-            "Each bulk-import file is itself a retryable command that dead-letters "
-            "after exhausting attempts; there is no derived state to backfill."
+            "A bulk-import batch is a retryable command that resumes from the cursor on its job "
+            "row; a job that stops progressing is closed by the stale-job reaper."
         ),
     ),
     DurableSubscriberNet(

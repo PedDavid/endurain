@@ -396,11 +396,11 @@ class TestErrorCodeFor:
         ],
     )
     def test_maps_known_failures(self, error, expected):
-        assert ingestion_jobs._error_code_for(error) == expected
+        assert ingestion_jobs.error_code_for(error) == expected
 
     def test_an_unexpected_failure_does_not_leak_its_message(self):
         """The exception text can carry paths and parser internals."""
-        code = ingestion_jobs._error_code_for(RuntimeError("/srv/data/activity_files/secret.fit exploded"))
+        code = ingestion_jobs.error_code_for(RuntimeError("/srv/data/activity_files/secret.fit exploded"))
         assert code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED
 
 

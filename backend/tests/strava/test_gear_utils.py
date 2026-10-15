@@ -4,30 +4,38 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+import pytest
+
 import modules.strava.gear_utils as gear_utils
 
 
-def test_shoe_csv_uses_strava_import_directory(monkeypatch, tmp_path):
-    """Shoe CSV imports read from the Strava export directory."""
-    strava_import_dir = tmp_path / "strava_import"
-    generic_import_dir = tmp_path / "bulk_import"
-    shoes_file_path = strava_import_dir / "shoes.csv"
-    read_paths = []
+def test_shoe_csv_is_parsed_from_the_path_it_is_given(tmp_path):
+    """The upload is parsed where the caller saved it; no configured directory is consulted."""
+    shoes_file = tmp_path / "gear.csv"
+    shoes_file.write_text("Shoe Name,Shoe Brand,Shoe Model\nPegasus,Nike,Pegasus\n")
 
-    monkeypatch.setattr(gear_utils.core_config, "STRAVA_BULK_IMPORT_DIR", str(strava_import_dir))
-    monkeypatch.setattr(gear_utils.core_config, "FILES_BULK_IMPORT_DIR", str(generic_import_dir))
-    monkeypatch.setattr(gear_utils.os.path, "isfile", lambda path: path == str(shoes_file_path))
-
-    def read_csv(path):
-        read_paths.append(path)
-        return iter([{"Shoe Name": "Pegasus", "Shoe Brand": "Nike", "Shoe Model": "Pegasus"}])
-
-    monkeypatch.setattr(gear_utils.core_text_imports, "read_bounded_csv", read_csv)
-
-    shoes = gear_utils.iterate_over_shoes_csv()
+    shoes = gear_utils.iterate_over_shoes_csv(str(shoes_file))
 
     assert shoes == [{"Shoe Name": "Pegasus", "Shoe Brand": "Nike", "Shoe Model": "Pegasus"}]
-    assert read_paths == [str(shoes_file_path)]
+
+
+def test_bike_csv_is_parsed_from_the_path_it_is_given(tmp_path):
+    bikes_file = tmp_path / "gear.csv"
+    bikes_file.write_text("Bike Name,Bike Brand,Bike Model\nCommuter,Trek,Domane\n")
+
+    bikes = gear_utils.iterate_over_bikes_csv(str(bikes_file))
+
+    assert bikes == {"Commuter": {"Bike Name": "Commuter", "Bike Brand": "Trek", "Bike Model": "Domane"}}
+
+
+def test_a_csv_with_the_wrong_headers_is_refused(tmp_path):
+    from fastapi import HTTPException
+
+    bikes_file = tmp_path / "gear.csv"
+    bikes_file.write_text("Name,Brand\nCommuter,Trek\n")
+
+    with pytest.raises(HTTPException):
+        gear_utils.iterate_over_bikes_csv(str(bikes_file))
 
 
 def test_bike_transform_strips_whitespace():

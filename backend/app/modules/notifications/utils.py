@@ -262,6 +262,38 @@ async def create_admin_new_sign_up_approval_request_notification(
         ) from err
 
 
+GARMIN_EXPIRED_WS_MESSAGE = "GARMIN_TOKEN_EXPIRED_NOTIFICATION"
+
+
+def create_garmin_token_expired_notification_row(
+    user_id: int,
+    db: Session,
+) -> tuple[notifications_schema.NotificationRead, str]:
+    """Create the notification row for an expired Garmin Connect token (synchronous).
+
+    The counterpart of :func:`create_garmin_token_expired_notification` for a
+    caller on a worker thread with no event loop: it writes the record and
+    returns it with the websocket message type, leaving the best-effort push to
+    the caller (dispatched onto the main loop via the async bridge).
+
+    Args:
+        user_id: The user whose Garmin Connect account was unlinked.
+        db: Database session used for the row write.
+
+    Returns:
+        Tuple of the created notification and the websocket message type string.
+    """
+    notification = notifications_crud.create_notification(
+        notifications_schema.NotificationCreate(
+            user_id=user_id,
+            type=notifications_constants.NotificationType.GARMIN_TOKEN_EXPIRED,
+            options={},
+        ),
+        db,
+    )
+    return notification, GARMIN_EXPIRED_WS_MESSAGE
+
+
 async def create_garmin_token_expired_notification(
     user_id: int,
     websocket_manager: websocket_manager.WebSocketManager,
@@ -283,7 +315,7 @@ async def create_garmin_token_expired_notification(
                 type=(notifications_constants.NotificationType.GARMIN_TOKEN_EXPIRED),
                 options={},
             ),
-            "GARMIN_TOKEN_EXPIRED_NOTIFICATION",
+            GARMIN_EXPIRED_WS_MESSAGE,
             user_id,
             websocket_manager,
         )

@@ -1,5 +1,4 @@
-import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -28,102 +27,91 @@ from core.database import SessionLocal
 logger = core_logger.get_logger(__name__)
 
 
-async def fetch_and_process_activities(
+def fetch_and_process_activities(
     strava_client: Client,
     start_date: datetime,
     end_date: datetime,
     user_id: int,
     user_integrations: user_integrations_schema.UsersIntegrationsRead,
-    db: Session,
-    is_startup: bool = False,
-) -> int:
-    # Check if we're currently rate-limited before
-    # making any Strava API calls
+) -> list[activity_schema.ActivityRead | None] | None:
+    """Fetch a user's Strava activities in a window and store the new ones.
+
+    Runs on a worker thread. The Strava round trips happen with no database
+    session open; each activity then opens a short session of its own for the
+    duplicate check, the lookups and the store.
+
+    Args:
+        strava_client: A client authenticated as the user.
+        start_date: Start of the window.
+        end_date: End of the window.
+        user_id: The user the activities belong to.
+        user_integrations: The user's integration settings.
+
+    Returns:
+        One entry per activity Strava returned (``None`` for one already stored),
+        or ``None`` when Strava returned nothing or the user is rate limited.
+
+    Raises:
+        HTTPException: When Strava rejects the request or the user is missing.
+    """
+    # Check if we're currently rate-limited before making any Strava API calls
     if strava_utils.rate_limit_tracker.is_rate_limited():
         logger.warning(
             f"User {user_id}: Strava rate limit active, skipping activity fetch",
             extra=core_logger.context(console=True),
         )
-        return 0
+        return None
 
-    # set the strava activities to None
-    strava_activities = None
-
-    # Fetch Strava activities after the specified start
-    # date. Run in a thread pool to avoid blocking the
-    # asyncio event loop with the synchronous
-    # requests-based stravalib library.
     try:
-        strava_activities = await asyncio.to_thread(
-            lambda: list(strava_client.get_activities(after=start_date, before=end_date))
-        )
+        strava_activities = list(strava_client.get_activities(after=start_date, before=end_date))
     except AccessUnauthorized as auth_err:
-        # Log a more specific error for auth issues
         logger.error(f"User {user_id}: Authentication error with Strava: {auth_err!s}", exc_info=auth_err)
-        if not is_startup:
-            raise HTTPException(
-                status_code=(status.HTTP_424_FAILED_DEPENDENCY),
-                detail=("Strava authentication failed. Please reconnect your Strava account."),
-            ) from auth_err
-        return 0
-    except HTTPException as http_err:
-        raise http_err
+        raise HTTPException(
+            status_code=(status.HTTP_424_FAILED_DEPENDENCY),
+            detail=("Strava authentication failed. Please reconnect your Strava account."),
+        ) from auth_err
+    except HTTPException:
+        raise
     except Exception as err:
-        # Check if this is a rate limit error
         if strava_utils.is_strava_rate_limit_error(err):
             err_str = str(err).lower()
             is_long = "long" in err_str or ("daily" in err_str)
             strava_utils.rate_limit_tracker.mark_rate_limited(is_long_term=is_long)
             logger.warning(f"User {user_id}: Strava rate limit exceeded, skipping activity fetch")
-            if not is_startup:
-                raise HTTPException(
-                    status_code=(status.HTTP_429_TOO_MANY_REQUESTS),
-                    detail=("Strava API rate limit exceeded. Please try again later."),
-                ) from err
-            return 0
-
-        # Log an error event if an exception occurred
-        logger.error(f"User {user_id}: Error fetching Strava activities: {err!s}", exc_info=err)
-        if not is_startup:
             raise HTTPException(
-                status_code=(status.HTTP_424_FAILED_DEPENDENCY),
-                detail=("Not able to fetch Strava activities"),
+                status_code=(status.HTTP_429_TOO_MANY_REQUESTS),
+                detail=("Strava API rate limit exceeded. Please try again later."),
             ) from err
-        return 0
 
-    if strava_activities is None:
-        # Log an informational event if no activities were found
-        logger.info(f"User {user_id}: No new Strava activities found after {start_date}: strava_activities is None")
-
-        # Return 0 to indicate no activities were processed
-        return 0
-
-    user = users_crud.get_user_by_id(user_id, db)
-    if user is None and not is_startup:
+        logger.error(f"User {user_id}: Error fetching Strava activities: {err!s}", exc_info=err)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
+            status_code=(status.HTTP_424_FAILED_DEPENDENCY),
+            detail=("Not able to fetch Strava activities"),
+        ) from err
 
-    user_privacy_settings = users_privacy_settings_crud.get_user_privacy_settings_by_user_id(user.id, db)
+    if not strava_activities:
+        logger.info(f"User {user_id}: No new Strava activities found after {start_date}")
+        return None
 
-    processed_activities = []
-
-    # Process the activities
-    for activity in strava_activities:
-        processed_activities.append(
-            await process_activity(
-                activity,
-                user_id,
-                user_privacy_settings,
-                strava_client,
-                user_integrations,
-                db,
+    with SessionLocal() as db:
+        user = users_crud.get_user_by_id(user_id, db)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
             )
-        )
+        user_privacy_settings = users_privacy_settings_crud.get_user_privacy_settings_by_user_id(user.id, db)
 
-    # Return the activities processed
-    return processed_activities if processed_activities else None
+    return [
+        process_activity(
+            activity,
+            user_id,
+            user_privacy_settings,
+            strava_client,
+            user_integrations,
+        )
+        for activity in strava_activities
+    ]
 
 
 def parse_activity(
@@ -132,12 +120,12 @@ def parse_activity(
     user_privacy_settings: users_privacy_settings_schema.UsersPrivacySettingsRead,
     strava_client: Client,
     user_integrations: user_integrations_schema.UsersIntegrationsRead,
-    db: Session,
 ) -> dict:
     # Fallback for activities with no GPS track (indoor rides, treadmill runs):
     # prefer the athlete's own timezone over the server's, which is meaningless
     # for a user on another continent.
-    owner = users_crud.get_user_by_id(user_id, db)
+    with SessionLocal() as db:
+        owner = users_crud.get_user_by_id(user_id, db)
     timezone = (owner.timezone if owner and owner.timezone else None) or core_config.settings.TZ
 
     # Check rate limit before detailed activity fetch
@@ -290,7 +278,8 @@ def parse_activity(
 
     if user_integrations.strava_sync_gear:
         # set the gear id for the activity
-        gear = gears_crud.get_gear_by_strava_id_from_user_id(detailed_activity.gear_id, user_id, db)
+        with SessionLocal() as db:
+            gear = gears_crud.get_gear_by_strava_id_from_user_id(detailed_activity.gear_id, user_id, db)
 
         # set the gear id for the activity
         if gear is not None:
@@ -300,7 +289,8 @@ def parse_activity(
     activity_type = activity_constants.define_activity_type(detailed_activity.sport_type.root)
 
     if gear_id is None:
-        gear_id = user_default_gear_utils.get_user_default_gear_by_activity_type(user_id, activity_type, db)
+        with SessionLocal() as db:
+            gear_id = user_default_gear_utils.get_user_default_gear_by_activity_type(user_id, activity_type, db)
 
     if activity_type != 3 and activity_type != 7 and is_lat_lon_set:
         timezone = core_timezone.from_lat_lon(
@@ -417,50 +407,46 @@ def save_activity_streams_laps(
     return activity_integration.store_parsed_activity(parsed, db)
 
 
-async def process_activity(
+def process_activity(
     activity,
     user_id: int,
     user_privacy_settings: users_privacy_settings_schema.UsersPrivacySettingsRead,
     strava_client: Client,
     user_integrations: user_integrations_schema.UsersIntegrationsRead,
-    db: Session,
-):
-    # Get the activity by Strava ID from the user
-    activity_db = strava_utils.fetch_and_validate_activity(activity.id, user_id, db)
+) -> activity_schema.ActivityRead | None:
+    """Parse one Strava activity and store it, unless it is already stored.
 
-    # Check if activity is None and return None if it is
-    if activity_db is not None:
+    The Strava calls inside :func:`parse_activity` run with no session open. The
+    duplicate check and the store each use a short session, and the store
+    publishes ``activity.created`` on this worker thread, where its subscribers
+    run inline without touching the request path.
+
+    Args:
+        activity: The Strava summary activity.
+        user_id: The user the activity belongs to.
+        user_privacy_settings: The user's privacy defaults.
+        strava_client: A client authenticated as the user.
+        user_integrations: The user's integration settings.
+
+    Returns:
+        The stored activity, or ``None`` when it was already stored.
+    """
+    with SessionLocal() as db:
+        already_stored = strava_utils.fetch_and_validate_activity(activity.id, user_id, db) is not None
+    if already_stored:
         return None
 
-    # Log an informational event for activity processing
     logger.info(f"User {user_id}: Strava activity {activity.id} will be processed")
 
-    # Parse the activity and streams — run in a thread pool because parse_activity
-    # makes multiple blocking synchronous HTTP calls (get_activity, get_activity_streams,
-    # get_activity_laps) via stravalib/requests that would otherwise block the event loop.
-    parsed_activity = await asyncio.to_thread(
-        parse_activity,
-        activity,
-        user_id,
-        user_privacy_settings,
-        strava_client,
-        user_integrations,
-        db,
-    )
+    parsed_activity = parse_activity(activity, user_id, user_privacy_settings, strava_client, user_integrations)
 
-    # Save the activity and streams to the database — also on a worker thread.
-    # This is not just a DB write: ``store_parsed_activity`` publishes
-    # ``activity.created``, and the in-process bus runs subscribers *inline on
-    # the calling thread*. That means map-thumbnail rendering (staticmap + PIL)
-    # and HR-zone computation would otherwise execute on the event loop, stalling
-    # every other request for the duration — for each activity in the sync.
-    return await asyncio.to_thread(
-        save_activity_streams_laps,
-        parsed_activity["activity_to_store"],
-        parsed_activity["stream_data"],
-        parsed_activity["laps"],
-        db,
-    )
+    with SessionLocal() as db:
+        return save_activity_streams_laps(
+            parsed_activity["activity_to_store"],
+            parsed_activity["stream_data"],
+            parsed_activity["laps"],
+            db,
+        )
 
 
 def fetch_and_process_activity_streams(
@@ -706,143 +692,41 @@ def fetch_and_process_activity_laps(
     return laps_processed
 
 
-async def retrieve_strava_users_activities_for_days(days: int, is_startup: bool = False):
-    # Skip entirely if Strava rate limit is active
-    if strava_utils.rate_limit_tracker.is_rate_limited():
-        logger.warning("Strava rate limit active, skipping scheduled activity retrieval")
-        return
-
-    # Create a new database session using context manager
-    with SessionLocal() as db:
-        try:
-            # Get all users
-            users = users_crud.get_all_users(db)
-
-            # Calculate the start date and end date
-            calculated_start_date = datetime.now(UTC) - timedelta(days=days)
-            calculated_end_date = datetime.now(UTC)
-
-            # Process the activities for each user
-            if users:
-                for user in users:
-                    try:
-                        await get_user_strava_activities_by_dates(
-                            calculated_start_date,
-                            calculated_end_date,
-                            user.id,
-                            None,
-                            is_startup,
-                        )
-                    except HTTPException as err:
-                        # Log the error but continue processing other users
-                        logger.error(f"User {user.id}: Error processing Strava activities: {err!s}", exc_info=err)
-                        # Don't reraise the exception if we're in startup mode
-                        if not is_startup:
-                            raise err
-                    except Exception as err:
-                        # Log the error but continue processing other users
-                        logger.error(
-                            f"User {user.id}: Unexpected error processing Strava activities: {err!s}", exc_info=err
-                        )
-                        # Don't reraise the exception if we're in startup mode
-                        if not is_startup:
-                            raise HTTPException(
-                                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                detail="Internal Server Error",
-                            ) from err
-        except HTTPException as err:
-            # Log an error event if an HTTPException occurred
-            logger.error(f"Error retrieving users: {err!s}", exc_info=err)
-            # Raise the HTTPException to propagate the error
-            if not is_startup:
-                raise err
-        except Exception as err:
-            # Log an error event if an exception occurred
-            logger.error(f"Error retrieving users: {err!s}", exc_info=err)
-            # Raise an HTTPException with a 500 Internal Server Error status code
-            if not is_startup:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Internal Server Error",
-                ) from err
-
-
-async def get_user_strava_activities_by_dates(
+def get_user_strava_activities_by_dates(
     start_date: datetime,
     end_date: datetime,
     user_id: int,
-    db: Session = None,
-    is_startup: bool = False,
-) -> list[activity_schema.ActivityRead] | None:
-    close_session = False
-    if db is None:
-        # Create a new database session
-        db = SessionLocal()
-        close_session = True
+) -> list[activity_schema.ActivityRead | None] | None:
+    """Fetch and store one user's Strava activities recorded in a window.
 
-    try:
-        # Get the user integrations by user ID
+    Refreshes the user's access token first when it is about to expire, so the
+    scheduled per-user refresh also keeps tokens current and no separate pass over
+    every user is needed.
+
+    Args:
+        start_date: Start of the window.
+        end_date: End of the window.
+        user_id: The user to sync.
+
+    Returns:
+        The activities Strava returned, or ``None`` when Strava is not linked or
+        nothing came back.
+
+    Raises:
+        HTTPException: When Strava rejects the request or the account is missing.
+    """
+    strava_utils.refresh_user_strava_token(user_id)
+
+    with SessionLocal() as db:
         user_integrations = strava_utils.fetch_user_integrations_and_validate_token(user_id, db)
 
-        if user_integrations is None:
-            logger.info(f"User {user_id}: Strava not linked")
-            return None
+    if user_integrations is None:
+        logger.info(f"User {user_id}: Strava not linked")
+        return None
 
-        # Log the start of the activities processing
-        logger.info(f"User {user_id}: Started Strava activities processing")
+    logger.info(f"User {user_id}: Started Strava activities processing")
+    strava_client = strava_utils.create_strava_client(user_integrations)
+    processed = fetch_and_process_activities(strava_client, start_date, end_date, user_id, user_integrations)
 
-        # Create a Strava client with the user's access token
-        strava_client = strava_utils.create_strava_client(user_integrations)
-
-        try:
-            # Fetch Strava activities after the specified start date
-            strava_activities_processed = await fetch_and_process_activities(
-                strava_client,
-                start_date,
-                end_date,
-                user_id,
-                user_integrations,
-                db,
-                is_startup,
-            )
-
-            # Log an informational event for tracing
-            logger.info(
-                f"User {user_id}: {len(strava_activities_processed) if strava_activities_processed else 0} Strava activities processed"
-            )
-
-            return strava_activities_processed
-        except HTTPException as err:
-            # Log an error event if an exception occurred
-            logger.error(f"User {user_id}: Error processing Strava activities: {err!s}", exc_info=err)
-            # Raise the HTTPException to propagate the error
-            if not is_startup:
-                raise err
-        except Exception as err:
-            # Log an error event if an exception occurred
-            logger.error(f"User {user_id}: Error processing Strava activities: {err!s}", exc_info=err)
-            # Raise an HTTPException with a 500 Internal Server Error status code
-            if not is_startup:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Internal Server Error",
-                ) from err
-    except HTTPException as err:
-        # Log an error event if an exception occurred
-        logger.error(f"User {user_id}: Error getting user integrations and Strava client: {err!s}", exc_info=err)
-        # Raise the HTTPException to propagate the error
-        if not is_startup:
-            raise err
-    except Exception as err:
-        # Log an error event if an exception occurred
-        logger.error(f"User {user_id}: Error getting user integrations and Strava client: {err!s}", exc_info=err)
-        # Raise an HTTPException with a 500 Internal Server Error status code
-        if not is_startup:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal Server Error",
-            ) from err
-    finally:
-        if close_session:
-            # Ensure the session is closed after use
-            db.close()
+    logger.info(f"User {user_id}: {len([a for a in processed or [] if a])} Strava activities processed")
+    return processed

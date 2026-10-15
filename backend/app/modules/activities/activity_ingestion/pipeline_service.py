@@ -1,9 +1,9 @@
 """The ingestion pipeline: validate -> parse -> enrich -> store -> retain.
 
-One path, shared by every source. The entry points in :mod:`upload_entry_service` and
-:mod:`bulk_entry_service` differ only in how they obtain the file and what they do when
-this fails; everything between a validated file on disk and persisted activities
-lives here.
+One path, shared by every source. The entry points in :mod:`upload_entry_service`,
+:mod:`provider_entry_service` and :mod:`bulk_import_service` differ only in how they
+obtain the file and what they do when this fails; everything between a validated file
+on disk and persisted activities lives here.
 
 The pipeline is format-agnostic. It asks
 :mod:`~modules.activities.activity_file_import.registry` for the parser
@@ -163,8 +163,8 @@ def store_activities_from_file(
 
     It has a single failure contract: it **raises** on any error. The thin entry
     points adapt that to their own contract (the upload entry cleans up and
-    re-raises; the bulk entry moves the file to the error directory and returns
-    ``None``).
+    re-raises; the provider entry logs and returns ``None``; a bulk import counts
+    the failure and keeps the file).
 
     Args:
         token_user_id: ID of the authenticated user performing the import.
@@ -346,14 +346,11 @@ def validate_prepare_and_store_file(
 ) -> list[activity_schema.ActivityRead] | None:
     """Validate, decompress, and store one on-disk activity file — **raising** on failure.
 
-    The shared raising core behind both the swallowing background entry
-    (:func:`~modules.activities.activity_ingestion.bulk_entry_service.store_activity_file`,
-    which moves the file to the error dir and returns ``None``) and the durable
-    bulk-import job body
-    (:func:`~modules.activities.activity_ingestion.bulk_entry_service.store_bulk_import_file`,
-    which lets the failure propagate so the job runner retries and eventually
-    dead-letters). Does no error-directory handling itself — the caller owns the
-    failure policy.
+    The shared raising core behind the swallowing provider entry
+    (:func:`~modules.activities.activity_ingestion.provider_entry_service.store_activity_file`,
+    which logs and returns ``None``) and the bulk import's per-file step, which
+    counts the failure and keeps the file. Does no failure handling itself — the
+    caller owns the policy.
 
     A ``.gz`` is decompressed to a temp file that is always removed here; the
     ``.gz`` itself is removed only after a successful import.
@@ -422,7 +419,7 @@ def validate_prepare_and_store_file(
         )
         if decompressed_path is not None:
             # The archive is consumed only once its contents are imported, so a
-            # failure leaves it for the caller to move to the error directory.
+            # failure leaves it for the caller to deal with.
             core_file_uploads.remove_files([original_path])
         return created
     finally:

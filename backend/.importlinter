@@ -135,7 +135,8 @@ type = forbidden
 allow_indirect_imports = True
 source_modules =
     modules.activities.activity_ingestion.upload_entry_service
-    modules.activities.activity_ingestion.bulk_entry_service
+    modules.activities.activity_ingestion.provider_entry_service
+    modules.activities.activity_ingestion.bulk_import_service
     modules.activities.activity_ingestion.service
     modules.activities.activity_ingestion.contracts
 forbidden_modules =

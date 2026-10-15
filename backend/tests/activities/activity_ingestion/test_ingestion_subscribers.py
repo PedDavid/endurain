@@ -84,3 +84,73 @@ class TestRegisterUploadDurableHandlers:
             ingestion_subscribers.UPLOADED_FILE_SUBSCRIBER_ID,
         )
         assert registry.get(ingestion_subscribers.UPLOADED_FILE_SUBSCRIBER_ID) is not None
+
+
+class TestBulkImportHandler:
+    """The durable handler for one batch of a bulk import."""
+
+    def _event(self, retry_count: int = 1) -> Event:
+        return Event(
+            event_id="evt-1",
+            event_type=ingestion_events.ACTIVITY_BULK_IMPORT_CONTINUE,
+            source="api:bulk_import",
+            timestamp="2026-10-15T00:00:00+00:00",
+            payload={"job_id": "job-1"},
+            metadata={},
+            retry_count=retry_count,
+        )
+
+    def test_runs_one_batch_for_the_job_named_in_the_event(self):
+        from unittest.mock import MagicMock, patch
+
+        import modules.activities.activity_ingestion.subscribers as subscribers
+
+        with (
+            patch.object(subscribers.platform_runtime, "get_active_platform") as platform,
+            patch.object(subscribers.activity_ingestion_bulk_import_service, "run_bulk_import_job") as run,
+        ):
+            platform.return_value = MagicMock(storage="storage")
+            subscribers.process_bulk_import_for_event(self._event())
+
+        run.assert_called_once_with("job-1", "storage")
+
+    def test_the_final_failed_attempt_closes_the_job_and_reraises(self):
+        from unittest.mock import MagicMock, patch
+
+        import pytest
+
+        import modules.activities.activity_ingestion.subscribers as subscribers
+
+        final = subscribers.core_config.settings.JOBS_MAX_ATTEMPTS
+        with (
+            patch.object(subscribers.platform_runtime, "get_active_platform") as platform,
+            patch.object(
+                subscribers.activity_ingestion_bulk_import_service, "run_bulk_import_job", side_effect=RuntimeError("x")
+            ),
+            patch.object(subscribers.activity_ingestion_service, "fail_ingestion_job") as fail,
+            pytest.raises(RuntimeError),
+        ):
+            platform.return_value = MagicMock(storage="storage")
+            subscribers.process_bulk_import_for_event(self._event(retry_count=final))
+
+        fail.assert_called_once()
+
+    def test_an_earlier_failure_is_left_to_the_retry(self):
+        from unittest.mock import MagicMock, patch
+
+        import pytest
+
+        import modules.activities.activity_ingestion.subscribers as subscribers
+
+        with (
+            patch.object(subscribers.platform_runtime, "get_active_platform") as platform,
+            patch.object(
+                subscribers.activity_ingestion_bulk_import_service, "run_bulk_import_job", side_effect=RuntimeError("x")
+            ),
+            patch.object(subscribers.activity_ingestion_service, "fail_ingestion_job") as fail,
+            pytest.raises(RuntimeError),
+        ):
+            platform.return_value = MagicMock(storage="storage")
+            subscribers.process_bulk_import_for_event(self._event(retry_count=1))
+
+        fail.assert_not_called()

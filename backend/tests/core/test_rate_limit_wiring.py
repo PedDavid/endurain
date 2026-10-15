@@ -37,6 +37,8 @@ import modules.auth.password_reset_tokens.router as password_reset_router
 import modules.auth.router as auth_router
 import modules.auth.sign_up_tokens.router as sign_up_tokens_router
 import modules.followers.router as followers_router
+import modules.garmin.router as garmin_router
+import modules.strava.router as strava_router
 import modules.users.users_profile.router as users_profile_router
 
 
@@ -107,11 +109,26 @@ _TIERED_ENDPOINTS = [
         id="activity-upload",
     ),
     pytest.param(
-        ingestion_router.create_activity_with_bulk_import,
+        ingestion_router.create_bulk_import_from_archive,
         core_rate_limit.UPLOAD,
-        id="activity-bulk-import",
+        id="activity-bulk-import-archive",
     ),
+    pytest.param(
+        ingestion_router.create_bulk_import_from_folder,
+        core_rate_limit.UPLOAD,
+        id="activity-bulk-import-folder",
+    ),
+    pytest.param(strava_router.import_bikes_from_strava_export, core_rate_limit.UPLOAD, id="strava-import-bikes"),
+    pytest.param(strava_router.import_shoes_from_strava_export, core_rate_limit.UPLOAD, id="strava-import-shoes"),
     pytest.param(ingestion_router.refresh_activities, core_rate_limit.PROVIDER_SYNC, id="provider-refresh"),
+    pytest.param(
+        strava_router.strava_retrieve_activities_days, core_rate_limit.PROVIDER_SYNC, id="strava-retrieve-activities"
+    ),
+    pytest.param(
+        garmin_router.garminconnect_retrieve_activities_days,
+        core_rate_limit.PROVIDER_SYNC,
+        id="garmin-retrieve-activities",
+    ),
     pytest.param(activity_media_router.create_activity_media, core_rate_limit.UPLOAD, id="media-upload"),
     pytest.param(activity_media_router.delete_activity_media, core_rate_limit.WRITE, id="media-delete"),
     pytest.param(activity_router.edit_activity, core_rate_limit.WRITE, id="activity-edit"),

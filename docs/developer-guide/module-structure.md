@@ -269,9 +269,9 @@ A cross-module call must not end the caller's transaction. A caller that compose
 two surface calls needs them atomic, and a module that can commit another
 module's session can persist half of an operation it does not own. So a surface
 write **stages** (`flush`) and its caller, which holds the session and knows the
-unit of work, commits. `set_thumbnail_key`, `clear_all_thumbnail_keys`,
-`set_activity_location` and `recompute_hr_zones_for_user` work this way; their
-callers (the thumbnail and geocoding services, the user edit) commit.
+unit of work, commits. `set_thumbnail_key`, `clear_all_thumbnail_keys` and
+`set_activity_location` work this way; their callers (the thumbnail and geocoding
+services) commit.
 
 The exception is a surface operation that is a self-contained unit of work, and
 the reason is always one of two:
@@ -423,7 +423,7 @@ it rather than the platform importing it. Three worked examples live in the tree
 | --- | --- |
 | The scheduler needed each module's recurring jobs | Each module declares `scheduled_jobs.recurring_jobs()`; `main.py` collects and hands the list to `start_scheduler`. |
 | Ingestion needed to pull from Strava and Garmin | Providers call `activity_ingestion.integration_service.register_activity_provider`; the private registry names no provider. |
-| Bulk import needed Strava-export semantics | `BulkImportSource` is a base class; `modules.strava.bulk_import_source.StravaBulkImportSource` subclasses it. |
+| Bulk import needed Strava-export semantics | `BulkImportFormat` is a registered layout (which members are activity files, the drop folder, how to build the source); `modules.strava.bulk_import_source` registers one and `StravaBulkImportSource` subclasses `BulkImportSource`. |
 | Activity ingestion/profile restore needed child records | Each child returns typed contributor objects from `integration_service`; `app/module_registry.py` installs them in `activities.contributor_registry`. |
 | Returning an activity needed its thumbnail's URL | `activity.service` asks `contributor_registry.resolve_thumbnail_url` for each activity it hands a client; `activity_thumbnail` registers the resolver at composition time. The stored key never leaves the server. |
 
@@ -654,8 +654,7 @@ one pattern. Recorded here so a review does not reopen them.
   every parser, not to the children, so `serializers.to_orm` absorbs the
   difference at the persistence edge.
 - **Job runners own their sessions.** `run_upload_job`, `run_refresh_job`,
-  `fail_ingestion_job` and the `mark_bulk_import_job_*` functions open
-  `SessionLocal` themselves: they are the entry point of a durable job and need
+  `run_bulk_import_job` and `fail_ingestion_job` open `SessionLocal` themselves: they are the entry point of a durable job and need
   separate transactions (mark processing, do the work, record the failure) so a
   failed unit of work cannot poison the record of the failure.
 - **Provider resolution on a surface.** A surface function resolves the provider

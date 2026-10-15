@@ -12,7 +12,6 @@ import modules.activities.contributor_registry as activities_contributor_registr
 _EXPECTED_CREATED_SUBSCRIBERS = {
     "activity_thumbnail.generate",
     "activity.notify_created",
-    "activity_streams.compute_hr_zones",
     "activity_geocoding.reverse_geocode",
 }
 _EXPECTED_DELETED_SUBSCRIBERS = {
@@ -72,15 +71,15 @@ class TestRuntimeModuleRegistry:
         events = MagicMock()
         runtime_module_registry.register_bus_subscribers(events)
         event_types = [call.args[0] for call in events.subscribe.call_args_list]
-        assert event_types.count(activity_events.ACTIVITY_CREATED) == 4
+        assert event_types.count(activity_events.ACTIVITY_CREATED) == 3
         assert event_types.count(activity_events.ACTIVITY_DELETED) == 3
 
     def test_registers_every_activity_durable_handler(self):
         registry = _register_durable_handlers()
         assert set(registry.subscribers_for(activity_events.ACTIVITY_CREATED)) == _EXPECTED_CREATED_SUBSCRIBERS
         assert set(registry.subscribers_for(activity_events.ACTIVITY_DELETED)) == _EXPECTED_DELETED_SUBSCRIBERS
-        assert set(registry.subscribers_for(ingestion_events.ACTIVITY_BULK_IMPORT_FILE)) == {
-            "activity_ingestion.bulk_import_file"
+        assert set(registry.subscribers_for(ingestion_events.ACTIVITY_BULK_IMPORT_CONTINUE)) == {
+            "activity_ingestion.bulk_import"
         }
         assert set(registry.subscribers_for(ingestion_events.ACTIVITY_FILE_UPLOADED)) == {
             "activity_ingestion.uploaded_file"
@@ -103,7 +102,6 @@ class TestRuntimeModuleRegistry:
                 exempt.add(subscriber_id)
         assert healed == {
             "activity_thumbnail.generate",
-            "activity_streams.compute_hr_zones",
             "activity_geocoding.reverse_geocode",
         }
         assert exempt == {"activity.notify_created"}

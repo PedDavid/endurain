@@ -154,13 +154,10 @@ class TestRefreshJob:
         _add_job(factory, kind="refresh", staged_key=None)
         synced = [SimpleNamespace(id=21)]
 
-        async def _sync(*_args, **_kwargs):
-            return synced
-
         with (
             patch.object(ingestion_jobs.core_database, "SessionLocal", factory),
             patch.object(
-                ingestion_jobs.activity_ingestion_refresh_entry_service, "sync_linked_providers", side_effect=_sync
+                ingestion_jobs.activity_ingestion_refresh_entry_service, "sync_linked_providers", return_value=synced
             ),
         ):
             ingestion_jobs.run_refresh_job("job-1", "storage")
@@ -293,51 +290,3 @@ class TestSweepStaleStagedBlobs:
         area = ingestion_jobs.activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
 
         assert self._run(factory, {(area, "processed/42.fit"): self._age(90)}) == []
-
-    def test_old_bulk_import_blobs_are_removed_and_recent_ones_kept(self, factory):
-        area = ingestion_jobs.activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA
-
-        deleted = self._run(factory, {(area, "3_old.gpx"): self._age(8), (area, "3_new.gpx"): self._age(1)})
-
-        assert deleted == [(area, "3_old.gpx")]
-
-
-class TestBulkImportHandle:
-    def test_a_transition_is_committed(self, factory):
-        _add_job(factory, kind="bulk_import")
-        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
-            ingestion_jobs.mark_bulk_import_job_processing("job-1")
-
-        assert _read_job(factory).status == "processing"
-
-    def test_a_missing_handle_is_a_no_op(self, factory):
-        with patch.object(ingestion_jobs.core_database, "SessionLocal", factory):
-            ingestion_jobs.mark_bulk_import_job_processing(None)
-            ingestion_jobs.mark_bulk_import_job_completed(None, [1])
-            ingestion_jobs.mark_bulk_import_job_failed(None)
-
-
-class TestSynchronousBulkImport:
-    def test_each_file_outcome_is_committed(self, factory):
-        """The fallback executor reuses one session across files, so each file's
-        transition has to be committed before the next one starts."""
-        _add_job(factory, id="job-a", kind="bulk_import", staged_key=None)
-        _add_job(factory, id="job-b", kind="bulk_import", staged_key=None)
-        db = factory()
-
-        with (
-            patch.object(ingestion_jobs.core_database, "get_db", return_value=iter([db])),
-            patch.object(
-                ingestion_jobs.activity_ingestion_bulk_entry_service,
-                "store_activity_file",
-                side_effect=[[SimpleNamespace(id=31)], None],
-            ),
-        ):
-            ingestion_jobs.process_all_files_sync(
-                7, [("job-a", "/a.gpx"), ("job-b", "/b.fit")], "2026-07-21T00:00:00", "storage"
-            )
-
-        first, second = _read_job(factory, "job-a"), _read_job(factory, "job-b")
-        assert (first.status, first.activity_ids) == ("completed", [31])
-        assert second.status == "failed"
-        assert second.error_code == activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED.value

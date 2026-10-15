@@ -19,7 +19,6 @@ from sqlalchemy import func
 
 import core.sanitization as core_sanitization
 import core.timezone as core_timezone
-import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.models as activity_models
 import modules.activities.activity.schema as activity_schema
 
@@ -201,20 +200,3 @@ def to_orm(
     )
 
     return new_activity
-
-
-def to_scoring_context(row) -> activity_contracts.ActivityScoringContext:
-    """Convert one activity projection row to its scoring context.
-
-    Args:
-        row: The activity projection row.
-
-    Returns:
-        The scoring context.
-    """
-    activity_id, owner_id, total_timer_time = row
-    return activity_contracts.ActivityScoringContext(
-        activity_id=activity_id,
-        owner_id=owner_id,
-        total_timer_time=float(total_timer_time) if total_timer_time is not None else None,
-    )

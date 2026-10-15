@@ -1,24 +1,21 @@
-"""Durable-job subscribers for activity ingestion: uploads, refreshes and bulk-import files.
+"""Durable-job subscribers for activity ingestion: uploads, refreshes and bulk imports.
 
 The upload and refresh routes answer 202 and hand the work here, because parsing
 a file is seconds of pure CPU and a provider refresh is a chain of third-party
 HTTP round-trips, neither of which belongs on a request thread.
 
-Bulk import enqueues **one durable job per file** (via the transactional outbox),
-so a crash mid-import keeps in-flight work and a failing file is retried with
-backoff and finally dead-lettered — moved to the import-error directory as the
-human trail.
+A bulk import is one job over one staged archive, worked through in short batches
+that each queue the next, so a large import interleaves with other work and resumes
+from its cursor after a crash.
 
 Every channel is durable-delivery only: the routes publish them exclusively when
-``JOBS_ENABLED``, so they always route to the outbox → relay → job. When durable
+``JOBS_ENABLED``, so they always route to the outbox -> relay -> job. When durable
 jobs are off the routes fall back to the in-process pool and these events are
 never published — hence no best-effort bus subscribers here.
 
 The handlers **raise** on failure so the runner retries and eventually
-dead-letters. Unlike bulk import, a terminally failed upload or refresh is
-**not** moved to an error directory: the requester is a real client waiting on a
-status, so the outcome is recorded on the ``activity_ingestion_jobs`` row where
-they can read it.
+dead-letters. The outcome a client reads is recorded on the
+``activity_ingestion_jobs`` row.
 """
 
 import jasil.event_versioning as platform_event_versioning
@@ -27,13 +24,11 @@ from jasil.events import Event
 from jasil.jobs.registry import JobHandlerRegistry
 
 import core.config as core_config
-import core.database as core_database
 import core.logger as core_logger
-import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
+import modules.activities.activity_ingestion.bulk_import_service as activity_ingestion_bulk_import_service
 import modules.activities.activity_ingestion.constants as activity_ingestion_constants
 import modules.activities.activity_ingestion.events as activity_ingestion_events
 import modules.activities.activity_ingestion.service as activity_ingestion_service
-import modules.activities.activity_ingestion.staging as activity_ingestion_staging
 
 logger = core_logger.get_logger(__name__)
 
@@ -41,7 +36,7 @@ logger = core_logger.get_logger(__name__)
 # dedup survive refactors.
 UPLOADED_FILE_SUBSCRIBER_ID = "activity_ingestion.uploaded_file"
 REFRESH_REQUESTED_SUBSCRIBER_ID = "activity_ingestion.refresh_requested"
-BULK_IMPORT_FILE_SUBSCRIBER_ID = "activity_ingestion.bulk_import_file"
+BULK_IMPORT_SUBSCRIBER_ID = "activity_ingestion.bulk_import"
 
 
 def _is_final_attempt(event: Event) -> bool:
@@ -118,71 +113,33 @@ def process_refresh_requested_for_event(event: Event) -> None:
         raise
 
 
-def process_bulk_import_file_for_event(event: Event) -> None:
-    """Durable handler: import one staged bulk-import file; raises so the runner retries.
+def process_bulk_import_for_event(event: Event) -> None:
+    """Durable handler: work one batch of a bulk import; raises so the runner retries.
 
-    The durable-job handler for ``activity.bulk_import_file``: any error
-    propagates so the runner retries with backoff and eventually dead-letters the
-    job. On the final attempt the staged blob is moved to the import-error area
-    first, so a dead-lettered file still leaves a human trail — but only after
-    the retries are exhausted, not on the first error.
-
-    The caller's ``activity_ingestion_jobs`` row is moved along with the work, so
-    the handle returned by ``POST /activities/bulk-import`` reports the same
-    outcome the runner reached. Only the last attempt records a failure: an
-    earlier one is still going to be retried, and reporting it as terminal would
-    tell the owner the file failed while the import is still in progress.
+    The batch records its progress on the job row, and queues its own continuation
+    when it leaves files over, so a retry resumes from the cursor rather than from
+    the start. On the final attempt the job is closed as failed so the owner sees a
+    terminal state instead of ``processing`` forever.
 
     Args:
-        event: The ``activity.bulk_import_file`` event (payload
-            ``{"job_id": str | None, "storage_key": str, "filename": str,
-            "user_id": int, "import_initiated_time": str}``).
+        event: The ``activity.bulk_import_continue`` event (payload
+            ``{"job_id": str}``).
     """
-    payload = platform_event_versioning.parse_payload(activity_ingestion_events.BulkImportFilePayload, event)
+    payload = platform_event_versioning.parse_payload(activity_ingestion_events.BulkImportContinuePayload, event)
     storage = platform_runtime.get_active_platform().storage
-    activity_ingestion_service.mark_bulk_import_job_processing(payload.job_id)
     try:
-        with activity_ingestion_staging.materialized(payload.storage_key, payload.filename, storage) as file_path:
-            if file_path is None:
-                # Already imported and discarded: a duplicate delivery, not a
-                # failure. Raising would retry until the job dead-lettered.
-                logger.info(
-                    "Bulk import: skipping a job whose file is no longer staged",
-                    extra=core_logger.context(
-                        user_id=payload.user_id, file=payload.filename, storage_key=payload.storage_key
-                    ),
-                )
-                return
-            with core_database.SessionLocal() as db:
-                activities = activity_ingestion_bulk_entry_service.store_bulk_import_file(
-                    payload.user_id, file_path, payload.import_initiated_time, storage, db
-                )
-        activity_ingestion_service.mark_bulk_import_job_completed(
-            payload.job_id, [activity.id for activity in activities or [] if activity.id is not None]
-        )
-        # After the outcome is recorded: a failure up to here retries against the
-        # blob, and a failed delete here must not undo a finished import.
-        activity_ingestion_staging.discard(payload.storage_key, storage)
-        logger.debug(
-            "Imported a bulk-import file",
-            extra=core_logger.context(user_id=payload.user_id, file=payload.filename),
-        )
+        activity_ingestion_bulk_import_service.run_bulk_import_job(payload.job_id, storage)
     except Exception as err:
-        # ``retry_count`` is the (claim-incremented) attempt number; when it has
-        # reached the ceiling this failure dead-letters the job.
         if _is_final_attempt(event):
-            activity_ingestion_staging.move_to_errors(payload.storage_key, payload.user_id, payload.filename, storage)
-            activity_ingestion_service.mark_bulk_import_job_failed(payload.job_id)
-        else:
-            logger.warning(
-                "Bulk-import file failed; the job will be retried",
+            activity_ingestion_service.fail_ingestion_job(
+                payload.job_id,
+                activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED,
+                storage,
+            )
+            logger.error(
+                "Bulk import dead-lettered",
                 exc_info=err,
-                extra=core_logger.context(
-                    user_id=payload.user_id,
-                    file=payload.filename,
-                    attempt=event.retry_count,
-                    max_attempts=core_config.settings.JOBS_MAX_ATTEMPTS,
-                ),
+                extra=core_logger.context(console=True, job_id=payload.job_id),
             )
         raise
 
@@ -204,7 +161,7 @@ def register_durable_handlers(registry: JobHandlerRegistry) -> None:
         process_refresh_requested_for_event,
     )
     registry.register(
-        activity_ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
-        BULK_IMPORT_FILE_SUBSCRIBER_ID,
-        process_bulk_import_file_for_event,
+        activity_ingestion_events.ACTIVITY_BULK_IMPORT_CONTINUE,
+        BULK_IMPORT_SUBSCRIBER_ID,
+        process_bulk_import_for_event,
     )

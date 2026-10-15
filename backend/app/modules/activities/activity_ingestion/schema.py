@@ -20,6 +20,13 @@ class ActivityIngestionJobRead(BaseModel):
             bulk-import file, or syncs from providers.
         filename: Original client filename; only set for uploads and
             bulk-import files.
+        import_source: For a bulk import, the archive format it reads.
+        files_total: For a bulk import, importable files in its archive.
+        files_done: For a bulk import, files imported so far.
+        files_failed: For a bulk import, files that could not be imported. A
+            finished import with failures still ends ``completed``.
+        provider: The one provider a refresh syncs; ``None`` when it syncs every
+            linked provider.
         status: Current lifecycle state.
         error_code: Sanitized failure reason when ``status`` is failed.
         activity_ids: Ids created by the import once it completes.
@@ -33,6 +40,11 @@ class ActivityIngestionJobRead(BaseModel):
     id: str
     kind: activity_ingestion_constants.IngestionJobKind
     filename: str | None = None
+    import_source: str | None = None
+    files_total: int | None = None
+    files_done: int | None = None
+    files_failed: int | None = None
+    provider: str | None = None
     status: activity_ingestion_constants.IngestionJobStatus
     error_code: activity_ingestion_constants.IngestionJobErrorCode | None = None
     activity_ids: list[int] = []

@@ -174,11 +174,14 @@ def get_user_gear(user_id: int):
         logger.info(f"User {user_id}: {num_gear_activities_set} activities where gear was set")
 
 
-def iterate_over_bikes_csv() -> dict:
+def iterate_over_bikes_csv(bikes_file_path: str) -> dict:
     """
     Parses a Strava bikes CSV file and returns its contents as a dictionary.
 
-    The function looks for a CSV file specified by configuration settings, reads it, and constructs a dictionary where each key is the "Bike Name" from the CSV, and the value is a dictionary of the bike's attributes as provided in the CSV row.
+    Constructs a dictionary where each key is the "Bike Name" from the CSV, and the value is a dictionary of the bike's attributes as provided in the CSV row.
+
+    Args:
+        bikes_file_path: Path of the uploaded bikes CSV.
 
     Returns:
         dict: A dictionary mapping bike names to their corresponding data from the CSV file.
@@ -186,17 +189,14 @@ def iterate_over_bikes_csv() -> dict:
     Raises:
         HTTPException: If the CSV file is missing, has invalid headers, or cannot be parsed.
     """
-    # CSV file location
-    bulk_import_dir = core_config.STRAVA_BULK_IMPORT_DIR
-    bikes_file_name = core_config.STRAVA_BULK_IMPORT_BIKES_FILE
-    bikes_file_path = os.path.join(bulk_import_dir, bikes_file_name)
+    bikes_file_name = "bikes.csv"
 
     # Get file and parse it
     bikes_dict = {}
     try:
         if os.path.isfile(bikes_file_path):
             logger.info(
-                f"{bikes_file_name} exists in the {bulk_import_dir} directory. Starting to process file.",
+                f"Parsing the uploaded {bikes_file_name}.",
                 extra=core_logger.context(console=True),
             )
             for row in core_text_imports.read_bounded_csv(bikes_file_path):
@@ -216,7 +216,7 @@ def iterate_over_bikes_csv() -> dict:
             )
             return bikes_dict
         logger.info(
-            f"No {bikes_file_name} file located in the {bulk_import_dir} directory.",
+            "No Strava bikes CSV file found for import.",
             extra=core_logger.context(console=True),
         )
         raise HTTPException(
@@ -235,12 +235,15 @@ def iterate_over_bikes_csv() -> dict:
         ) from err
 
 
-def iterate_over_shoes_csv() -> list:
+def iterate_over_shoes_csv(shoes_file_path: str) -> list:
     """
     Parses a Strava shoes CSV file and returns its contents as a list.
     Why a list?  Strava shoes files do not have anything that can be used as a key (unlike Strava bikes files, where nickname is required and unique)
 
-    The function looks for a CSV file specified by configuration settings, reads it, and constructs a list where each item a dictionary of the shoe's attributes as provided in the CSV row.
+    Constructs a list where each item a dictionary of the shoe's attributes as provided in the CSV row.
+
+    Args:
+        shoes_file_path: Path of the uploaded shoes CSV.
 
     Returns:
         list: A list of shoe data obtained from the CSV file.
@@ -248,17 +251,14 @@ def iterate_over_shoes_csv() -> list:
     Raises:
         HTTPException: If the CSV file is missing, has invalid headers, or cannot be parsed.
     """
-    # CSV file location
-    bulk_import_dir = core_config.STRAVA_BULK_IMPORT_DIR
-    shoesfilename = core_config.STRAVA_BULK_IMPORT_SHOES_FILE
-    shoes_file_path = os.path.join(bulk_import_dir, shoesfilename)
+    shoesfilename = "shoes.csv"
 
     # Get file and parse it
     shoes_list = []  # Using a list for shoes, as there is no unique value to use as a dictionary key like with bikes
     try:
         if os.path.isfile(shoes_file_path):
             logger.info(
-                f"{shoesfilename} exists in the {bulk_import_dir} directory. Starting to process file.",
+                f"Parsing the uploaded {shoesfilename}.",
                 extra=core_logger.context(console=True),
             )
             for row in core_text_imports.read_bounded_csv(shoes_file_path):
@@ -278,7 +278,7 @@ def iterate_over_shoes_csv() -> list:
             )
             return shoes_list
         logger.info(
-            f"No {shoesfilename} file located in the {bulk_import_dir} directory.",
+            "No Strava shoes CSV file found for import.",
             extra=core_logger.context(console=True),
         )
         raise HTTPException(

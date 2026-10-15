@@ -1,4 +1,4 @@
-"""The Strava-export specialisation of the bulk-import source.
+"""The Strava-export specialisation of the bulk-import source, and its archive layout.
 
 A Strava export is a folder of activity files plus an ``activities.csv`` manifest
 and a ``media`` directory. Three things follow from that, and all three are facts
@@ -10,25 +10,31 @@ about Strava rather than about bulk import:
   25),
 * the photos ship next to the files rather than inside them.
 
-Answering those used to be ``BulkImportSource``'s job in the activities module,
-which meant activities imported ``modules.strava`` while Strava imported the
-ingestion entry point — a cycle that pinned the two modules together. Subclassing
-here reverses it: Strava knows about activities, activities knows nothing about
-Strava.
+Activities knows nothing about Strava: this module registers a
+:class:`BulkImportFormat` that says where the activity files are, where the user
+drops them, and how to build the source that answers those three questions.
 """
 
+import os
+import tempfile
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 import core.config as core_config
+import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.strava.bulk_import_utils as strava_bulk_import_utils
+from core.database import SessionLocal
 
 logger = core_logger.get_logger(__name__)
+
+FORMAT_NAME = "strava"
+
+_ACTIVITIES_FOLDER = "activities"
 
 
 @dataclass(frozen=True)
@@ -39,19 +45,12 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
         strava_activities: Parsed Strava ``activities.csv``, keyed by filename.
         gear_nickname_to_id: Gear nickname -> internal gear id, used to resolve
             the gear named in the CSV.
+        read_member: Reads a member of the archive by name, to reach the photos.
     """
 
     strava_activities: dict | None = None
     gear_nickname_to_id: dict | None = None
-
-    @property
-    def error_directory(self) -> str:
-        """Directory a file is moved to when its import fails.
-
-        A Strava export lands in one shared directory rather than a per-user
-        drop, so its failures do too.
-        """
-        return core_config.STRAVA_BULK_IMPORT_IMPORT_ERRORS_DIR
+    read_member: activity_ingestion_integration.ArchiveMemberReader | None = None
 
     def metadata_for(self, file_base_name: str) -> dict:
         """Build the supplemental metadata from the matching ``activities.csv`` row.
@@ -104,10 +103,8 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
         ):
             return True
         logger.debug(
-            "Bulk activity import of multi-activity .fit file: "
-            "skipping likely duplicate import. "
-            "Start time does not align with start time for this .fit file "
-            "in the Strava activities.csv file.",
+            "Bulk activity import of multi-activity .fit file: skipping likely duplicate import. "
+            "Start time does not align with start time for this .fit file in the Strava activities.csv file.",
             extra=core_logger.context(console=True),
         )
         return False
@@ -129,15 +126,102 @@ class StravaBulkImportSource(activity_ingestion_integration.BulkImportSource):
             file_base_name: The file's original base name (the ``activities.csv``
                 lookup key).
             db: Database session.
-
-        Returns:
-            None.
         """
-        if not self.strava_activities or not created_activities:
+        if not self.strava_activities or not created_activities or self.read_member is None:
             return
         strava_bulk_import_utils.import_media_from_strava_bulk_export(
             self.strava_activities,
             created_activities[-1],
             file_base_name,
+            self.read_member,
             db,
         )
+
+
+def _is_activity_member(member_name: str) -> bool:
+    """Whether an archive member is an activity file of a Strava export.
+
+    Args:
+        member_name: The member's path inside the archive.
+
+    Returns:
+        True for a supported file directly inside the export's ``activities`` folder.
+    """
+    base = os.path.basename(member_name)
+    folder = os.path.dirname(member_name).split("/")[-1]
+    return (
+        folder == _ACTIVITIES_FOLDER
+        and not base.startswith(".")
+        and os.path.splitext(base)[1].lower() in core_config.SUPPORTED_FILE_FORMATS
+    )
+
+
+def _is_export_member(member_name: str) -> bool:
+    """Whether a file in the drop folder belongs to a Strava export.
+
+    Args:
+        member_name: The file's path relative to the folder.
+
+    Returns:
+        True for the manifest, an activity file or a photo.
+    """
+    top = member_name.split("/", 1)[0]
+    return (
+        member_name == core_config.STRAVA_BULK_IMPORT_ACTIVITIES_FILE
+        or _is_activity_member(member_name)
+        or (top == strava_bulk_import_utils.MEDIA_FOLDER and "/" in member_name)
+    )
+
+
+def _build_source(
+    user_id: int,
+    import_initiated_time: str,
+    read_member: activity_ingestion_integration.ArchiveMemberReader,
+) -> StravaBulkImportSource:
+    """Build the source for one batch from the export's manifest and the user's gear.
+
+    Args:
+        user_id: The importing user.
+        import_initiated_time: ISO timestamp of when the import began.
+        read_member: Reads a member of the archive by name.
+
+    Returns:
+        The source applied to every file of the batch.
+
+    Raises:
+        InvalidInputError: When the archive has no usable ``activities.csv``.
+    """
+    manifest = read_member(core_config.STRAVA_BULK_IMPORT_ACTIVITIES_FILE)
+    if manifest is None:
+        raise core_exceptions.InvalidInputError("The export has no activities.csv")
+    with tempfile.TemporaryDirectory(prefix="strava-manifest-") as work_dir:
+        path = os.path.join(work_dir, core_config.STRAVA_BULK_IMPORT_ACTIVITIES_FILE)
+        with open(path, "wb") as handle:
+            handle.write(manifest)
+        strava_activities = strava_bulk_import_utils.parse_activities_manifest(path)
+    if strava_activities is None:
+        raise core_exceptions.InvalidInputError("The export's activities.csv could not be read")
+
+    with SessionLocal() as db:
+        gear = strava_bulk_import_utils.create_gear_dictionary_for_bulk_import(user_id, db)
+
+    return StravaBulkImportSource(
+        import_initiated_time=import_initiated_time,
+        user_id=user_id,
+        strava_activities=strava_activities,
+        gear_nickname_to_id=gear,
+        read_member=read_member,
+    )
+
+
+def register_bulk_import_format() -> None:
+    """Register the Strava export layout with activity ingestion."""
+    activity_ingestion_integration.register_bulk_import_format(
+        activity_ingestion_integration.BulkImportFormat(
+            name=FORMAT_NAME,
+            is_activity_member=_is_activity_member,
+            is_export_member=_is_export_member,
+            drop_directory=core_config.strava_bulk_import_dir_for,
+            build_source=_build_source,
+        )
+    )

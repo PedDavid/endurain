@@ -12,6 +12,7 @@ from collections.abc import Callable
 import jasil.publisher as platform_publisher
 from sqlalchemy.orm import Session
 
+import core.event_metadata as core_event_metadata
 import modules.activities.activity_ingestion.events as activity_ingestion_events
 
 
@@ -60,45 +61,56 @@ def publish_refresh_requested(job_id: str, user_id: int, db: Session, *, commit:
     )
 
 
-def publish_bulk_import_files(
-    staged_files: list[tuple[str, str, str]],
-    user_id: int,
+def publish_refresh_requests(
+    jobs: list[tuple[str, int]],
     db: Session,
     *,
     commit: Callable[[], None],
-    import_initiated_time: str,
 ) -> None:
-    """Publish one ``activity.bulk_import_file`` per staged file in a single transaction.
+    """Publish one ``activity.refresh_requested`` per refresh job in one transaction.
 
-    Goes through :func:`jasil.publisher.publish_many_committing`, which
-    **propagates** staging failures instead of logging and continuing: a
-    swallowed failure would mean the file is silently never imported while the
-    route still answers 202.
+    Used by the scheduled fan-out, which creates a job per linked user: the whole
+    batch is staged in the caller's transaction and committed once, instead of a
+    commit per user.
 
     Args:
-        staged_files: ``(ingestion job id, storage key, filename)`` per file.
-        user_id: ID of the user performing the import.
-        import_initiated_time: ISO timestamp of when the bulk import was initiated.
+        jobs: ``(job id, owning user id)`` per refresh job.
         db: The session the job rows were created on.
         commit: Zero-arg commit callable that ends the caller's transaction.
-
-    Raises:
-        Exception: Propagated from the outbox staging.
     """
+    owner_of = dict(jobs)
     platform_publisher.publish_many_committing(
-        activity_ingestion_events.ACTIVITY_BULK_IMPORT_FILE,
-        [
-            activity_ingestion_events.BulkImportFilePayload(
-                job_id=job_id,
-                storage_key=key,
-                filename=filename,
-                user_id=user_id,
-                import_initiated_time=import_initiated_time,
-            ).model_dump()
-            for job_id, key, filename in staged_files
-        ],
+        activity_ingestion_events.ACTIVITY_REFRESH_REQUESTED,
+        [activity_ingestion_events.RefreshRequestedPayload(job_id=job_id).model_dump() for job_id, _ in jobs],
+        source="scheduler:provider_refresh",
+        metadata_for=lambda payload: {"user_id": owner_of[payload["job_id"]]},
+        db=db,
+        commit=commit,
+        schema_version=activity_ingestion_events.RefreshRequestedPayload.SCHEMA_VERSION,
+    )
+
+
+def publish_bulk_import_continue(job_id: str, user_id: int, db: Session, *, commit: Callable[[], None]) -> None:
+    """Publish ``activity.bulk_import_continue`` so a worker runs the next batch.
+
+    Staged in the transactional outbox on ``db`` and committed with whatever the
+    caller staged — the archive record when an import is accepted, the resume
+    point when a batch ends — so a crash cannot leave progress without its
+    continuation, or a continuation without its progress.
+
+    Args:
+        job_id: The ``activity_ingestion_jobs`` row to continue.
+        user_id: The importing user's ID.
+        db: The session the job row was staged on.
+        commit: Zero-arg commit callable that ends the caller's transaction.
+    """
+    payload = activity_ingestion_events.BulkImportContinuePayload(job_id=job_id)
+    platform_publisher.publish_committing(
+        activity_ingestion_events.ACTIVITY_BULK_IMPORT_CONTINUE,
+        payload.model_dump(),
         source="api:bulk_import",
         db=db,
         commit=commit,
-        schema_version=activity_ingestion_events.BulkImportFilePayload.SCHEMA_VERSION,
+        metadata={core_event_metadata.META_USER_ID: user_id},
+        schema_version=payload.SCHEMA_VERSION,
     )

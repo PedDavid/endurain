@@ -46,16 +46,13 @@ import modules.auth.password_reset_tokens.utils as password_reset_tokens_utils
 import modules.auth.scheduled_jobs as auth_scheduled_jobs
 import modules.auth.sign_up_tokens.utils as sign_up_tokens_utils
 import modules.auth.utils as auth_utils
-import modules.garmin.activity_utils as garmin_activity_utils
 import modules.garmin.health_utils as garmin_health_utils
 import modules.garmin.provider_registry as garmin_provider_registry
 import modules.garmin.scheduled_jobs as garmin_scheduled_jobs
 import modules.server_settings.schema as server_settings_schema
 import modules.server_settings.utils as server_settings_utils
-import modules.strava.activity_utils as strava_activity_utils
 import modules.strava.provider_registry as strava_provider_registry
 import modules.strava.scheduled_jobs as strava_scheduled_jobs
-import modules.strava.utils as strava_utils
 from api import router as api_router
 from core.database import SessionLocal
 from core.database import engine as core_db_engine
@@ -110,24 +107,6 @@ def _run_alembic_migrations() -> None:
     # avoid conflicts with FastAPI / our main logger.
     alembic_cfg.attributes["configure_logger"] = False
     command.upgrade(alembic_cfg, "head")
-
-
-def _refresh_strava_tokens() -> None:
-    """Refresh persisted Strava OAuth tokens."""
-    strava_utils.refresh_strava_tokens(True)
-
-
-async def _retrieve_recent_garmin_activities() -> None:
-    """Backfill the last day of Garmin Connect activities."""
-    await garmin_activity_utils.retrieve_garminconnect_users_activities_for_days(1)
-
-
-async def _retrieve_recent_strava_activities() -> None:
-    """Backfill the last day of Strava activities."""
-    await strava_activity_utils.retrieve_strava_users_activities_for_days(
-        1,
-        True,
-    )
 
 
 async def _retrieve_recent_garmin_health() -> None:
@@ -284,18 +263,9 @@ async def startup_event(fastapi_app: FastAPI) -> None:
             extra=core_logger.context(console=True),
         )
 
-    # Phase 2: best-effort background syncs and clean-up.
-    logger.info("Refreshing Strava tokens on startup", extra=core_logger.context(console=True))
-    _safe_run("refresh_strava_tokens", _refresh_strava_tokens)
-
-    logger.info(
-        "Retrieving last day activities from Garmin Connect on startup", extra=core_logger.context(console=True)
-    )
-    await _safe_run_async("retrieve_recent_garmin_activities", _retrieve_recent_garmin_activities)
-
-    logger.info("Retrieving last day activities from Strava on startup", extra=core_logger.context(console=True))
-    await _safe_run_async("retrieve_recent_strava_activities", _retrieve_recent_strava_activities)
-
+    # Phase 2: best-effort background syncs and clean-up. Provider activity syncs
+    # are queued per user by activity ingestion's startup task below, so startup
+    # does not wait on every user's provider round trips.
     logger.info(
         "Retrieving last day health stats from Garmin Connect on startup", extra=core_logger.context(console=True)
     )

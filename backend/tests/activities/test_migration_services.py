@@ -73,28 +73,3 @@ def test_each_operation_stages_then_commits(module, crud_attr, crud_target, call
 
     crud_call.assert_called_once()
     db.commit.assert_called_once()
-
-
-class TestStreamsBackfill:
-    def test_commits_after_staging(self):
-        import modules.activities.activity_streams.migration_service as service
-
-        db = MagicMock()
-        with patch.object(
-            service.activity_streams_crud, "backfill_zone_percentages_for_missing_hr_streams"
-        ) as crud_call:
-            service.backfill_zone_percentages_for_missing_hr_streams([{"stream_id": 1, "zone_percentages": {}}], db)
-
-        crud_call.assert_called_once()
-        db.commit.assert_called_once()
-
-    def test_a_failed_commit_is_logged_and_swallowed(self):
-        """One bad batch must not stop migration 7; it re-derives on its next run."""
-        import modules.activities.activity_streams.migration_service as service
-
-        db = MagicMock()
-        db.commit.side_effect = RuntimeError("commit failed")
-        with patch.object(service.activity_streams_crud, "backfill_zone_percentages_for_missing_hr_streams"):
-            service.backfill_zone_percentages_for_missing_hr_streams([], db)
-
-        db.rollback.assert_called_once()

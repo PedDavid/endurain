@@ -55,15 +55,6 @@ class ActivityLocationRef:
 
 
 @dataclass(frozen=True)
-class ActivityScoringContext:
-    """Parent columns required to score one activity's streams."""
-
-    activity_id: int
-    owner_id: int
-    total_timer_time: float | None = None
-
-
-@dataclass(frozen=True)
 class ActivityFeedEntry:
     """A masked feed item paired with its unmasked persistence cursor.
 

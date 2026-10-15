@@ -8,8 +8,10 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -52,6 +54,18 @@ class ActivityIngestionJob(Base):
             to build a filesystem path. Null for a refresh.
         staged_key: Storage key of the uploaded blob awaiting parsing, cleared
             once consumed. Null for a refresh.
+        import_source: For a bulk import, the archive format it reads
+            (``generic`` or a provider export such as ``strava``).
+        files_total: For a bulk import, how many importable files its archive holds.
+        files_done: For a bulk import, files imported so far.
+        files_failed: For a bulk import, files that could not be imported.
+        cursor: For a bulk import, the last archive member handled, so the next
+            batch resumes after it.
+        provider: For a refresh, the one provider to sync; null syncs every linked
+            provider.
+        window_start: For a refresh, the start of the window to fetch; null means
+            the default window ending when the job runs.
+        window_end: For a refresh, the end of the window to fetch.
         status: Lifecycle state: pending, processing, completed, or failed.
         error_code: Stable, sanitized reason when ``status`` is failed.
         activity_ids: Ids created by the import, so the client can refresh
@@ -68,6 +82,15 @@ class ActivityIngestionJob(Base):
         # another's, nor an upload's with a future refresh's. Postgres treats
         # NULLs as distinct, so jobs without a key are unaffected.
         UniqueConstraint("user_id", "kind", "idempotency_key", name="uq_activity_ingestion_jobs_user_kind_idempotency"),
+        # One bulk import running per user. The database decides it, so two
+        # requests racing past the service's check cannot both start one.
+        Index(
+            "uq_activity_ingestion_jobs_user_active_bulk_import",
+            "user_id",
+            unique=True,
+            postgresql_where=text("kind = 'bulk_import' AND completed_at IS NULL"),
+            sqlite_where=text("kind = 'bulk_import' AND completed_at IS NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -107,6 +130,46 @@ class ActivityIngestionJob(Base):
         String(500),
         nullable=True,
         comment="Storage key of the staged upload; cleared once consumed",
+    )
+    import_source: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Archive format a bulk import reads (generic or a provider export)",
+    )
+    files_total: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Importable files in a bulk import's archive",
+    )
+    files_done: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Files a bulk import has imported so far",
+    )
+    files_failed: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Files a bulk import could not import",
+    )
+    cursor: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Last archive member a bulk import handled; the next batch resumes after it",
+    )
+    provider: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Provider a refresh syncs; null syncs every linked provider",
+    )
+    window_start: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Start of the window a refresh fetches; null means the default window",
+    )
+    window_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="End of the window a refresh fetches",
     )
     status: Mapped[str] = mapped_column(
         String(20),

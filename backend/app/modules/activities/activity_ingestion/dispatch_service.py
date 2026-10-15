@@ -64,3 +64,16 @@ def run_in_background(run: Callable[..., Any], *args: Any) -> None:
     """
     if not worker_retries():
         activity_ingestion_background.submit(run, *args)
+
+
+def run_on_this_node(run: Callable[..., Any], *args: Any) -> None:
+    """Run node-bound work on the in-process pool, whatever the profile.
+
+    For work that needs something only this process can see — a folder the user
+    dropped files into — so a durable worker on another node could not do it.
+
+    Args:
+        run: The job body.
+        *args: Arguments for the job body.
+    """
+    activity_ingestion_background.submit(run, *args)

@@ -306,64 +306,6 @@ def owns_activity(activity_id: int, user_id: int, db: Session) -> bool:
     return activity_service.owns_activity(activity_id, user_id, db)
 
 
-def get_activity_scoring_context(
-    activity_id: int,
-    db: Session,
-) -> activity_contracts.ActivityScoringContext | None:
-    """Return parent columns needed to score one activity's streams.
-
-    Args:
-        activity_id: ID of the activity.
-        db: Database session.
-
-    Returns:
-        Parent columns needed to score one activity's streams.
-    """
-    return activity_crud.get_activity_scoring_context(activity_id, db)
-
-
-def get_activity_scoring_contexts(
-    activity_ids: list[int],
-    db: Session,
-) -> dict[int, activity_contracts.ActivityScoringContext]:
-    """Return stream-scoring contexts keyed by activity id.
-
-    Args:
-        activity_ids: IDs of the activities to read.
-        db: Database session.
-
-    Returns:
-        Stream-scoring contexts keyed by activity id.
-    """
-    return activity_crud.get_activity_scoring_contexts(activity_ids, db)
-
-
-def list_user_activity_scoring_contexts(
-    user_id: int,
-    db: Session,
-    *,
-    after_id: int = 0,
-    batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activity_contracts.ActivityScoringContext]:
-    """Return a bounded batch of one user's stream-scoring contexts.
-
-    Args:
-        user_id: ID of the user.
-        db: Database session.
-        after_id: Return only rows with an ID greater than this.
-        batch_size: Maximum number of contexts to return.
-
-    Returns:
-        A bounded batch of one user's stream-scoring contexts.
-    """
-    return activity_crud.list_user_activity_scoring_contexts(
-        user_id,
-        db,
-        after_id=after_id,
-        batch_size=batch_size,
-    )
-
-
 # Derived-artifact maintenance. The thumbnail and geocoding subsystems reach the
 # activity row through these. They are system-level operations with no requester
 # to authorize, no event and no invariant beyond the payload, so they go straight

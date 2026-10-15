@@ -1,12 +1,12 @@
 """Accepting and running activity ingestion jobs.
 
-Three ways activities enter the system on a user's request — an uploaded file, a
-provider refresh and a bulk import of the user's drop directory — and all work
-the same way: the route accepts, returns a handle, and the work runs on a
-background worker. ``accept_*`` and ``start_bulk_import`` run in the request;
-``run_*_job`` is the job body, deliberately identical whichever executor calls
-it (the durable worker when ``JOBS_ENABLED``, the in-process pool otherwise), so
-the client contract does not change with the deployment.
+Activities enter on a user's request three ways — an uploaded file, a provider
+refresh and a bulk import (:mod:`bulk_import_service`) — and all work the same
+way: the route accepts, returns a handle, and the work runs on a background
+worker. ``accept_*`` runs in the request; ``run_*_job`` is the job body,
+deliberately identical whichever executor calls it (the durable worker when
+``JOBS_ENABLED``, the in-process pool otherwise), so the client contract does not
+change with the deployment.
 
 This service owns the transaction for every job row: the entry points hand it
 the storage provider and it stages, publishes and commits.
@@ -16,13 +16,10 @@ job handles it queued, and raises :mod:`core.exceptions` so the same call works
 from a future CLI or scheduled trigger without constructing an HTTP response.
 """
 
-import asyncio
-import os
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from itertools import batched
-from pathlib import Path
 
 import jasil.providers as platform_providers
 from sqlalchemy.exc import IntegrityError
@@ -31,17 +28,14 @@ from sqlalchemy.orm import Session
 import core.config as core_config
 import core.database as core_database
 import core.exceptions as core_exceptions
-import core.file_uploads as core_file_uploads
 import core.logger as core_logger
-import modules.activities.activity_ingestion.bulk_entry_service as activity_ingestion_bulk_entry_service
 import modules.activities.activity_ingestion.constants as activity_ingestion_constants
-import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
 import modules.activities.activity_ingestion.crud as activity_ingestion_crud
 import modules.activities.activity_ingestion.dispatch_service as activity_ingestion_dispatch_service
 import modules.activities.activity_ingestion.event_publishers as activity_ingestion_event_publishers
+import modules.activities.activity_ingestion.provider_registry as activity_ingestion_provider_registry
 import modules.activities.activity_ingestion.refresh_entry_service as activity_ingestion_refresh_entry_service
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
-import modules.activities.activity_ingestion.staging as activity_ingestion_staging
 import modules.activities.activity_ingestion.upload_entry_service as activity_ingestion_upload_entry_service
 
 logger = core_logger.get_logger(__name__)
@@ -55,7 +49,7 @@ _ERROR_CODES: dict[type[Exception], activity_ingestion_constants.IngestionJobErr
 }
 
 
-def _error_code_for(error: Exception) -> activity_ingestion_constants.IngestionJobErrorCode:
+def error_code_for(error: Exception) -> activity_ingestion_constants.IngestionJobErrorCode:
     """Map an exception to the sanitized code shown to the uploader.
 
     Args:
@@ -259,16 +253,22 @@ def accept_refresh(
     token_user_id: int,
     storage: platform_providers.StorageProvider,
     db: Session,
+    *,
+    provider: str | None = None,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Queue a provider refresh for background execution.
 
-    The provider clients are awaited in the job, not on the request path, so the
-    synchronous lookups and per-activity dedup reads never run on the event loop.
+    The provider fetch runs in the job, never on the request path.
 
     Args:
         token_user_id: Authenticated user ID.
         storage: The blob-storage provider handed to the in-process fallback.
         db: Database session.
+        provider: Sync only this provider; ``None`` syncs every linked one.
+        window_start: Start of the window to fetch; ``None`` means the last day.
+        window_end: End of the window to fetch; ``None`` means now.
 
     Returns:
         The accepted refresh job, in the pending state.
@@ -280,6 +280,9 @@ def accept_refresh(
         token_user_id,
         activity_ingestion_constants.IngestionJobKind.REFRESH,
         db,
+        provider=provider,
+        window_start=window_start,
+        window_end=window_end,
     )
     activity_ingestion_dispatch_service.commit_or_publish(
         db,
@@ -291,7 +294,7 @@ def accept_refresh(
 
     logger.info(
         "Provider refresh accepted for background sync",
-        extra=core_logger.context(user_id=token_user_id, job_id=job_id),
+        extra=core_logger.context(user_id=token_user_id, job_id=job_id, provider=provider),
     )
     return activity_ingestion_crud.get_ingestion_job(job_id, token_user_id, db) or _pending_view(
         job_id, activity_ingestion_constants.IngestionJobKind.REFRESH
@@ -299,13 +302,12 @@ def accept_refresh(
 
 
 def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) -> None:
-    """Pull the last 24h from the linked providers, recording the outcome.
+    """Pull the job's window from the linked providers, recording the outcome.
 
-    The job body for both executors. The provider helpers are still ``async``
-    (they offload their blocking HTTP clients with ``asyncio.to_thread``), so
-    they are driven here by :func:`asyncio.run` on a loop private to this worker
-    thread. That is what keeps their synchronous database calls off the main
-    loop — the whole point of moving this off the request.
+    The job body for both executors. It is synchronous and runs on a worker
+    thread; the providers open their own short sessions, so none is held here
+    while a provider is being called. The row is read, marked processing and
+    committed in one short session, and the outcome is recorded in another.
 
     Args:
         job_id: The ``activity_ingestion_jobs`` row to process.
@@ -315,32 +317,120 @@ def run_refresh_job(job_id: str, storage: platform_providers.StorageProvider) ->
         Exception: Whatever the provider sync raised, so the caller can retry.
     """
     with core_database.SessionLocal() as db:
-        owner = activity_ingestion_crud.get_job_owner(job_id, db)
-        if owner is None:
+        scope = activity_ingestion_crud.get_refresh_scope(job_id, db)
+        if scope is None:
             logger.info("Skipping an unknown refresh job", extra=core_logger.context(job_id=job_id))
             return
         activity_ingestion_crud.mark_processing(job_id, db)
         db.commit()
+    owner, provider, window_start, window_end = scope
 
+    try:
+        activities = activity_ingestion_refresh_entry_service.sync_linked_providers(
+            owner, window_start, window_end, provider=provider
+        )
+    except Exception:
+        if not activity_ingestion_dispatch_service.worker_retries():
+            # Nothing will retry, so leave the caller a terminal state
+            # instead of a job stuck at "processing".
+            fail_ingestion_job(job_id, activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE, storage)
+        raise
+
+    activity_ids = [activity.id for activity in activities if activity.id is not None]
     with core_database.SessionLocal() as db:
-        try:
-            activities = asyncio.run(activity_ingestion_refresh_entry_service.sync_linked_providers(owner, db))
-        except Exception:
-            if not activity_ingestion_dispatch_service.worker_retries():
-                # Nothing will retry, so leave the caller a terminal state
-                # instead of a job stuck at "processing".
-                fail_ingestion_job(
-                    job_id, activity_ingestion_constants.IngestionJobErrorCode.PROVIDER_UNAVAILABLE, storage
-                )
-            raise
-
-        activity_ids = [activity.id for activity in activities if activity.id is not None]
         activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
         db.commit()
-        logger.info(
-            "Refresh job synced provider activities",
-            extra=core_logger.context(user_id=owner, job_id=job_id, activity_count=len(activity_ids)),
+    logger.info(
+        "Refresh job synced provider activities",
+        extra=core_logger.context(user_id=owner, job_id=job_id, activity_count=len(activity_ids)),
+    )
+
+
+# One scheduler replica enqueues the periodic refreshes; the jobs themselves are
+# claimed by any worker.
+_REFRESH_FANOUT_LOCK_NAME = "activity_ingestion_scheduled_refresh"
+_REFRESH_FANOUT_BATCH_SIZE = 200
+
+
+def enqueue_scheduled_refreshes(
+    lock: platform_providers.LockProvider,
+    storage: platform_providers.StorageProvider,
+) -> int:
+    """Queue one refresh job per user who has linked a provider.
+
+    Replaces walking every user in one long-running task: each user is an
+    independent job, so it is retried, rate-limited and spread across workers on
+    its own, and one slow or failing account cannot hold up the rest. Users are
+    read a page at a time from each provider's own notion of "linked", and a user
+    linked to several providers gets one job, which syncs all of them.
+
+    A user whose previous refresh has not finished is skipped rather than queued
+    behind it, so a backed-up queue does not grow by a job per user per run. The
+    default window overlaps the next run, so a skipped user loses nothing.
+
+    Args:
+        lock: The platform lock provider.
+        storage: The blob-storage provider handed to the in-process fallback.
+
+    Returns:
+        The number of refresh jobs queued.
+    """
+    queued = 0
+    with lock.try_acquire(_REFRESH_FANOUT_LOCK_NAME) as acquired:
+        if not acquired:
+            logger.debug("Scheduled refresh: another replica holds the fan-out lock; skipping")
+            return 0
+        seen: set[int] = set()
+        for provider in activity_ingestion_provider_registry.registered():
+            after_id = 0
+            while True:
+                user_ids = provider.linked_user_ids(after_id, _REFRESH_FANOUT_BATCH_SIZE)
+                if not user_ids:
+                    break
+                after_id = user_ids[-1]
+                fresh = [user_id for user_id in user_ids if user_id not in seen]
+                seen.update(fresh)
+                if fresh:
+                    queued += _queue_refresh_batch(fresh, storage)
+
+    if queued:
+        logger.info("Scheduled refresh queued provider syncs", extra=core_logger.context(queued=queued))
+    else:
+        logger.debug("Scheduled refresh: nothing to queue")
+    return queued
+
+
+def _queue_refresh_batch(user_ids: list[int], storage: platform_providers.StorageProvider) -> int:
+    """Create and dispatch refresh jobs for a batch of users in one transaction.
+
+    Args:
+        user_ids: Users to refresh.
+        storage: The blob-storage provider handed to the in-process fallback.
+
+    Returns:
+        The number of jobs queued (users with a refresh already in flight are
+        skipped).
+    """
+    with core_database.SessionLocal() as db:
+        busy = activity_ingestion_crud.get_user_ids_with_active_refresh(user_ids, db)
+        jobs = [(str(uuid.uuid4()), user_id) for user_id in user_ids if user_id not in busy]
+        if not jobs:
+            return 0
+        for job_id, user_id in jobs:
+            activity_ingestion_crud.create_ingestion_job(
+                job_id, user_id, activity_ingestion_constants.IngestionJobKind.REFRESH, db
+            )
+        activity_ingestion_dispatch_service.commit_or_publish(
+            db,
+            publish=lambda commit: activity_ingestion_event_publishers.publish_refresh_requests(
+                jobs, db, commit=commit
+            ),
         )
+
+    for job_id, _user_id in jobs:
+        activity_ingestion_dispatch_service.run_in_background(run_refresh_job, job_id, storage)
+    logger.debug("Queued a batch of provider refresh jobs", extra=core_logger.context(count=len(jobs)))
+    return len(jobs)
 
 
 def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> None:
@@ -388,7 +478,7 @@ def run_upload_job(job_id: str, storage: platform_providers.StorageProvider) -> 
         ) as err:
             # The file itself is the problem, so every retry reaches the same
             # verdict: record it now and drop the blob nothing will read again.
-            fail_ingestion_job(job_id, _error_code_for(err), storage, staged_key)
+            fail_ingestion_job(job_id, error_code_for(err), storage, staged_key)
             raise
         except Exception:
             # Server-side, possibly transient. Keep the blob for the retry, and
@@ -573,12 +663,11 @@ def fail_stale_ingestion_jobs(
         logger.debug("Stale ingestion jobs: none found")
 
 
-# Staged blobs are normally removed with their job. These sweep what a crash, a
-# lost event or a failed delete left behind. Both ages sit well past the longest
-# time a live job can still need its blob: the stale-job reaper fails an upload
-# after a day, and a durable bulk file retries for hours.
+# Staged blobs are normally removed with their job. This sweeps what a crash, a
+# lost event or a failed delete left behind. The age sits well past the longest
+# time a live job can still need its blob: the stale-job reaper fails a job after
+# a day.
 _STAGED_UPLOAD_MIN_AGE = timedelta(days=2)
-_STAGED_BULK_FILE_MIN_AGE = timedelta(days=7)
 _STAGED_BLOB_BATCH_SIZE = 500
 _STAGED_SWEEP_LOCK_NAME = "activity_ingestion_staged_blob_sweep"
 
@@ -602,12 +691,10 @@ def sweep_stale_staged_blobs(
     clock: platform_providers.ClockProvider,
     storage: platform_providers.StorageProvider,
 ) -> int:
-    """Delete staged upload and bulk-import blobs that nothing will read again.
+    """Delete staged upload and archive blobs that no job names and nothing will read.
 
-    A staged upload is removed with its job, but a crash between committing the
-    outcome and deleting the blob, or a failed delete, leaves one that no row
-    names. A staged bulk-import blob is named only by the durable job's payload,
-    so it can only be judged by age.
+    A staged blob is removed with its job, but a crash between committing the
+    outcome and deleting it, or a failed delete, leaves one that no row names.
 
     Args:
         lock: The platform lock provider.
@@ -622,14 +709,9 @@ def sweep_stale_staged_blobs(
         if not acquired:
             logger.debug("Staged blob sweep: another replica holds the lock; skipping")
             return 0
-        now = clock.now()
         prefix = activity_ingestion_upload_entry_service.UPLOAD_STAGING_KEY_PREFIX
-        upload_keys = _aged_keys(
-            storage,
-            activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA,
-            prefix,
-            (now - _STAGED_UPLOAD_MIN_AGE).timestamp(),
-        )
+        area = activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA
+        upload_keys = _aged_keys(storage, area, prefix, (clock.now() - _STAGED_UPLOAD_MIN_AGE).timestamp())
         with core_database.SessionLocal() as db:
             for batch in batched(upload_keys, _STAGED_BLOB_BATCH_SIZE, strict=False):
                 referenced = activity_ingestion_crud.get_referenced_staged_keys(
@@ -637,394 +719,11 @@ def sweep_stale_staged_blobs(
                 )
                 for key in batch:
                     if key.removeprefix(prefix) not in referenced:
-                        storage.delete(activity_ingestion_upload_entry_service.UPLOAD_STAGING_STORAGE_AREA, key)
+                        storage.delete(area, key)
                         removed += 1
-
-        for key in _aged_keys(
-            storage,
-            activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA,
-            "",
-            (now - _STAGED_BULK_FILE_MIN_AGE).timestamp(),
-        ):
-            storage.delete(activity_ingestion_staging.BULK_IMPORT_STORAGE_AREA, key)
-            removed += 1
 
     if removed:
         logger.warning("Removed stale staged ingestion blobs", extra=core_logger.context(removed=removed))
     else:
         logger.debug("Staged blob sweep: nothing stale")
     return removed
-
-
-def _warn_about_unowned_files(user_id: int) -> None:
-    """Warn when importable files sit in the shared root instead of a user directory.
-
-    Bulk import reads only the requesting user's directory. A file left in the
-    shared root has no known owner, so it is not imported on a guess; the
-    operator is told exactly where to move it.
-
-    Args:
-        user_id: The user whose import was triggered, used to name the target.
-    """
-    try:
-        stranded = [
-            name
-            for name in os.listdir(core_config.FILES_BULK_IMPORT_DIR)
-            if os.path.isfile(os.path.join(core_config.FILES_BULK_IMPORT_DIR, name))
-            and os.path.splitext(name)[1].lower() in core_config.SUPPORTED_FILE_FORMATS
-        ]
-    except OSError:
-        return
-
-    if stranded:
-        logger.warning(
-            "Skipping bulk-import files in the shared root: they are not attributed to any user",
-            extra=core_logger.context(
-                console=True,
-                user_id=user_id,
-                file_count=len(stranded),
-                expected_dir=core_config.bulk_import_dir_for(user_id),
-            ),
-        )
-
-
-def _collect_importable_files(user_id: int, bulk_import_dir: str) -> list[str]:
-    """Return the paths in a user's drop directory that are safe to import.
-
-    A file is skipped (logged, not raised) when it resolves outside the drop
-    directory, its extension is unsupported, or its contents fail the signature
-    check — one bad file must not stop the import of every other one.
-
-    Args:
-        user_id: The owner whose directory is being scanned.
-        bulk_import_dir: The user's bulk-import directory.
-
-    Returns:
-        Absolute paths of the files that passed validation.
-    """
-    files_to_process: list[str] = []
-    base_dir = os.path.realpath(bulk_import_dir)
-    for filename in os.listdir(bulk_import_dir):
-        file_path = os.path.join(bulk_import_dir, filename)
-        file_extension = os.path.splitext(file_path)[1].lower()
-
-        if file_extension not in core_config.SUPPORTED_FILE_FORMATS:
-            logger.info(
-                "Skipping a bulk-import file with an unsupported extension",
-                extra=core_logger.context(
-                    console=True,
-                    user_id=user_id,
-                    file=os.path.basename(file_path),
-                    file_extension=file_extension,
-                    supported_extensions=list(core_config.SUPPORTED_FILE_FORMATS),
-                ),
-            )
-            continue
-
-        # Everything downstream opens this path (validation, then activity_ingestion_staging), so a
-        # symlink dropped here would import whatever it points at, anywhere on
-        # the server's filesystem. Only entries that resolve to themselves inside
-        # the user's own directory are imported.
-        if os.path.realpath(file_path) != os.path.join(base_dir, filename):
-            logger.warning(
-                "Skipping a bulk-import entry that does not resolve inside the user's directory",
-                extra=core_logger.context(console=True, user_id=user_id, file=filename),
-            )
-            continue
-
-        if not os.path.isfile(file_path):
-            continue
-
-        try:
-            validate_kind = (
-                core_file_uploads.UploadKind.GZIP if file_extension == ".gz" else core_file_uploads.UploadKind.ACTIVITY
-            )
-            core_file_uploads.validate_local_file_sync(file_path, kind=validate_kind)
-        except core_exceptions.DomainError as err:
-            # The shared upload validator signals rejection with a domain
-            # error; a rejected file is skipped, never propagated.
-            logger.warning(
-                "Skipping a bulk-import file that failed validation",
-                extra=core_logger.context(console=True, file=os.path.basename(file_path), reason=err.detail),
-            )
-            continue
-
-        files_to_process.append(file_path)
-        logger.info(
-            "Queuing a bulk-import file for processing",
-            extra=core_logger.context(console=True, user_id=user_id, file=os.path.basename(file_path)),
-        )
-
-    return files_to_process
-
-
-def start_bulk_import(
-    user_id: int,
-    storage: platform_providers.StorageProvider,
-    db: Session,
-) -> list[activity_ingestion_schema.ActivityIngestionJobRead]:
-    """Queue every importable file in a user's drop directory.
-
-    Each user drops files into their own directory; scanning the shared root
-    would import whatever anyone else left there and attribute it to this caller.
-
-    One :class:`~modules.activities.activity_ingestion.schema.ActivityIngestionJobRead`
-    is created per file and returned, so the caller polls
-    ``GET /activities/ingestion-jobs/{job_id}`` for each one exactly as it does
-    for a single upload. One handle per file rather than one per batch because
-    the fan-out below is already per file: each is retried, dead-lettered and
-    completed independently, so a batch-level status could only report an
-    average of outcomes that are not shared.
-
-    When durable jobs are enabled, one durable job per file is staged in the
-    transactional outbox on this session and committed once, then the relay fans
-    them into retryable, dead-letterable ``processing_jobs`` rows drained by the
-    in-process worker (local) or the worker fleet (distributed) — a crash
-    mid-import keeps in-flight files, and a failing file retries then
-    dead-letters (moved to the import-error dir). A staging failure propagates,
-    so the caller is told the files were never queued rather than being handed a
-    202. With durable jobs off
-    there is no worker to drain the queue, so the background thread pool owned by
-    :mod:`~modules.activities.activity_ingestion.background` runs them instead.
-
-    Args:
-        user_id: The owner whose directory to import.
-        storage: The blob-storage provider dropped files are staged in.
-        db: Database session, used to stage the durable jobs.
-
-    Returns:
-        The accepted jobs, one per queued file, in the pending state.
-
-    Raises:
-        ProcessingError: When the directory cannot be read or the files cannot
-            be staged.
-        SQLAlchemyError: When the jobs cannot be queued.
-    """
-    import_time = datetime.now(UTC).isoformat()
-    logger.info(
-        "Bulk import initiated",
-        extra=core_logger.context(console=True, user_id=user_id, import_time=import_time),
-    )
-
-    try:
-        bulk_import_dir = core_config.bulk_import_dir_for(user_id)
-        os.makedirs(bulk_import_dir, exist_ok=True)
-        _warn_about_unowned_files(user_id)
-
-        files_to_process = _collect_importable_files(user_id, bulk_import_dir)
-
-        # Created before either executor is chosen so the handle the caller gets
-        # back is the same row both paths transition, and the pending state is
-        # visible from the moment the 202 is returned.
-        jobs = [
-            (
-                activity_ingestion_crud.create_ingestion_job(
-                    str(uuid.uuid4()),
-                    user_id,
-                    activity_ingestion_constants.IngestionJobKind.BULK_IMPORT,
-                    db,
-                    filename=os.path.basename(file_path),
-                ),
-                file_path,
-            )
-            for file_path in files_to_process
-        ]
-
-        queued_files = [(job.id, file_path) for job, file_path in jobs]
-        if activity_ingestion_dispatch_service.worker_retries():
-            _enqueue_bulk_import_files(queued_files, user_id, import_time, storage, db)
-        else:
-            db.commit()
-            activity_ingestion_dispatch_service.run_in_background(
-                process_all_files_sync, user_id, queued_files, import_time, storage
-            )
-    except (OSError, RuntimeError) as err:
-        logger.error(
-            "Error starting the bulk import",
-            exc_info=err,
-            extra=core_logger.context(user_id=user_id),
-        )
-        raise core_exceptions.ProcessingError() from err
-
-    logger.info(
-        "Bulk import queued; processing continues in the background",
-        extra=core_logger.context(console=True, user_id=user_id, file_count=len(jobs)),
-    )
-    return [job for job, _ in jobs]
-
-
-def _enqueue_bulk_import_files(
-    queued_files: list[tuple[str, str]],
-    user_id: int,
-    import_initiated_time: str,
-    storage: platform_providers.StorageProvider,
-    db: Session,
-) -> None:
-    """Stage each dropped file and enqueue one durable job per file, in one transaction.
-
-    Unlike every other publish in the activities domain, the event **is** the
-    work rather than a notification about work already done: nothing else records
-    the intent to import the file, and the subscriber is deliberately
-    reconciliation-net exempt (a dead-lettered file is recovered by re-adding it
-    to the bulk-import directory, not by a sweeper). A swallowed publish failure
-    would therefore mean the file is silently never imported while the route still
-    answers 202, so a activity_ingestion_staging failure propagates.
-
-    Staging the whole batch in one transaction also replaces a
-    one-commit-per-file loop, so enqueuing a large export is a single commit
-    rather than thousands inside one request.
-
-    Args:
-        queued_files: ``(ingestion job id, absolute file path)`` per queued file.
-            The job rows were created on ``db``, so they commit with the outbox
-            rows.
-        user_id: ID of the user performing the import.
-        import_initiated_time: ISO timestamp of when the bulk import was initiated.
-        storage: The blob-storage provider the files are staged in.
-        db: The request's database session (the outbox rows are staged on it).
-
-    Raises:
-        Exception: Propagated from the outbox activity_ingestion_staging so the caller can fail the
-            request instead of reporting a false success.
-    """
-    # Staged here, in the request thread, because this is the only place
-    # guaranteed to see the dropped file. A worker that claims the job may be on
-    # another node entirely.
-    staged: list[tuple[str, str, str]] = []
-    try:
-        for job_id, file_path in queued_files:
-            staged.append((job_id, activity_ingestion_staging.stage_file(user_id, file_path, storage), file_path))
-
-        activity_ingestion_event_publishers.publish_bulk_import_files(
-            [(job_id, key, os.path.basename(file_path)) for job_id, key, file_path in staged],
-            user_id,
-            db,
-            commit=db.commit,
-            import_initiated_time=import_initiated_time,
-        )
-    except Exception:
-        # Nothing will import these blobs, and the caller gets a 500. Drop them
-        # and leave the dropped files alone so the user can simply retry.
-        activity_ingestion_staging.unstage([key for _, key, _ in staged], storage)
-        raise
-
-    # Only now are the jobs durable, so consuming the originals is safe.
-    activity_ingestion_staging.settle([(key, file_path) for _, key, file_path in staged], user_id)
-    logger.info(
-        "Bulk import: enqueued durable file jobs",
-        extra=core_logger.context(user_id=user_id, file_count=len(queued_files)),
-    )
-
-
-def process_all_files_sync(
-    user_id: int,
-    queued_files: list[tuple[str, str]],
-    import_initiated_time: str,
-    storage: platform_providers.StorageProvider,
-) -> None:
-    """Process all bulk-import files sequentially in a single thread.
-
-    The fallback executor used when durable jobs are disabled. It moves the same
-    ``activity_ingestion_jobs`` rows the durable handler does, so the handles
-    ``POST /activities/bulk-import`` returned report progress identically
-    whichever executor ran the import.
-
-    Args:
-        user_id: User ID.
-        queued_files: ``(ingestion job id, file path)`` per file to process.
-        import_initiated_time: ISO timestamp of when the bulk import was initiated.
-        storage: The blob-storage provider the source files are retained in.
-    """
-    db = next(core_database.get_db())
-    try:
-        total_files = len(queued_files)
-        for idx, (job_id, file_path) in enumerate(queued_files, 1):
-            logger.info(
-                "Processing bulk-import file",
-                extra=core_logger.context(
-                    console=True,
-                    file=Path(file_path).name,
-                    index=idx,
-                    total_files=total_files,
-                    user_id=user_id,
-                ),
-            )
-            activity_ingestion_crud.mark_processing(job_id, db)
-            db.commit()
-            activities = activity_ingestion_bulk_entry_service.store_activity_file(
-                user_id,
-                file_path,
-                storage,
-                db,
-                source=activity_ingestion_contracts.BulkImportSource(
-                    import_initiated_time=import_initiated_time, user_id=user_id
-                ),
-            )
-            # ``store_activity_file`` swallows so the batch continues, so ``None``
-            # is the only signal that this file failed. Nothing retries here, so
-            # the state recorded is terminal either way.
-            if activities is None:
-                activity_ingestion_crud.mark_failed(
-                    job_id, activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, db
-                )
-            else:
-                activity_ingestion_crud.mark_completed(
-                    job_id, [activity.id for activity in activities if activity.id is not None], db
-                )
-            db.commit()
-
-        logger.info(
-            "Bulk import completed",
-            extra=core_logger.context(console=True, total_files=total_files, user_id=user_id),
-        )
-    finally:
-        db.close()
-
-
-def mark_bulk_import_job_processing(job_id: str | None) -> None:
-    """Record that a durable bulk-import file has started.
-
-    Args:
-        job_id: The ``activity_ingestion_jobs`` row, or ``None`` for an event
-            staged before per-file handles existed.
-    """
-    if job_id is None:
-        return
-    with core_database.SessionLocal() as db:
-        activity_ingestion_crud.mark_processing(job_id, db)
-        db.commit()
-    logger.debug("Marked a bulk-import job as processing", extra=core_logger.context(job_id=job_id))
-
-
-def mark_bulk_import_job_completed(job_id: str | None, activity_ids: list[int]) -> None:
-    """Record that a durable bulk-import file produced its activities.
-
-    Args:
-        job_id: The ``activity_ingestion_jobs`` row, or ``None`` for a handle-less event.
-        activity_ids: IDs of the activities the file produced.
-    """
-    if job_id is None:
-        return
-    with core_database.SessionLocal() as db:
-        activity_ingestion_crud.mark_completed(job_id, activity_ids, db)
-        db.commit()
-    logger.info(
-        "Completed a bulk-import job",
-        extra=core_logger.context(job_id=job_id, activities=len(activity_ids)),
-    )
-
-
-def mark_bulk_import_job_failed(job_id: str | None) -> None:
-    """Record that a durable bulk-import file exhausted its attempts.
-
-    Args:
-        job_id: The ``activity_ingestion_jobs`` row, or ``None`` for a handle-less event.
-    """
-    if job_id is None:
-        return
-    with core_database.SessionLocal() as db:
-        activity_ingestion_crud.mark_failed(
-            job_id, activity_ingestion_constants.IngestionJobErrorCode.PROCESSING_FAILED, db
-        )
-        db.commit()
-    logger.warning("Bulk-import job exhausted its attempts", extra=core_logger.context(job_id=job_id))

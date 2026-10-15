@@ -92,6 +92,65 @@ def get_user_integrations_by_user_id(
     return _transform_users_integrations(user_integrations) if user_integrations else None
 
 
+def list_user_ids_with_strava_linked(after_id: int, limit: int, db: Session) -> list[int]:
+    """List the users who have linked Strava, ascending, a page at a time.
+
+    Args:
+        after_id: Return only users with an id greater than this.
+        limit: Maximum number of user ids to return.
+        db: SQLAlchemy database session.
+
+    Returns:
+        User ids with a stored Strava token, ascending.
+    """
+    stmt = (
+        select(user_integrations_models.UsersIntegrations.user_id)
+        .where(
+            user_integrations_models.UsersIntegrations.user_id > after_id,
+            user_integrations_models.UsersIntegrations.strava_token.is_not(None),
+        )
+        .order_by(user_integrations_models.UsersIntegrations.user_id)
+        .limit(limit)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def list_user_ids_with_garminconnect_linked(after_id: int, limit: int, db: Session) -> list[int]:
+    """List the users who have linked Garmin Connect, ascending, a page at a time.
+
+    The token is a JSON column, and unlinking assigns ``None``, which is stored as
+    a JSON ``null`` rather than SQL ``NULL``. A SQL ``IS NOT NULL`` would therefore
+    still match unlinked users, so rows are scanned in id order and filtered on the
+    decoded value until a page is full.
+
+    Args:
+        after_id: Return only users with an id greater than this.
+        limit: Maximum number of user ids to return.
+        db: SQLAlchemy database session.
+
+    Returns:
+        User ids with a stored Garmin Connect token, ascending.
+    """
+    linked: list[int] = []
+    cursor = after_id
+    while len(linked) < limit:
+        stmt = (
+            select(
+                user_integrations_models.UsersIntegrations.user_id,
+                user_integrations_models.UsersIntegrations.garminconnect_token,
+            )
+            .where(user_integrations_models.UsersIntegrations.user_id > cursor)
+            .order_by(user_integrations_models.UsersIntegrations.user_id)
+            .limit(limit)
+        )
+        rows = db.execute(stmt).all()
+        if not rows:
+            break
+        cursor = rows[-1][0]
+        linked.extend(user_id for user_id, token in rows if token is not None)
+    return linked[:limit]
+
+
 @core_decorators.handle_db_errors
 def get_user_integrations_by_strava_state(
     strava_state: str, db: Session

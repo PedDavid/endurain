@@ -42,8 +42,6 @@ ROOT_PATH = "/api/v1"
 SERVER_IMAGES_URL_PATH = "server_images"
 
 STRAVA_BULK_IMPORT_ACTIVITIES_FILE = "activities.csv"
-STRAVA_BULK_IMPORT_BIKES_FILE = "bikes.csv"
-STRAVA_BULK_IMPORT_SHOES_FILE = "shoes.csv"
 STRAVA_BULK_IMPORT_SHOES_UNNAMED_SHOE = "Unnamed Shoe "
 
 SUPPORTED_FILE_FORMATS = [
@@ -738,7 +736,6 @@ SERVER_IMAGES_DIR = f"{settings.DATA_DIR}/{SERVER_IMAGES_URL_PATH}"
 
 FILES_PROCESSED_DIR = f"{settings.FILES_DIR}/processed"
 FILES_BULK_IMPORT_DIR = f"{settings.FILES_DIR}/bulk_import"
-FILES_BULK_IMPORT_IMPORT_ERRORS_DIR = f"{FILES_BULK_IMPORT_DIR}/import_errors"
 # Landing spot for an upload's stream, between the request receiving the bytes
 # and the platform StorageProvider taking ownership of them. This is the only
 # upload directory the application itself manages: the staged blob then lives
@@ -748,9 +745,6 @@ FILES_BULK_IMPORT_IMPORT_ERRORS_DIR = f"{FILES_BULK_IMPORT_DIR}/import_errors"
 # activity file can be up to 200 MiB.
 FILES_UPLOAD_INCOMING_DIR = f"{settings.FILES_DIR}/upload_incoming"
 STRAVA_BULK_IMPORT_DIR = f"{settings.FILES_DIR}/strava_import"
-STRAVA_BULK_IMPORT_ACTIVITIES_DIR = f"{STRAVA_BULK_IMPORT_DIR}/activities"
-STRAVA_BULK_IMPORT_MEDIA_DIR = f"{STRAVA_BULK_IMPORT_DIR}/media"
-STRAVA_BULK_IMPORT_IMPORT_ERRORS_DIR = f"{STRAVA_BULK_IMPORT_DIR}/import_errors"
 
 
 def bulk_import_dir_for(user_id: int) -> str:
@@ -772,16 +766,21 @@ def bulk_import_dir_for(user_id: int) -> str:
     return f"{FILES_BULK_IMPORT_DIR}/{int(user_id)}"
 
 
-def bulk_import_error_dir_for(user_id: int) -> str:
-    """Return the import-error directory belonging to one user.
+def strava_bulk_import_dir_for(user_id: int) -> str:
+    """Return the Strava-export drop directory belonging to one user.
+
+    Per user for the same reason as :func:`bulk_import_dir_for`: one shared
+    directory would attribute whatever any user left there to whoever started the
+    import.
 
     Args:
-        user_id: The owning user's id.
+        user_id: The owning user's id. Coerced to ``int`` so the value can only
+            ever be a single path segment.
 
     Returns:
-        Absolute path of that user's import-error directory.
+        Absolute path of that user's Strava-export directory.
     """
-    return f"{bulk_import_dir_for(user_id)}/import_errors"
+    return f"{STRAVA_BULK_IMPORT_DIR}/{int(user_id)}"
 
 
 # Secret loading and environment validation
@@ -1102,7 +1101,6 @@ def check_required_dirs():
         settings.FILES_DIR,
         FILES_PROCESSED_DIR,
         FILES_BULK_IMPORT_DIR,
-        FILES_BULK_IMPORT_IMPORT_ERRORS_DIR,
         FILES_UPLOAD_INCOMING_DIR,
         settings.LOGS_DIR,
     ]

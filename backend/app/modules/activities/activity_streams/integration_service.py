@@ -8,7 +8,6 @@ import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.schema as activity_streams_schema
-import modules.activities.activity_streams.service as activity_streams_service
 import modules.activities.contributors as activities_contributors
 
 
@@ -105,6 +104,9 @@ def _restore_profile_records(
             continue
         data = dict(record)
         data.pop("id", None)
+        # Archives written while zones were stored carry them; they are computed
+        # when the stream is served now, so the stored copy is dropped.
+        data.pop("zone_percentages", None)
         data["activity_id"] = new_activity.id
         streams.append(activity_streams_contracts.ActivityStreamsCreate.model_validate(data))
 
@@ -163,15 +165,3 @@ def get_gps_waypoints_for_activities(activity_ids: list[int], db: Session) -> di
         GPS waypoints for several activities in one query.
     """
     return activity_streams_crud.get_gps_stream_waypoints_for_activities(activity_ids, db)
-
-
-def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
-    """Stage recomputing stored HR-zone breakdowns after user settings change.
-
-    The caller commits.
-
-    Args:
-        user_id: ID of the user.
-        db: Database session.
-    """
-    activity_streams_service.recompute_hr_zones_for_user(user_id, db)

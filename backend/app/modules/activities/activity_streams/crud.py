@@ -1,11 +1,9 @@
 """CRUD operations for activity stream data."""
 
 from sqlalchemy import select
-from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 import core.logger as core_logger
-import core.pagination as core_pagination
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.constants as activity_streams_constants
 import modules.activities.activity_streams.contracts as activity_streams_contracts
@@ -130,154 +128,12 @@ def get_gps_stream_waypoints_for_activities(
     return {activity_id: (waypoints or []) for activity_id, waypoints in db.execute(stmt).all()}
 
 
-def get_hr_streams_without_zone_percentages(
-    db: Session,
-    *,
-    after_id: int = 0,
-    batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activity_streams_schema.ActivityStreamsRead]:
-    """Return HR streams lacking pre-computed zone_percentages in batches.
-
-    Args:
-        db: Database session.
-        after_id: Return only streams with an ID greater than this.
-        batch_size: Maximum number of rows to return.
-
-    Returns:
-        The streams still lacking zone percentages.
-    """
-    stmt = (
-        select(activity_streams_models.ActivityStreams)
-        .where(
-            activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
-            activity_streams_models.ActivityStreams.zone_percentages.is_(None),
-            activity_streams_models.ActivityStreams.id > after_id,
-        )
-        .order_by(activity_streams_models.ActivityStreams.id)
-        .limit(batch_size)
-    )
-    return activity_streams_serializers.to_read_schema(list(db.scalars(stmt).all()))
-
-
-def backfill_zone_percentages_for_missing_hr_streams(
-    computed_streams: list[dict[str, int | dict]],
-    db: Session,
-) -> None:
-    """Stage pre-computed zone_percentages for existing HR streams (not committed).
-
-    Args:
-        computed_streams: Stream IDs with their computed zone breakdowns.
-        db: Database session.
-    """
-    for stream in computed_streams:
-        db.query(activity_streams_models.ActivityStreams).filter(
-            activity_streams_models.ActivityStreams.id == stream["stream_id"],
-        ).update(
-            {"zone_percentages": stream["zone_percentages"]},
-            synchronize_session=False,
-        )
-
-
-def list_hr_streams_for_activities(
-    activity_ids: list[int],
-    db: Session,
-) -> list[activity_streams_contracts.HrStreamRecord]:
-    """Return HR streams for activity ids already scoped by the caller.
-
-    Args:
-        activity_ids: IDs of the activities to read.
-        db: Database session.
-
-    Returns:
-        HR streams for activity ids already scoped by the caller.
-    """
-    if not activity_ids:
-        return []
-    stmt = select(activity_streams_models.ActivityStreams).where(
-        activity_streams_models.ActivityStreams.activity_id.in_(activity_ids),
-        activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
-    )
-    return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
-
-
-def list_hr_streams_missing_zones(
-    db: Session,
-    *,
-    after_id: int = 0,
-    batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> list[activity_streams_contracts.HrStreamRecord]:
-    """Return a batch of HR streams that carry no zone breakdown yet.
-
-    Args:
-        db: Database session.
-        after_id: Return only streams with an id greater than this.
-        batch_size: Maximum number of streams to return.
-
-    Returns:
-        The batch, id-ordered; empty when there are no more.
-    """
-    stmt = (
-        select(activity_streams_models.ActivityStreams)
-        .where(
-            activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
-            activity_streams_models.ActivityStreams.zone_percentages.is_(None),
-            activity_streams_models.ActivityStreams.id > after_id,
-        )
-        .order_by(activity_streams_models.ActivityStreams.id)
-        .limit(batch_size)
-    )
-    return [activity_streams_serializers.to_hr_record(stream) for stream in db.scalars(stmt).all()]
-
-
-def get_activity_hr_stream(
-    activity_id: int,
-    db: Session,
-) -> activity_streams_contracts.HrStreamRecord | None:
-    """Return one activity's HR stream, ready for zone scoring.
-
-    Args:
-        activity_id: The activity whose HR stream to read.
-        db: Database session.
-
-    Returns:
-        The stream, or None when the activity recorded no heart rate.
-    """
-    stmt = select(activity_streams_models.ActivityStreams).where(
-        activity_streams_models.ActivityStreams.activity_id == activity_id,
-        activity_streams_models.ActivityStreams.stream_type == activity_streams_constants.STREAM_TYPE_HR,
-    )
-    stream = db.scalars(stmt).first()
-    return activity_streams_serializers.to_hr_record(stream) if stream is not None else None
-
-
-def set_zone_percentages(zones_by_stream_id: dict[int, dict | None], db: Session) -> None:
-    """Stage the computed HR zone breakdown against each stream (not committed).
-
-    Args:
-        zones_by_stream_id: Stream id -> breakdown, or None to clear it.
-        db: Database session.
-    """
-    if not zones_by_stream_id:
-        return
-    for stream_id, zones in zones_by_stream_id.items():
-        db.execute(
-            sa_update(activity_streams_models.ActivityStreams)
-            .where(activity_streams_models.ActivityStreams.id == stream_id)
-            .values(zone_percentages=zones)
-        )
-
-
 def create_activity_streams(
     activity_streams: list[activity_streams_contracts.ActivityStreamsCreate],
     activity: activity_schema.ActivityRead,
     db: Session,
 ) -> None:
-    """Stage activity streams (waypoints only; flushed, not committed).
-
-    HR ``zone_percentages`` are not computed here: the ``activity.created``
-    subscriber does that so ingestion stays synchronous and fast. Streams are
-    persisted with ``zone_percentages=None``; the subscriber (and the scheduled
-    backfill reconciliation net) fill them in.
+    """Stage activity streams (flushed, not committed).
 
     Args:
         activity_streams: List of stream schemas.
@@ -297,7 +153,6 @@ def create_activity_streams(
             stream_type=stream.stream_type,
             stream_waypoints=stream.stream_waypoints,
             strava_activity_stream_id=stream.strava_activity_stream_id,
-            zone_percentages=None,
         )
         for stream in activity_streams
     ]

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import threading
 from unittest.mock import Mock
 
 import pytest
@@ -196,44 +195,60 @@ class TestSaveActivityStreamsLaps:
         assert parsed.source.kind == "strava"
 
 
-class TestProcessActivityOffTheEventLoop:
-    """Neither half of processing a Strava activity may run on the event loop."""
+class _TrackingSession:
+    """A ``SessionLocal`` stand-in that records how many sessions are open."""
 
-    async def test_persist_runs_on_a_worker_thread(self, monkeypatch):
-        """Regression: persisting ran on the loop thread, and it is not just a DB write.
+    open_count = 0
 
-        ``store_parsed_activity`` publishes ``activity.created``, and the
-        in-process bus runs subscribers *inline on the calling thread* — so map
-        thumbnail rendering (staticmap + PIL) and HR-zone computation executed on
-        the event loop, once per activity in a sync, stalling every other request
-        for the duration. Asserting the *thread* rather than that
-        ``asyncio.to_thread`` was called keeps this honest for any offloading
-        mechanism.
-        """
+    def __enter__(self):
+        type(self).open_count += 1
+        return Mock()
+
+    def __exit__(self, *_exc):
+        type(self).open_count -= 1
+        return False
+
+
+class TestProcessActivity:
+    """Processing one Strava activity: no session is held while Strava is being called."""
+
+    def _setup(self, monkeypatch, *, already_stored: bool = False):
         import modules.activities.activity.schema as activity_schema
 
-        loop_thread_id = threading.get_ident()
-        threads: dict[str, int] = {}
-
+        _TrackingSession.open_count = 0
+        seen: dict[str, int] = {}
+        monkeypatch.setattr(activity_utils, "SessionLocal", _TrackingSession)
         monkeypatch.setattr(
             activity_utils.strava_utils,
             "fetch_and_validate_activity",
-            lambda *args, **kwargs: None,
+            lambda *args, **kwargs: Mock() if already_stored else None,
         )
 
         def _fake_parse(*args, **kwargs):
-            threads["parse"] = threading.get_ident()
+            seen["during_parse"] = _TrackingSession.open_count
             return {"activity_to_store": Mock(), "stream_data": [], "laps": None}
 
         def _fake_save(*args, **kwargs):
-            threads["persist"] = threading.get_ident()
+            seen["during_save"] = _TrackingSession.open_count
             return activity_schema.ActivityRead(id=7, user_id=1, distance=0, name="X", activity_type=1)
 
         monkeypatch.setattr(activity_utils, "parse_activity", _fake_parse)
         monkeypatch.setattr(activity_utils, "save_activity_streams_laps", _fake_save)
+        return seen
 
-        result = await activity_utils.process_activity(Mock(id=555), 1, Mock(), Mock(), Mock(), Mock())
+    def test_the_strava_calls_run_with_no_session_open(self, monkeypatch):
+        """A transaction held across Strava round trips is what this was restructured to avoid."""
+        seen = self._setup(monkeypatch)
+
+        result = activity_utils.process_activity(Mock(id=555), 1, Mock(), Mock(), Mock())
 
         assert result.id == 7
-        assert threads["parse"] != loop_thread_id
-        assert threads["persist"] != loop_thread_id
+        assert seen["during_parse"] == 0
+        # The store gets its own short session.
+        assert seen["during_save"] == 1
+
+    def test_an_activity_already_stored_is_skipped_without_calling_strava(self, monkeypatch):
+        seen = self._setup(monkeypatch, already_stored=True)
+
+        assert activity_utils.process_activity(Mock(id=555), 1, Mock(), Mock(), Mock()) is None
+        assert seen == {}

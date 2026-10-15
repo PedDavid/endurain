@@ -1,65 +1,86 @@
-"""Entry point for a provider refresh initiated through the API.
+"""Entry point for a provider refresh: pull recent activities from linked providers.
 
-Fans a refresh out across every provider registered on
+Fans a refresh out across the providers registered on
 :mod:`~modules.activities.activity_ingestion.provider_registry`. It names no
 provider: doing so is what made activities and Strava/Garmin mutually dependent,
 since both providers import back into the ingestion seam.
 
-Still ``async`` because the provider adapters are: they wrap blocking HTTP
-clients in ``asyncio.to_thread``. The caller drives this with ``asyncio.run`` on
-a worker thread, so none of it touches the main event loop.
+Synchronous and session-less. The caller is a job body on a worker thread, the
+provider adapters wrap blocking HTTP clients, and each provider opens a short
+session per unit of work, so no database transaction is held across a provider
+round trip.
 """
 
-import asyncio
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy.orm import Session
-
+import core.exceptions as core_exceptions
 import core.logger as core_logger
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.provider_registry as activity_ingestion_provider_registry
 
 logger = core_logger.get_logger(__name__)
 
-# How far back a refresh looks.
+# How far back a refresh looks when the job names no window.
 _REFRESH_WINDOW = timedelta(days=1)
 
 
-async def sync_linked_providers(user_id: int, db: Session) -> list[activity_schema.ActivityRead]:
-    """Fetch the recent window of activities from every registered provider.
+def sync_linked_providers(
+    user_id: int,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+    *,
+    provider: str | None = None,
+) -> list[activity_schema.ActivityRead]:
+    """Fetch a window of activities from the user's linked providers.
 
-    A provider that is not linked returns nothing rather than failing, so one
-    unlinked integration does not fail the whole refresh. A provider that raises
-    is logged and skipped for the same reason.
+    A provider the user has not linked returns nothing rather than failing, so
+    one unlinked integration does not fail the whole refresh. A provider that
+    raises is logged and skipped for the same reason; the default window overlaps
+    the next scheduled run, so what it missed is picked up there.
 
     Args:
         user_id: The user whose providers to sync.
-        db: Database session.
+        window_start: Start of the window; defaults to a day before ``window_end``.
+        window_end: End of the window; defaults to now.
+        provider: Sync only this provider; ``None`` syncs every registered one.
 
     Returns:
         The activities the providers produced, in registration order.
-    """
-    window_end = datetime.now(UTC)
-    window_start = window_end - _REFRESH_WINDOW
 
-    providers = activity_ingestion_provider_registry.registered()
-    if not providers:
-        logger.debug(
-            "Refresh requested with no providers registered",
-            extra=core_logger.context(user_id=user_id),
-        )
+    Raises:
+        ProcessingError: When a named provider is not registered in this process.
+            A worker that lacks a registration the API has would otherwise
+            complete the job having synced nothing.
+    """
+    end = window_end or datetime.now(UTC)
+    start = window_start or end - _REFRESH_WINDOW
+
+    if provider is not None:
+        selected = activity_ingestion_provider_registry.get(provider)
+        if selected is None:
+            logger.error(
+                "Refresh asked for a provider that is not registered in this process",
+                extra=core_logger.context(user_id=user_id, provider=provider),
+            )
+            raise core_exceptions.ProcessingError()
+        providers = (selected,)
+    else:
+        providers = activity_ingestion_provider_registry.registered()
+        if not providers:
+            logger.debug(
+                "Refresh requested with no providers registered",
+                extra=core_logger.context(user_id=user_id),
+            )
 
     activities: list[activity_schema.ActivityRead] = []
-    for provider in providers:
+    for candidate in providers:
         try:
-            produced = await provider.fetch_window(user_id, window_start, window_end, db)
-        except asyncio.CancelledError:
-            raise
+            produced = candidate.fetch_window(user_id, start, end)
         except Exception as err:
             logger.error(
                 "Provider refresh failed; continuing with the remaining providers",
                 exc_info=err,
-                extra=core_logger.context(user_id=user_id, provider=provider.name),
+                extra=core_logger.context(user_id=user_id, provider=candidate.name),
             )
             continue
         activities.extend(activity for activity in (produced or []) if activity is not None)

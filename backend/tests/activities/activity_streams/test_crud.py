@@ -29,24 +29,6 @@ class TestCreateActivityStreams:
         crud.create_activity_streams([], mock_activity, mock_db)
         mock_db.add_all.assert_not_called()
 
-    @patch("modules.activities.activity_streams.crud.activity_streams_models.ActivityStreams")
-    def test_persists_without_zone_percentages(self, mock_streams_model, mock_db):
-        # HR-zone computation is decoupled to the activity.created subscriber, so
-        # streams are persisted with zone_percentages=None (scored later).
-        import modules.activities.activity_streams.crud as crud
-        from modules.activities.activity_streams.contracts import ActivityStreamsCreate
-
-        mock_activity = MagicMock(user_id=1, id=1)
-        mock_streams_model.return_value = MagicMock()
-        s = [
-            ActivityStreamsCreate(
-                activity_id=1, stream_type=1, stream_waypoints=[{"hr": 100}], strava_activity_stream_id=None
-            )
-        ]
-        crud.create_activity_streams(s, mock_activity, mock_db)
-
-        assert mock_streams_model.call_args.kwargs["zone_percentages"] is None
-
 
 class TestGetActivityStreams:
     """Persistence only — access and per-type masking live in ``activity_streams.service``."""

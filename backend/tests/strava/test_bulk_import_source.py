@@ -6,9 +6,11 @@ point. They are asserted here, against the subclass, because that is where the
 knowledge belongs.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-import core.config as core_config
+import pytest
+
+import core.exceptions as core_exceptions
 import modules.activities.activity.contracts as activity_contracts
 import modules.strava.bulk_import_source as strava_bulk_import_source
 
@@ -33,11 +35,6 @@ class TestSourceKind:
         # The pipeline narrows on the base type, so the subclass must satisfy it.
         assert _source().kind == "bulk_import"
         assert isinstance(_source(), strava_bulk_import_source.activity_ingestion_integration.BulkImportSource)
-
-
-class TestErrorDirectory:
-    def test_failures_land_in_the_shared_strava_directory(self):
-        assert _source().error_directory == core_config.STRAVA_BULK_IMPORT_IMPORT_ERRORS_DIR
 
 
 class TestMetadataFor:
@@ -104,14 +101,91 @@ class TestImportSideArtifacts:
     @patch("modules.strava.bulk_import_source.strava_bulk_import_utils")
     def test_attaches_the_sidecar_photos_to_the_last_created_activity(self, mock_utils):
         created = ["first", "last"]
-        source = _source(strava_activities={"f.fit": {}})
+        read_member = object()
+        source = _source(strava_activities={"f.fit": {}}, read_member=read_member)
 
         source.import_side_artifacts(created, "f.fit", "db")
 
-        mock_utils.import_media_from_strava_bulk_export.assert_called_once_with({"f.fit": {}}, "last", "f.fit", "db")
+        mock_utils.import_media_from_strava_bulk_export.assert_called_once_with(
+            {"f.fit": {}}, "last", "f.fit", read_member, "db"
+        )
 
     @patch("modules.strava.bulk_import_source.strava_bulk_import_utils")
     def test_nothing_to_attach_without_created_activities(self, mock_utils):
-        _source(strava_activities={"f.fit": {}}).import_side_artifacts([], "f.fit", "db")
+        _source(strava_activities={"f.fit": {}}, read_member=object()).import_side_artifacts([], "f.fit", "db")
 
         mock_utils.import_media_from_strava_bulk_export.assert_not_called()
+
+    @patch("modules.strava.bulk_import_source.strava_bulk_import_utils")
+    def test_nothing_to_attach_without_a_way_to_read_the_archive(self, mock_utils):
+        _source(strava_activities={"f.fit": {}}).import_side_artifacts(["a"], "f.fit", "db")
+
+        mock_utils.import_media_from_strava_bulk_export.assert_not_called()
+
+
+class TestExportLayout:
+    def test_activity_files_are_those_directly_in_the_activities_folder(self):
+        is_activity = strava_bulk_import_source._is_activity_member
+
+        assert is_activity("activities/123.fit.gz")
+        assert is_activity("activities/45.gpx")
+        assert not is_activity("activities.csv")
+        assert not is_activity("media/photo.jpg")
+        assert not is_activity("activities/readme.txt")
+        assert not is_activity("activities/.DS_Store")
+
+    def test_the_export_is_its_manifest_activities_and_photos_only(self):
+        is_export = strava_bulk_import_source._is_export_member
+
+        assert is_export("activities.csv")
+        assert is_export("activities/1.fit")
+        assert is_export("media/p.jpg")
+        # Anything else a user keeps in that folder is left alone.
+        assert not is_export("notes.txt")
+        assert not is_export("bikes.csv")
+
+
+class TestBuildSource:
+    def test_it_parses_the_manifest_and_reads_the_users_gear(self, monkeypatch):
+        read = lambda name: b"csv" if name == "activities.csv" else None  # noqa: E731
+        monkeypatch.setattr(
+            strava_bulk_import_source.strava_bulk_import_utils,
+            "parse_activities_manifest",
+            lambda path: {"1.fit": {"Activity Name": "Ride"}},
+        )
+        monkeypatch.setattr(
+            strava_bulk_import_source.strava_bulk_import_utils,
+            "create_gear_dictionary_for_bulk_import",
+            lambda user_id, db: {"Bike": [3]},
+        )
+        monkeypatch.setattr(strava_bulk_import_source, "SessionLocal", MagicMock())
+
+        source = strava_bulk_import_source._build_source(7, "2026-10-15T00:00:00", read)
+
+        assert source.strava_activities == {"1.fit": {"Activity Name": "Ride"}}
+        assert source.gear_nickname_to_id == {"Bike": [3]}
+        assert (source.user_id, source.import_initiated_time) == (7, "2026-10-15T00:00:00")
+        assert source.read_member is read
+
+    def test_an_archive_without_a_manifest_is_not_a_strava_export(self):
+        with pytest.raises(core_exceptions.InvalidInputError):
+            strava_bulk_import_source._build_source(7, "t", lambda name: None)
+
+    def test_an_unparseable_manifest_is_refused(self, monkeypatch):
+        monkeypatch.setattr(
+            strava_bulk_import_source.strava_bulk_import_utils, "parse_activities_manifest", lambda path: None
+        )
+
+        with pytest.raises(core_exceptions.InvalidInputError):
+            strava_bulk_import_source._build_source(7, "t", lambda name: b"garbage")
+
+    def test_the_format_is_registered_under_strava(self):
+        from modules.activities.activity_ingestion import provider_registry
+
+        provider_registry.clear()
+        strava_bulk_import_source.register_bulk_import_format()
+
+        registered = provider_registry.get_bulk_format("strava")
+        assert registered is not None
+        assert registered.drop_directory(5).endswith("/5")
+        provider_registry.clear()

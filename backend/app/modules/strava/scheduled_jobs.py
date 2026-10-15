@@ -1,41 +1,19 @@
 """The Strava module's scheduled work, declared by the module that owns it.
 
-Token refresh and the hourly pull of the last day's activities. Declared here so
-the composition root can collect it without ``core.scheduler`` importing a
-provider.
+Strava has none of its own any more: the hourly activity pull is one refresh job
+per linked user, queued by activity ingestion, and each of those refreshes the
+user's access token before it fetches. The function stays so the composition
+root keeps collecting scheduled work from every provider the same way.
 """
 
 import core.scheduler as core_scheduler
-import modules.strava.activity_utils as strava_activity_utils
-import modules.strava.utils as strava_utils
 
 
 def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
     """
     Return the Strava module's recurring scheduled jobs.
 
-    Args:
-        None.
-
     Returns:
         The module's scheduled jobs, for the composition root to register.
-
-    Raises:
-        None.
     """
-    return (
-        core_scheduler.ScheduledJob(
-            strava_utils.refresh_strava_tokens,
-            60,
-            "refresh Strava user tokens every 60 minutes",
-            [True],
-            "strava_token_refresh",
-        ),
-        core_scheduler.ScheduledJob(
-            strava_activity_utils.retrieve_strava_users_activities_for_days,
-            60,
-            "retrieve last day Strava users activities",
-            [1, True],
-            "strava_activity_sync",
-        ),
-    )
+    return ()

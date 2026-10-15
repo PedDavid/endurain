@@ -23,6 +23,11 @@ def to_read_schema(
         id=orm_job.id,
         kind=activity_ingestion_constants.IngestionJobKind(orm_job.kind),
         filename=orm_job.filename,
+        import_source=orm_job.import_source,
+        files_total=orm_job.files_total,
+        files_done=orm_job.files_done,
+        files_failed=orm_job.files_failed,
+        provider=orm_job.provider,
         status=activity_ingestion_constants.IngestionJobStatus(orm_job.status),
         error_code=(
             activity_ingestion_constants.IngestionJobErrorCode(orm_job.error_code) if orm_job.error_code else None

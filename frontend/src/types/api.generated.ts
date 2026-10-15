@@ -69,23 +69,48 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Create Activity With Bulk Import
-         * @description Queue every importable file in the caller's bulk-import directory.
+         * Create Bulk Import From Archive
+         * @description Import every activity file in an uploaded ZIP archive.
          *
-         *     Returns ``202``: the files are validated and queued in the request, but
-         *     parsing them happens on a background worker.
+         *     Returns ``202`` once the archive is stored and queued: nothing inside it is
+         *     read in the request beyond its directory listing. Poll
+         *     ``GET /activities/ingestion-jobs/{job_id}`` for progress (``files_done`` and
+         *     ``files_failed`` against ``files_total``); a finished import with failed files
+         *     still ends ``completed``.
          *
-         *     One job handle per queued file, so the caller polls
-         *     ``GET /activities/ingestion-jobs/{job_id}`` for each exactly as it does for a
-         *     single upload. Per file rather than per batch because each file is retried,
-         *     dead-lettered and completed independently — there is no shared outcome a
-         *     batch-level handle could report. An empty list means nothing importable was
-         *     found in the directory.
-         *
-         *     Fails with a processing error if the directory cannot be read or the jobs
-         *     cannot be queued.
+         *     One bulk import runs per user at a time; a second request while one is running
+         *     is answered ``409``.
          */
-        post: operations["create_activity_with_bulk_import_api_v1_activities_bulk_import_post"];
+        post: operations["create_bulk_import_from_archive_api_v1_activities_bulk_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/bulk-import/folder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Bulk Import From Folder
+         * @description Import the files in the caller's folder on the server.
+         *
+         *     The folder is per user (`bulk_import/<user_id>` for plain files, or the
+         *     provider export's own per-user folder). Returns ``202`` with a job handle;
+         *     packing and staging the folder happens in the background, and the files are
+         *     removed from the folder only once they are safely staged. Poll
+         *     ``GET /activities/ingestion-jobs/{job_id}`` for progress.
+         *
+         *     One bulk import runs per user at a time; a second request while one is running
+         *     is answered ``409``.
+         */
+        post: operations["create_bulk_import_from_folder_api_v1_activities_bulk_import_folder_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -821,6 +846,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/followers/follow-requests/{follower_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Reject Follow Request
+         * @description Decline the pending follow request from ``follower_id``.
+         *
+         *     Distinct from removing an accepted follower: this refuses access that was
+         *     never granted, which is a different decision even though the row is the same.
+         *     Scoped to pending requests, so removing an accepted follower goes through the
+         *     relationship route rather than arriving here by accident.
+         */
+        delete: operations["reject_follow_request_api_v1_followers_follow_requests__follower_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Accept Follow Request
+         * @description Accept the pending follow request from ``follower_id``.
+         *
+         *     Accepting is the only transition this route writes; declining is ``DELETE``
+         *     on the same path, because it removes the request rather than moving it to a
+         *     rejected state. The route is named for what it does so a client does not read
+         *     a general "decide" surface into it and send a rejection here.
+         *
+         *     Returns the row as persisted rather than one assembled from the request, so
+         *     the response cannot claim a state the database does not hold.
+         */
+        patch: operations["accept_follow_request_api_v1_followers_follow_requests__follower_id__patch"];
+        trace?: never;
+    };
     "/api/v1/followers/users/{user_id}/followers": {
         parameters: {
             query?: never;
@@ -927,7 +989,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Garminconnect Retrieve Activities Days */
+        /**
+         * Garminconnect Retrieve Activities Days
+         * @description Queue a Garmin Connect sync of an explicit date range.
+         *
+         *     Returns ``202`` with a job handle; poll ``GET /activities/ingestion-jobs/{job_id}``
+         *     for the outcome. The range is fetched by a background job, never on this
+         *     request or an API worker thread.
+         */
         get: operations["garminconnect_retrieve_activities_days_api_v1_garminconnect_activities_get"];
         put?: never;
         post?: never;
@@ -4440,7 +4509,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Strava Retrieve Activities Days */
+        /**
+         * Strava Retrieve Activities Days
+         * @description Queue a Strava sync of an explicit date range.
+         *
+         *     Returns ``202`` with a job handle; poll ``GET /activities/ingestion-jobs/{job_id}``
+         *     for the outcome. The range is fetched by a background job, never on this
+         *     request or an API worker thread.
+         */
         get: operations["strava_retrieve_activities_days_api_v1_strava_activities_get"];
         put?: never;
         post?: never;
@@ -4484,23 +4560,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/strava/import/activities": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Import Activities And Media From Strava Export */
-        post: operations["import_activities_and_media_from_strava_export_api_v1_strava_import_activities_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/strava/import/bikes": {
         parameters: {
             query?: never;
@@ -4510,7 +4569,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Import Bikes From Strava Export */
+        /**
+         * Import Bikes From Strava Export
+         * @description Create the bikes listed in an uploaded Strava ``bikes.csv``.
+         */
         post: operations["import_bikes_from_strava_export_api_v1_strava_import_bikes_post"];
         delete?: never;
         options?: never;
@@ -4527,7 +4589,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Import Shoes From Strava Export */
+        /**
+         * Import Shoes From Strava Export
+         * @description Create the shoes listed in an uploaded Strava ``shoes.csv``.
+         */
         post: operations["import_shoes_from_strava_export_api_v1_strava_import_shoes_post"];
         delete?: never;
         options?: never;
@@ -5044,43 +5109,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/followers/follow-requests/{follower_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Reject Follow Request
-         * @description Decline the pending follow request from ``follower_id``.
-         *
-         *     Distinct from removing an accepted follower: this refuses access that was
-         *     never granted, which is a different decision even though the row is the same.
-         *     Scoped to pending requests, so removing an accepted follower goes through the
-         *     relationship route rather than arriving here by accident.
-         */
-        delete: operations["reject_follow_request_api_v1_followers_follow_requests__follower_id__delete"];
-        options?: never;
-        head?: never;
-        /**
-         * Accept Follow Request
-         * @description Accept the pending follow request from ``follower_id``.
-         *
-         *     Accepting is the only transition this route writes; declining is ``DELETE``
-         *     on the same path, because it removes the request rather than moving it to a
-         *     rejected state. The route is named for what it does so a client does not read
-         *     a general "decide" surface into it and send a rejection here.
-         *
-         *     Returns the row as persisted rather than one assembled from the request, so
-         *     the response cannot claim a state the database does not hold.
-         */
-        patch: operations["accept_follow_request_api_v1_followers_follow_requests__follower_id__patch"];
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5095,11 +5123,11 @@ export interface components {
          *         license: License metadata.
          */
         AboutResponse: {
+            license: components["schemas"]["LicenseInfo"];
             /** Name */
             name: string;
             /** Version */
             version: string;
-            license: components["schemas"]["LicenseInfo"];
         };
         /**
          * ActivitiesBulkEdit
@@ -5149,44 +5177,44 @@ export interface components {
          *         hide_gear: Hide gear from others.
          */
         ActivityEdit: {
-            /** Description */
-            description?: string | null;
-            /** Private Notes */
-            private_notes?: string | null;
-            /** Name */
-            name?: string | null;
             /** Activity Type */
             activity_type?: number | null;
-            /** Visibility */
-            visibility?: number | null;
-            /** Is Hidden */
-            is_hidden?: boolean | null;
+            /** Description */
+            description?: string | null;
             /** Gear Id */
             gear_id?: number | null;
-            /** Hide Start Time */
-            hide_start_time?: boolean | null;
-            /** Hide Location */
-            hide_location?: boolean | null;
-            /** Hide Map */
-            hide_map?: boolean | null;
-            /** Hide Hr */
-            hide_hr?: boolean | null;
-            /** Hide Power */
-            hide_power?: boolean | null;
             /** Hide Cadence */
             hide_cadence?: boolean | null;
             /** Hide Elevation */
             hide_elevation?: boolean | null;
-            /** Hide Speed */
-            hide_speed?: boolean | null;
-            /** Hide Pace */
-            hide_pace?: boolean | null;
-            /** Hide Laps */
-            hide_laps?: boolean | null;
-            /** Hide Workout Sets Steps */
-            hide_workout_sets_steps?: boolean | null;
             /** Hide Gear */
             hide_gear?: boolean | null;
+            /** Hide Hr */
+            hide_hr?: boolean | null;
+            /** Hide Laps */
+            hide_laps?: boolean | null;
+            /** Hide Location */
+            hide_location?: boolean | null;
+            /** Hide Map */
+            hide_map?: boolean | null;
+            /** Hide Pace */
+            hide_pace?: boolean | null;
+            /** Hide Power */
+            hide_power?: boolean | null;
+            /** Hide Speed */
+            hide_speed?: boolean | null;
+            /** Hide Start Time */
+            hide_start_time?: boolean | null;
+            /** Hide Workout Sets Steps */
+            hide_workout_sets_steps?: boolean | null;
+            /** Is Hidden */
+            is_hidden?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Private Notes */
+            private_notes?: string | null;
+            /** Visibility */
+            visibility?: number | null;
         };
         /**
          * ActivityExerciseTitlesRead
@@ -5200,10 +5228,10 @@ export interface components {
             exercise_category: number;
             /** Exercise Name */
             exercise_name: number;
-            /** Wkt Step Name */
-            wkt_step_name: string;
             /** Id */
             id: number;
+            /** Wkt Step Name */
+            wkt_step_name: string;
         };
         /**
          * ActivityIngestionJobRead
@@ -5219,6 +5247,13 @@ export interface components {
          *             bulk-import file, or syncs from providers.
          *         filename: Original client filename; only set for uploads and
          *             bulk-import files.
+         *         import_source: For a bulk import, the archive format it reads.
+         *         files_total: For a bulk import, importable files in its archive.
+         *         files_done: For a bulk import, files imported so far.
+         *         files_failed: For a bulk import, files that could not be imported. A
+         *             finished import with failures still ends ``completed``.
+         *         provider: The one provider a refresh syncs; ``None`` when it syncs every
+         *             linked provider.
          *         status: Current lifecycle state.
          *         error_code: Sanitized failure reason when ``status`` is failed.
          *         activity_ids: Ids created by the import once it completes.
@@ -5227,30 +5262,40 @@ export interface components {
          *         completed_at: When the job reached a terminal state.
          */
         ActivityIngestionJobRead: {
-            /** Id */
-            id: string;
-            kind: components["schemas"]["IngestionJobKind"];
-            /** Filename */
-            filename?: string | null;
-            status: components["schemas"]["IngestionJobStatus"];
-            error_code?: components["schemas"]["IngestionJobErrorCode"] | null;
             /**
              * Activity Ids
              * @default []
              */
             activity_ids: number[];
+            /** Completed At */
+            completed_at?: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            error_code?: components["schemas"]["IngestionJobErrorCode"] | null;
+            /** Filename */
+            filename?: string | null;
+            /** Files Done */
+            files_done?: number | null;
+            /** Files Failed */
+            files_failed?: number | null;
+            /** Files Total */
+            files_total?: number | null;
+            /** Id */
+            id: string;
+            /** Import Source */
+            import_source?: string | null;
+            kind: components["schemas"]["IngestionJobKind"];
+            /** Provider */
+            provider?: string | null;
+            status: components["schemas"]["IngestionJobStatus"];
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
-            /** Completed At */
-            completed_at?: string | null;
         };
         /**
          * ActivityLapsRead
@@ -5267,85 +5312,85 @@ export interface components {
          *         start_time: Lap start as a timezone-aware UTC instant.
          */
         ActivityLapsRead: {
-            /**
-             * Start Time
-             * Format: date-time
-             */
-            start_time: string;
-            /** Start Position Lat */
-            start_position_lat?: number | null;
-            /** Start Position Long */
-            start_position_long?: number | null;
+            /** Activity Id */
+            activity_id: number;
+            /** Avg Cadence */
+            avg_cadence?: number | null;
+            /** Avg Fractional Cadence */
+            avg_fractional_cadence?: number | null;
+            /** Avg Heart Rate */
+            avg_heart_rate?: number | null;
+            /** Avg Power */
+            avg_power?: number | null;
+            /** Avg Stance Time */
+            avg_stance_time?: number | null;
+            /** Avg Step Length */
+            avg_step_length?: number | null;
+            /** Avg Vertical Oscillation */
+            avg_vertical_oscillation?: number | null;
+            /** Avg Vertical Ratio */
+            avg_vertical_ratio?: number | null;
             /** End Position Lat */
             end_position_lat?: number | null;
             /** End Position Long */
             end_position_long?: number | null;
-            /** Total Elapsed Time */
-            total_elapsed_time?: number | null;
-            /** Total Timer Time */
-            total_timer_time?: number | null;
-            /** Total Distance */
-            total_distance?: number | null;
-            /** Total Cycles */
-            total_cycles?: number | null;
-            /** Total Calories */
-            total_calories?: number | null;
-            /** Avg Heart Rate */
-            avg_heart_rate?: number | null;
-            /** Max Heart Rate */
-            max_heart_rate?: number | null;
-            /** Avg Cadence */
-            avg_cadence?: number | null;
-            /** Max Cadence */
-            max_cadence?: number | null;
-            /** Avg Power */
-            avg_power?: number | null;
-            /** Max Power */
-            max_power?: number | null;
-            /** Total Ascent */
-            total_ascent?: number | null;
-            /** Total Descent */
-            total_descent?: number | null;
-            /** Intensity */
-            intensity?: string | null;
-            /** Lap Trigger */
-            lap_trigger?: string | null;
-            /** Sport */
-            sport?: string | null;
-            /** Sub Sport */
-            sub_sport?: string | null;
-            /** Normalized Power */
-            normalized_power?: number | null;
-            /** Total Work */
-            total_work?: number | null;
-            /** Avg Vertical Oscillation */
-            avg_vertical_oscillation?: number | null;
-            /** Avg Stance Time */
-            avg_stance_time?: number | null;
-            /** Avg Fractional Cadence */
-            avg_fractional_cadence?: number | null;
-            /** Max Fractional Cadence */
-            max_fractional_cadence?: number | null;
             /** Enhanced Avg Pace */
             enhanced_avg_pace?: number | null;
             /** Enhanced Avg Speed */
             enhanced_avg_speed?: number | null;
+            /** Enhanced Max Altitude */
+            enhanced_max_altitude?: number | null;
             /** Enhanced Max Pace */
             enhanced_max_pace?: number | null;
             /** Enhanced Max Speed */
             enhanced_max_speed?: number | null;
             /** Enhanced Min Altitude */
             enhanced_min_altitude?: number | null;
-            /** Enhanced Max Altitude */
-            enhanced_max_altitude?: number | null;
-            /** Avg Vertical Ratio */
-            avg_vertical_ratio?: number | null;
-            /** Avg Step Length */
-            avg_step_length?: number | null;
             /** Id */
             id: number;
-            /** Activity Id */
-            activity_id: number;
+            /** Intensity */
+            intensity?: string | null;
+            /** Lap Trigger */
+            lap_trigger?: string | null;
+            /** Max Cadence */
+            max_cadence?: number | null;
+            /** Max Fractional Cadence */
+            max_fractional_cadence?: number | null;
+            /** Max Heart Rate */
+            max_heart_rate?: number | null;
+            /** Max Power */
+            max_power?: number | null;
+            /** Normalized Power */
+            normalized_power?: number | null;
+            /** Sport */
+            sport?: string | null;
+            /** Start Position Lat */
+            start_position_lat?: number | null;
+            /** Start Position Long */
+            start_position_long?: number | null;
+            /**
+             * Start Time
+             * Format: date-time
+             */
+            start_time: string;
+            /** Sub Sport */
+            sub_sport?: string | null;
+            /** Total Ascent */
+            total_ascent?: number | null;
+            /** Total Calories */
+            total_calories?: number | null;
+            /** Total Cycles */
+            total_cycles?: number | null;
+            /** Total Descent */
+            total_descent?: number | null;
+            /** Total Distance */
+            total_distance?: number | null;
+            /** Total Elapsed Time */
+            total_elapsed_time?: number | null;
+            /** Total Timer Time */
+            total_timer_time?: number | null;
+            /** Total Work */
+            total_work?: number | null;
         };
         /**
          * ActivityMediaRead
@@ -5357,10 +5402,10 @@ export interface components {
          *     with it; see :class:`~modules.activities.activity_media.contracts.ActivityMediaRecord`.
          */
         ActivityMediaRead: {
-            /** Id */
-            id: number;
             /** Activity Id */
             activity_id: number;
+            /** Id */
+            id: number;
             /** Media Type */
             media_type: number;
             /** Url */
@@ -5383,78 +5428,66 @@ export interface components {
          *             the service layer for a viewer allowed to see the map.
          */
         ActivityRead: {
-            /** User Id */
-            user_id?: number | null;
-            /** Description */
-            description?: string | null;
-            /** Private Notes */
-            private_notes?: string | null;
-            /** Distance */
-            distance: number;
-            /** Name */
-            name: string;
             /** Activity Type */
             activity_type: number;
-            /** Start Time */
-            start_time?: string | null;
-            /** End Time */
-            end_time?: string | null;
-            /** Timezone */
-            timezone?: string | null;
-            /** Total Elapsed Time */
-            total_elapsed_time?: number | null;
-            /** Total Timer Time */
-            total_timer_time?: number | null;
+            /** Average Cad */
+            average_cad?: number | null;
+            /** Average Hr */
+            average_hr?: number | null;
+            /** Average Power */
+            average_power?: number | null;
+            /** Average Speed */
+            average_speed?: number | null;
+            /** Calories */
+            calories?: number | null;
             /** City */
             city?: string | null;
-            /** Town */
-            town?: string | null;
             /** Country */
             country?: string | null;
             /** Created At */
             created_at?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Distance */
+            distance: number;
             /** Elevation Gain */
             elevation_gain?: number | null;
             /** Elevation Loss */
             elevation_loss?: number | null;
-            /** Pace */
-            pace?: number | null;
-            /** Average Speed */
-            average_speed?: number | null;
-            /** Max Speed */
-            max_speed?: number | null;
-            /** Average Power */
-            average_power?: number | null;
-            /** Max Power */
-            max_power?: number | null;
-            /** Normalized Power */
-            normalized_power?: number | null;
-            /** Average Hr */
-            average_hr?: number | null;
-            /** Max Hr */
-            max_hr?: number | null;
-            /** Average Cad */
-            average_cad?: number | null;
-            /** Max Cad */
-            max_cad?: number | null;
-            /** Workout Feeling */
-            workout_feeling?: number | null;
-            /** Workout Rpe */
-            workout_rpe?: number | null;
-            /** Calories */
-            calories?: number | null;
-            /** Visibility */
-            visibility?: number | null;
-            /** Gear Id */
-            gear_id?: number | null;
-            /** Strava Gear Id */
-            strava_gear_id?: string | null;
-            /** Strava Activity Id */
-            strava_activity_id?: number | null;
+            /** End Time */
+            end_time?: string | null;
             /** Garminconnect Activity Id */
             garminconnect_activity_id?: number | null;
             /** Garminconnect Gear Id */
             garminconnect_gear_id?: string | null;
+            /** Gear Id */
+            gear_id?: number | null;
+            /** Hide Cadence */
+            hide_cadence?: boolean | null;
+            /** Hide Elevation */
+            hide_elevation?: boolean | null;
+            /** Hide Gear */
+            hide_gear?: boolean | null;
+            /** Hide Hr */
+            hide_hr?: boolean | null;
+            /** Hide Laps */
+            hide_laps?: boolean | null;
+            /** Hide Location */
+            hide_location?: boolean | null;
+            /** Hide Map */
+            hide_map?: boolean | null;
+            /** Hide Pace */
+            hide_pace?: boolean | null;
+            /** Hide Power */
+            hide_power?: boolean | null;
+            /** Hide Speed */
+            hide_speed?: boolean | null;
+            /** Hide Start Time */
+            hide_start_time?: boolean | null;
+            /** Hide Workout Sets Steps */
+            hide_workout_sets_steps?: boolean | null;
+            /** Id */
+            id: number;
             /** Import Info */
             import_info?: {
                 [key: string]: unknown;
@@ -5464,42 +5497,54 @@ export interface components {
              * @default false
              */
             is_hidden: boolean;
-            /** Hide Start Time */
-            hide_start_time?: boolean | null;
-            /** Hide Location */
-            hide_location?: boolean | null;
-            /** Hide Map */
-            hide_map?: boolean | null;
-            /** Hide Hr */
-            hide_hr?: boolean | null;
-            /** Hide Power */
-            hide_power?: boolean | null;
-            /** Hide Cadence */
-            hide_cadence?: boolean | null;
-            /** Hide Elevation */
-            hide_elevation?: boolean | null;
-            /** Hide Speed */
-            hide_speed?: boolean | null;
-            /** Hide Pace */
-            hide_pace?: boolean | null;
-            /** Hide Laps */
-            hide_laps?: boolean | null;
-            /** Hide Workout Sets Steps */
-            hide_workout_sets_steps?: boolean | null;
-            /** Hide Gear */
-            hide_gear?: boolean | null;
+            /** Map Thumbnail Url */
+            map_thumbnail_url?: string | null;
+            /** Max Cad */
+            max_cad?: number | null;
+            /** Max Hr */
+            max_hr?: number | null;
+            /** Max Power */
+            max_power?: number | null;
+            /** Max Speed */
+            max_speed?: number | null;
+            /** Name */
+            name: string;
+            /** Normalized Power */
+            normalized_power?: number | null;
+            /** Pace */
+            pace?: number | null;
+            /** Private Notes */
+            private_notes?: string | null;
+            /** Start Time */
+            start_time?: string | null;
+            /** Strava Activity Id */
+            strava_activity_id?: number | null;
+            /** Strava Gear Id */
+            strava_gear_id?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Total Cycles */
+            total_cycles?: number | null;
+            /** Total Elapsed Time */
+            total_elapsed_time?: number | null;
+            /** Total Timer Time */
+            total_timer_time?: number | null;
+            /** Town */
+            town?: string | null;
             /** Tracker Manufacturer */
             tracker_manufacturer?: string | null;
             /** Tracker Model */
             tracker_model?: string | null;
-            /** Total Cycles */
-            total_cycles?: number | null;
-            /** Id */
-            id: number;
-            /** Map Thumbnail Url */
-            map_thumbnail_url?: string | null;
+            /** User Id */
+            user_id?: number | null;
             /** Version */
             version?: number | null;
+            /** Visibility */
+            visibility?: number | null;
+            /** Workout Feeling */
+            workout_feeling?: number | null;
+            /** Workout Rpe */
+            workout_rpe?: number | null;
         };
         /**
          * ActivitySetsRead
@@ -5516,12 +5561,18 @@ export interface components {
          *         start_time: Set start as a timezone-aware UTC instant.
          */
         ActivitySetsRead: {
+            /** Activity Id */
+            activity_id: number;
+            /** Category */
+            category?: number | null;
+            /** Category Subtype */
+            category_subtype?: number | null;
             /** Duration */
             duration: number;
+            /** Id */
+            id: number;
             /** Repetitions */
             repetitions?: number | null;
-            /** Weight */
-            weight?: number | null;
             /** Set Type */
             set_type: string;
             /**
@@ -5529,15 +5580,24 @@ export interface components {
              * Format: date-time
              */
             start_time: string;
-            /** Category */
-            category?: number | null;
-            /** Category Subtype */
-            category_subtype?: number | null;
-            /** Id */
-            id: number;
-            /** Activity Id */
-            activity_id: number;
+            /** Weight */
+            weight?: number | null;
         };
+        /**
+         * ActivitySortField
+         * @enum {string}
+         */
+        ActivitySortField: "type" | "name" | "location" | "start_time" | "duration" | "distance" | "pace" | "calories" | "elevation" | "average_hr";
+        /**
+         * ActivitySortOrder
+         * @description Accepted sort directions.
+         *
+         *     Attributes:
+         *         ASC: Ascending.
+         *         DESC: Descending.
+         * @enum {string}
+         */
+        ActivitySortOrder: "asc" | "desc";
         /**
          * ActivitySportStats
          * @description Aggregated stats for a single sport over a timeframe.
@@ -5549,6 +5609,11 @@ export interface components {
          */
         ActivitySportStats: {
             /**
+             * Calories
+             * @default 0
+             */
+            calories: number;
+            /**
              * Distance
              * @default 0
              */
@@ -5558,11 +5623,6 @@ export interface components {
              * @default 0
              */
             time: number;
-            /**
-             * Calories
-             * @default 0
-             */
-            calories: number;
         };
         /**
          * ActivityStatsRead
@@ -5586,21 +5646,21 @@ export interface components {
          *         inline_skating: Stats for inline skating activities.
          */
         ActivityStatsRead: {
-            run?: components["schemas"]["ActivitySportStats"];
             bike?: components["schemas"]["ActivitySportStats"];
-            swim?: components["schemas"]["ActivitySportStats"];
-            walk?: components["schemas"]["ActivitySportStats"];
             hike?: components["schemas"]["ActivitySportStats"];
+            inline_skating?: components["schemas"]["ActivitySportStats"];
+            kayaking?: components["schemas"]["ActivitySportStats"];
             rowing?: components["schemas"]["ActivitySportStats"];
+            run?: components["schemas"]["ActivitySportStats"];
+            sailing?: components["schemas"]["ActivitySportStats"];
             snow_ski?: components["schemas"]["ActivitySportStats"];
             snowboard?: components["schemas"]["ActivitySportStats"];
-            windsurf?: components["schemas"]["ActivitySportStats"];
+            snowshoeing?: components["schemas"]["ActivitySportStats"];
             stand_up_paddleboarding?: components["schemas"]["ActivitySportStats"];
             surfing?: components["schemas"]["ActivitySportStats"];
-            kayaking?: components["schemas"]["ActivitySportStats"];
-            sailing?: components["schemas"]["ActivitySportStats"];
-            snowshoeing?: components["schemas"]["ActivitySportStats"];
-            inline_skating?: components["schemas"]["ActivitySportStats"];
+            swim?: components["schemas"]["ActivitySportStats"];
+            walk?: components["schemas"]["ActivitySportStats"];
+            windsurf?: components["schemas"]["ActivitySportStats"];
         };
         /**
          * ActivityStreamsRead
@@ -5608,25 +5668,53 @@ export interface components {
          *
          *     Attributes:
          *         id: Unique stream identifier.
+         *         zone_percentages: Zone breakdowns keyed by metric (e.g. 'hr'). Computed
+         *             when the stream is served, from the owner's current thresholds; never
+         *             stored, so it cannot go stale.
          */
         ActivityStreamsRead: {
             /** Activity Id */
             activity_id: number;
+            /** Id */
+            id: number;
+            /** Strava Activity Stream Id */
+            strava_activity_stream_id?: number | null;
             /** Stream Type */
             stream_type: number;
             /** Stream Waypoints */
             stream_waypoints: {
                 [key: string]: unknown;
             }[];
-            /** Strava Activity Stream Id */
-            strava_activity_stream_id?: number | null;
             /** Zone Percentages */
             zone_percentages?: {
                 [key: string]: unknown;
             } | null;
-            /** Id */
-            id: number;
         };
+        /**
+         * ActivityType
+         * @description Supported activity types for user goals.
+         *
+         *     Attributes:
+         *         RUN: Running activities.
+         *         BIKE: Cycling activities.
+         *         SWIM: Swimming activities.
+         *         WALK: Walking or hiking activities.
+         *         STRENGTH: Strength or resistance training.
+         *         CARDIO: Cardiovascular training.
+         * @enum {string}
+         */
+        ActivityType: "run" | "bike" | "swim" | "walk" | "strength" | "cardio";
+        /**
+         * ActivityVisibility
+         * @description Activity visibility levels.
+         *
+         *     Attributes:
+         *         PUBLIC: Visible to everyone.
+         *         FOLLOWERS: Visible only to followers.
+         *         PRIVATE: Visible only to the user.
+         * @enum {string}
+         */
+        ActivityVisibility: "public" | "followers" | "private";
         /**
          * ActivityWorkoutStepsRead
          * @description A stored workout step, as the API returns it.
@@ -5636,37 +5724,52 @@ export interface components {
          *         activity_id: FK to activities table.
          */
         ActivityWorkoutStepsRead: {
-            /** Message Index */
-            message_index: number;
+            /** Activity Id */
+            activity_id: number;
             /** Duration Type */
             duration_type: string;
             /** Duration Value */
             duration_value?: number | null;
-            /** Target Type */
-            target_type?: string | null;
-            /** Target Value */
-            target_value?: number | null;
-            /** Intensity */
-            intensity?: string | null;
-            /** Notes */
-            notes?: string | null;
             /** Exercise Category */
             exercise_category?: number | null;
             /** Exercise Name */
             exercise_name?: number | null;
             /** Exercise Weight */
             exercise_weight?: number | null;
-            /** Weight Display Unit */
-            weight_display_unit?: string | null;
-            /** Secondary Target Value */
-            secondary_target_value?: string | null;
             /** Id */
             id: number;
-            /** Activity Id */
-            activity_id: number;
+            /** Intensity */
+            intensity?: string | null;
+            /** Message Index */
+            message_index: number;
+            /** Notes */
+            notes?: string | null;
+            /** Secondary Target Value */
+            secondary_target_value?: string | null;
+            /** Target Type */
+            target_type?: string | null;
+            /** Target Value */
+            target_value?: number | null;
+            /** Weight Display Unit */
+            weight_display_unit?: string | null;
+        };
+        /** Body_create_activity_media_api_v1_activities__activity_id__media_post */
+        Body_create_activity_media_api_v1_activities__activity_id__media_post: {
+            /** File */
+            file: string;
         };
         /** Body_create_activity_with_uploaded_file_api_v1_activities_upload_post */
         Body_create_activity_with_uploaded_file_api_v1_activities_upload_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_create_bulk_import_from_archive_api_v1_activities_bulk_import_post */
+        Body_create_bulk_import_from_archive_api_v1_activities_bulk_import_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_import_bikes_from_strava_export_api_v1_strava_import_bikes_post */
+        Body_import_bikes_from_strava_export_api_v1_strava_import_bikes_post: {
             /** File */
             file: string;
         };
@@ -5675,12 +5778,22 @@ export interface components {
             /** File */
             file: string;
         };
+        /** Body_import_shoes_from_strava_export_api_v1_strava_import_shoes_post */
+        Body_import_shoes_from_strava_export_api_v1_strava_import_shoes_post: {
+            /** File */
+            file: string;
+        };
         /** Body_login_for_access_token_api_v1_auth_login_post */
         Body_login_for_access_token_api_v1_auth_login_post: {
+            /** Client Id */
+            client_id?: string | null;
+            /**
+             * Client Secret
+             * Format: password
+             */
+            client_secret?: string | null;
             /** Grant Type */
             grant_type?: string | null;
-            /** Username */
-            username: string;
             /**
              * Password
              * Format: password
@@ -5691,13 +5804,8 @@ export interface components {
              * @default
              */
             scope: string;
-            /** Client Id */
-            client_id?: string | null;
-            /**
-             * Client Secret
-             * Format: password
-             */
-            client_secret?: string | null;
+            /** Username */
+            username: string;
         };
         /** Body_upload_login_photo_api_v1_server_settings_upload_login_post */
         Body_upload_login_photo_api_v1_server_settings_upload_login_post: {
@@ -5714,14 +5822,56 @@ export interface components {
             /** File */
             file: string;
         };
+        /**
+         * BristolType
+         * @description Bristol Stool Scale classification types.
+         *
+         *     Attributes:
+         *         TYPE_1: Separate hard lumps (severe constipation).
+         *         TYPE_2: Lumpy and sausage-like (mild constipation).
+         *         TYPE_3: Sausage shape with cracks (normal).
+         *         TYPE_4: Smooth, soft sausage (normal, ideal).
+         *         TYPE_5: Soft blobs with clear edges (lacking fiber).
+         *         TYPE_6: Mushy with ragged edges (mild diarrhea).
+         *         TYPE_7: Liquid, no solid pieces (severe diarrhea).
+         * @enum {integer}
+         */
+        BristolType: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+        /**
+         * Color
+         * @description Enumeration of common stool color descriptions.
+         *
+         *     Attributes:
+         *         BROWN: Normal brown color.
+         *         DARK_BROWN: Darker than normal brown.
+         *         LIGHT_BROWN: Lighter than normal brown.
+         *         YELLOW: Yellowish color.
+         *         GREEN: Greenish color.
+         *         BLACK: Black or very dark color.
+         *         RED: Red or reddish color.
+         *         WHITE: White or clay-colored.
+         * @enum {string}
+         */
+        Color: "brown" | "dark_brown" | "light_brown" | "yellow" | "green" | "black" | "red" | "white";
+        /**
+         * Currency
+         * @description An enumeration representing supported currencies.
+         *
+         *     Attributes:
+         *         EURO: Represents the Euro currency.
+         *         DOLLAR: Represents the US Dollar currency.
+         *         POUND: Represents the British Pound currency.
+         * @enum {string}
+         */
+        Currency: "euro" | "dollar" | "pound";
         /** CursorPage[ActivityRead] */
         CursorPage_ActivityRead_: {
             /** Items */
             items: components["schemas"]["ActivityRead"][];
-            /** Num Records */
-            num_records: number;
             /** Next Cursor */
             next_cursor?: string | null;
+            /** Num Records */
+            num_records: number;
         };
         /**
          * DaySummary
@@ -5731,6 +5881,23 @@ export interface components {
          *         day_of_week: Day of week (0=Mon, 6=Sun).
          */
         DaySummary: {
+            /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Day Of Week
+             * @description Day of week (0=Monday, 6=Sunday)
+             */
+            day_of_week: number;
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
             /**
              * Total Distance
              * @description Total distance in meters
@@ -5749,23 +5916,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Day Of Week
-             * @description Day of week (0=Monday, 6=Sunday)
-             */
-            day_of_week: number;
         };
         /**
          * DeadLetterJob
@@ -5785,34 +5935,34 @@ export interface components {
          *         completed_at: When the job reached its terminal state.
          */
         DeadLetterJob: {
-            /** Id */
-            id: string;
-            /** Event Id */
-            event_id: string;
-            /** Event Type */
-            event_type: string;
-            /** Subscriber Id */
-            subscriber_id: string;
-            /** Source */
-            source: string;
             /** Attempts */
             attempts: number;
-            /** Max Attempts */
-            max_attempts: number;
-            /** Last Error */
-            last_error: string | null;
+            /** Completed At */
+            completed_at: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Event Id */
+            event_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Id */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Source */
+            source: string;
+            /** Subscriber Id */
+            subscriber_id: string;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
-            /** Completed At */
-            completed_at: string | null;
         };
         /**
          * EventLogFailure
@@ -5830,29 +5980,29 @@ export interface components {
          *         completed_at: When processing finished.
          */
         EventLogFailure: {
-            /** Id */
-            id: string;
-            /** Event Type */
-            event_type: string;
-            /** Event Source */
-            event_source: string;
-            /** Handler Name */
-            handler_name: string | null;
-            /** Error Message */
-            error_message: string | null;
-            /** Retry Count */
-            retry_count: number;
-            /** Event Metadata */
-            event_metadata: {
-                [key: string]: unknown;
-            } | null;
+            /** Completed At */
+            completed_at: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
-            /** Completed At */
-            completed_at: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Event Metadata */
+            event_metadata: {
+                [key: string]: unknown;
+            } | null;
+            /** Event Source */
+            event_source: string;
+            /** Event Type */
+            event_type: string;
+            /** Handler Name */
+            handler_name: string | null;
+            /** Id */
+            id: string;
+            /** Retry Count */
+            retry_count: number;
         };
         /**
          * EventLogPending
@@ -5865,14 +6015,14 @@ export interface components {
          *         oldest_seconds: Age of the oldest event in the group, in seconds.
          */
         EventLogPending: {
-            /** Event Type */
-            event_type: string;
-            /** Status */
-            status: string;
             /** Count */
             count: number;
+            /** Event Type */
+            event_type: string;
             /** Oldest Seconds */
             oldest_seconds: number | null;
+            /** Status */
+            status: string;
         };
         /**
          * EventLogSummary
@@ -5886,16 +6036,16 @@ export interface components {
          *         recent_failures: The most recent failed/dead-lettered events.
          */
         EventLogSummary: {
-            /** Window Hours */
-            window_hours: number;
-            /** Total Events */
-            total_events: number;
             /** By Type */
             by_type: components["schemas"]["EventTypeStats"][];
             /** Pending */
             pending: components["schemas"]["EventLogPending"][];
             /** Recent Failures */
             recent_failures: components["schemas"]["EventLogFailure"][];
+            /** Total Events */
+            total_events: number;
+            /** Window Hours */
+            window_hours: number;
         };
         /**
          * EventTypeStats
@@ -5915,27 +6065,56 @@ export interface components {
          *         max_processing_time_ms: Slowest handler time, or None.
          */
         EventTypeStats: {
+            /** Avg Processing Time Ms */
+            avg_processing_time_ms: number | null;
+            /** Completed */
+            completed: number;
+            /** Dead Letter */
+            dead_letter: number;
             /** Event Type */
             event_type: string;
-            /** Total */
-            total: number;
+            /** Failed */
+            failed: number;
+            /** Max Processing Time Ms */
+            max_processing_time_ms: number | null;
+            /** Processing */
+            processing: number;
             /** Published */
             published: number;
             /** Queued */
             queued: number;
-            /** Processing */
-            processing: number;
-            /** Completed */
-            completed: number;
-            /** Failed */
-            failed: number;
-            /** Dead Letter */
-            dead_letter: number;
-            /** Avg Processing Time Ms */
-            avg_processing_time_ms: number | null;
-            /** Max Processing Time Ms */
-            max_processing_time_ms: number | null;
+            /** Total */
+            total: number;
         };
+        /**
+         * FastingStatus
+         * @description Enumeration of fasting session statuses.
+         *
+         *     Attributes:
+         *         IN_PROGRESS: Fasting session is currently active.
+         *         COMPLETED: Fasting session completed successfully.
+         *         BROKEN: Fasting session was broken before target.
+         *         CANCELLED: Fasting session was cancelled.
+         * @enum {string}
+         */
+        FastingStatus: "in_progress" | "completed" | "broken" | "cancelled";
+        /**
+         * FastingType
+         * @description Enumeration of fasting protocol types.
+         *
+         *     Attributes:
+         *         IF_16_8: 16-hour fast with 8-hour eating window.
+         *         IF_18_6: 18-hour fast with 6-hour eating window.
+         *         IF_20_4: 20-hour fast with 4-hour eating window.
+         *         OMAD: One meal a day (23:1 ratio).
+         *         EXTENDED_24: 24-hour extended fast.
+         *         EXTENDED_36: 36-hour extended fast.
+         *         EXTENDED_48: 48-hour extended fast.
+         *         EXTENDED_72: 72-hour extended fast.
+         *         CUSTOM: Custom fasting duration.
+         * @enum {string}
+         */
+        FastingType: "16:8" | "18:6" | "20:4" | "OMAD" | "24h" | "36h" | "48h" | "72h" | "custom";
         /**
          * FollowRelationshipRead
          * @description Serialized representation of a follow relationship.
@@ -5946,10 +6125,10 @@ export interface components {
          *         status: Whether the request is pending or accepted.
          */
         FollowRelationshipRead: {
-            /** Follower Id */
-            follower_id: number;
             /** Followee Id */
             followee_id: number;
+            /** Follower Id */
+            follower_id: number;
             status: components["schemas"]["FollowStatus"];
         };
         /**
@@ -5970,17 +6149,27 @@ export interface components {
         FollowRequestAccept: {
             status: components["schemas"]["FollowStatus"];
         };
+        /**
+         * FollowStatus
+         * @description Status of a follow relationship.
+         *
+         *     Attributes:
+         *         PENDING: The follow request has been sent but not yet accepted.
+         *         ACCEPTED: The follow request has been accepted.
+         * @enum {string}
+         */
+        FollowStatus: "pending" | "accepted";
         /** GarminLogin */
         GarminLogin: {
-            /** Username */
-            username: string;
-            /** Password */
-            password: string;
             /**
              * Is Cn
              * @default false
              */
             is_cn: boolean;
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
         };
         /**
          * GearComponentCreate
@@ -5988,20 +6177,25 @@ export interface components {
          */
         GearComponentCreate: {
             /**
-             * Gear Id
-             * @description Foreign key to gear
+             * Active
+             * @description Whether the component is active
              */
-            gear_id: number;
-            /**
-             * Type
-             * @description Type of gear component
-             */
-            type: string;
+            active?: boolean | null;
             /**
              * Brand
              * @description Gear component brand
              */
             brand: string;
+            /**
+             * Expected Kms
+             * @description Expected kilometers
+             */
+            expected_kms?: number | null;
+            /**
+             * Gear Id
+             * @description Foreign key to gear
+             */
+            gear_id: number;
             /**
              * Model
              * @description Gear component model
@@ -6013,25 +6207,20 @@ export interface components {
              */
             purchase_date?: string | null;
             /**
+             * Purchase Value
+             * @description Purchase value
+             */
+            purchase_value?: number | null;
+            /**
              * Retired Date
              * @description Retired date
              */
             retired_date?: string | null;
             /**
-             * Active
-             * @description Whether the component is active
+             * Type
+             * @description Type of gear component
              */
-            active?: boolean | null;
-            /**
-             * Expected Kms
-             * @description Expected kilometers
-             */
-            expected_kms?: number | null;
-            /**
-             * Purchase Value
-             * @description Purchase value
-             */
-            purchase_value?: number | null;
+            type: string;
         };
         /**
          * GearComponentRead
@@ -6045,60 +6234,15 @@ export interface components {
          */
         GearComponentRead: {
             /**
-             * Gear Id
-             * @description Foreign key to gear
-             */
-            gear_id: number;
-            /**
-             * Type
-             * @description Type of gear component
-             */
-            type: string;
-            /**
-             * Brand
-             * @description Gear component brand
-             */
-            brand: string;
-            /**
-             * Model
-             * @description Gear component model
-             */
-            model: string;
-            /**
-             * Purchase Date
-             * @description Purchase date
-             */
-            purchase_date?: string | null;
-            /**
-             * Retired Date
-             * @description Retired date
-             */
-            retired_date?: string | null;
-            /**
              * Active
              * @description Whether the component is active
              */
             active?: boolean | null;
             /**
-             * Expected Kms
-             * @description Expected kilometers
+             * Brand
+             * @description Gear component brand
              */
-            expected_kms?: number | null;
-            /**
-             * Purchase Value
-             * @description Purchase value
-             */
-            purchase_value?: number | null;
-            /**
-             * Id
-             * @description Unique identifier
-             */
-            id: number;
-            /**
-             * User Id
-             * @description Foreign key to user
-             */
-            user_id: number;
+            brand: string;
             /**
              * Current Distance
              * @description Accumulated activity distance in meters
@@ -6111,6 +6255,51 @@ export interface components {
              * @default 0
              */
             current_time: number;
+            /**
+             * Expected Kms
+             * @description Expected kilometers
+             */
+            expected_kms?: number | null;
+            /**
+             * Gear Id
+             * @description Foreign key to gear
+             */
+            gear_id: number;
+            /**
+             * Id
+             * @description Unique identifier
+             */
+            id: number;
+            /**
+             * Model
+             * @description Gear component model
+             */
+            model: string;
+            /**
+             * Purchase Date
+             * @description Purchase date
+             */
+            purchase_date?: string | null;
+            /**
+             * Purchase Value
+             * @description Purchase value
+             */
+            purchase_value?: number | null;
+            /**
+             * Retired Date
+             * @description Retired date
+             */
+            retired_date?: string | null;
+            /**
+             * Type
+             * @description Type of gear component
+             */
+            type: string;
+            /**
+             * User Id
+             * @description Foreign key to user
+             */
+            user_id: number;
         };
         /**
          * GearComponentTypesRead
@@ -6129,15 +6318,15 @@ export interface components {
              */
             bike: string[];
             /**
-             * Shoes
-             * @description Valid shoes component types
-             */
-            shoes: string[];
-            /**
              * Racquet
              * @description Valid racquet component types
              */
             racquet: string[];
+            /**
+             * Shoes
+             * @description Valid shoes component types
+             */
+            shoes: string[];
             /**
              * Windsurf
              * @description Valid windsurf component types
@@ -6153,20 +6342,30 @@ export interface components {
          */
         GearComponentUpdate: {
             /**
-             * Gear Id
-             * @description Foreign key to gear
+             * Active
+             * @description Whether the component is active
              */
-            gear_id: number;
-            /**
-             * Type
-             * @description Type of gear component
-             */
-            type: string;
+            active?: boolean | null;
             /**
              * Brand
              * @description Gear component brand
              */
             brand: string;
+            /**
+             * Expected Kms
+             * @description Expected kilometers
+             */
+            expected_kms?: number | null;
+            /**
+             * Gear Id
+             * @description Foreign key to gear
+             */
+            gear_id: number;
+            /**
+             * Id
+             * @description Unique identifier
+             */
+            id: number;
             /**
              * Model
              * @description Gear component model
@@ -6178,30 +6377,20 @@ export interface components {
              */
             purchase_date?: string | null;
             /**
-             * Retired Date
-             * @description Retired date
-             */
-            retired_date?: string | null;
-            /**
-             * Active
-             * @description Whether the component is active
-             */
-            active?: boolean | null;
-            /**
-             * Expected Kms
-             * @description Expected kilometers
-             */
-            expected_kms?: number | null;
-            /**
              * Purchase Value
              * @description Purchase value
              */
             purchase_value?: number | null;
             /**
-             * Id
-             * @description Unique identifier
+             * Retired Date
+             * @description Retired date
              */
-            id: number;
+            retired_date?: string | null;
+            /**
+             * Type
+             * @description Type of gear component
+             */
+            type: string;
         };
         /**
          * GearCreate
@@ -6212,10 +6401,32 @@ export interface components {
          */
         GearCreate: {
             /**
+             * Active
+             * @description Whether the gear is active
+             */
+            active?: boolean | null;
+            /**
              * Brand
              * @description Gear brand name
              */
             brand?: string | null;
+            /**
+             * Created At
+             * @description Gear creation timestamp
+             */
+            created_at?: string | null;
+            /**
+             * Garminconnect Gear Id
+             * @description Garmin Connect gear ID
+             */
+            garminconnect_gear_id?: string | null;
+            /** @description Gear type identifier */
+            gear_type: components["schemas"]["GearType"];
+            /**
+             * Initial Kms
+             * @description Initial kilometers
+             */
+            initial_kms?: number | null;
             /**
              * Model
              * @description Gear model name
@@ -6226,23 +6437,6 @@ export interface components {
              * @description Gear display nickname
              */
             nickname: string;
-            /** @description Gear type identifier */
-            gear_type: components["schemas"]["GearType"];
-            /**
-             * Created At
-             * @description Gear creation timestamp
-             */
-            created_at?: string | null;
-            /**
-             * Active
-             * @description Whether the gear is active
-             */
-            active?: boolean | null;
-            /**
-             * Initial Kms
-             * @description Initial kilometers
-             */
-            initial_kms?: number | null;
             /**
              * Purchase Value
              * @description Purchase value
@@ -6253,11 +6447,6 @@ export interface components {
              * @description Strava gear ID
              */
             strava_gear_id?: string | null;
-            /**
-             * Garminconnect Gear Id
-             * @description Garmin Connect gear ID
-             */
-            garminconnect_gear_id?: string | null;
             /**
              * User Id
              * @description Foreign key to user
@@ -6275,10 +6464,37 @@ export interface components {
          */
         GearDetailRead: {
             /**
+             * Active
+             * @description Whether the gear is active
+             */
+            active?: boolean | null;
+            /**
              * Brand
              * @description Gear brand name
              */
             brand?: string | null;
+            /**
+             * Created At
+             * @description Gear creation timestamp
+             */
+            created_at?: string | null;
+            /**
+             * Garminconnect Gear Id
+             * @description Garmin Connect gear ID
+             */
+            garminconnect_gear_id?: string | null;
+            /** @description Gear type identifier */
+            gear_type: components["schemas"]["GearType"];
+            /**
+             * Id
+             * @description Unique identifier
+             */
+            id: number;
+            /**
+             * Initial Kms
+             * @description Initial kilometers
+             */
+            initial_kms?: number | null;
             /**
              * Model
              * @description Gear model name
@@ -6289,23 +6505,6 @@ export interface components {
              * @description Gear display nickname
              */
             nickname: string;
-            /** @description Gear type identifier */
-            gear_type: components["schemas"]["GearType"];
-            /**
-             * Created At
-             * @description Gear creation timestamp
-             */
-            created_at?: string | null;
-            /**
-             * Active
-             * @description Whether the gear is active
-             */
-            active?: boolean | null;
-            /**
-             * Initial Kms
-             * @description Initial kilometers
-             */
-            initial_kms?: number | null;
             /**
              * Purchase Value
              * @description Purchase value
@@ -6317,20 +6516,11 @@ export interface components {
              */
             strava_gear_id?: string | null;
             /**
-             * Garminconnect Gear Id
-             * @description Garmin Connect gear ID
+             * Total Components Cost
+             * @description Sum of component purchase values
+             * @default 0
              */
-            garminconnect_gear_id?: string | null;
-            /**
-             * Id
-             * @description Unique identifier
-             */
-            id: number;
-            /**
-             * User Id
-             * @description Foreign key to user
-             */
-            user_id: number;
+            total_components_cost: number;
             /**
              * Total Distance
              * @description Total activity distance in meters
@@ -6344,11 +6534,10 @@ export interface components {
              */
             total_time: number;
             /**
-             * Total Components Cost
-             * @description Sum of component purchase values
-             * @default 0
+             * User Id
+             * @description Foreign key to user
              */
-            total_components_cost: number;
+            user_id: number;
         };
         /**
          * GearRead
@@ -6360,10 +6549,37 @@ export interface components {
          */
         GearRead: {
             /**
+             * Active
+             * @description Whether the gear is active
+             */
+            active?: boolean | null;
+            /**
              * Brand
              * @description Gear brand name
              */
             brand?: string | null;
+            /**
+             * Created At
+             * @description Gear creation timestamp
+             */
+            created_at?: string | null;
+            /**
+             * Garminconnect Gear Id
+             * @description Garmin Connect gear ID
+             */
+            garminconnect_gear_id?: string | null;
+            /** @description Gear type identifier */
+            gear_type: components["schemas"]["GearType"];
+            /**
+             * Id
+             * @description Unique identifier
+             */
+            id: number;
+            /**
+             * Initial Kms
+             * @description Initial kilometers
+             */
+            initial_kms?: number | null;
             /**
              * Model
              * @description Gear model name
@@ -6374,23 +6590,6 @@ export interface components {
              * @description Gear display nickname
              */
             nickname: string;
-            /** @description Gear type identifier */
-            gear_type: components["schemas"]["GearType"];
-            /**
-             * Created At
-             * @description Gear creation timestamp
-             */
-            created_at?: string | null;
-            /**
-             * Active
-             * @description Whether the gear is active
-             */
-            active?: boolean | null;
-            /**
-             * Initial Kms
-             * @description Initial kilometers
-             */
-            initial_kms?: number | null;
             /**
              * Purchase Value
              * @description Purchase value
@@ -6402,21 +6601,27 @@ export interface components {
              */
             strava_gear_id?: string | null;
             /**
-             * Garminconnect Gear Id
-             * @description Garmin Connect gear ID
-             */
-            garminconnect_gear_id?: string | null;
-            /**
-             * Id
-             * @description Unique identifier
-             */
-            id: number;
-            /**
              * User Id
              * @description Foreign key to user
              */
             user_id: number;
         };
+        /**
+         * GearType
+         * @description Supported gear type codes.
+         *
+         *     Attributes:
+         *         BIKE: Bicycle (1).
+         *         SHOES: Running or walking shoes (2).
+         *         WETSUIT: Wetsuit (3).
+         *         RACQUET: Racquet (4).
+         *         SKI: Skis (5).
+         *         SNOWBOARD: Snowboard (6).
+         *         WINDSURF: Windsurf board (7).
+         *         WATER_SPORTS_BOARD: Water sports board (8).
+         * @enum {integer}
+         */
+        GearType: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
         /**
          * GearUpdate
          * @description Schema for updating a gear record.
@@ -6426,10 +6631,37 @@ export interface components {
          */
         GearUpdate: {
             /**
+             * Active
+             * @description Whether the gear is active
+             */
+            active?: boolean | null;
+            /**
              * Brand
              * @description Gear brand name
              */
             brand?: string | null;
+            /**
+             * Created At
+             * @description Gear creation timestamp
+             */
+            created_at?: string | null;
+            /**
+             * Garminconnect Gear Id
+             * @description Garmin Connect gear ID
+             */
+            garminconnect_gear_id?: string | null;
+            /** @description Gear type identifier */
+            gear_type: components["schemas"]["GearType"];
+            /**
+             * Id
+             * @description Unique identifier
+             */
+            id: number;
+            /**
+             * Initial Kms
+             * @description Initial kilometers
+             */
+            initial_kms?: number | null;
             /**
              * Model
              * @description Gear model name
@@ -6440,23 +6672,6 @@ export interface components {
              * @description Gear display nickname
              */
             nickname: string;
-            /** @description Gear type identifier */
-            gear_type: components["schemas"]["GearType"];
-            /**
-             * Created At
-             * @description Gear creation timestamp
-             */
-            created_at?: string | null;
-            /**
-             * Active
-             * @description Whether the gear is active
-             */
-            active?: boolean | null;
-            /**
-             * Initial Kms
-             * @description Initial kilometers
-             */
-            initial_kms?: number | null;
             /**
              * Purchase Value
              * @description Purchase value
@@ -6467,16 +6682,6 @@ export interface components {
              * @description Strava gear ID
              */
             strava_gear_id?: string | null;
-            /**
-             * Garminconnect Gear Id
-             * @description Garmin Connect gear ID
-             */
-            garminconnect_gear_id?: string | null;
-            /**
-             * Id
-             * @description Unique identifier
-             */
-            id: number;
         };
         /**
          * GearsListResponse
@@ -6489,11 +6694,6 @@ export interface components {
          *         records: List of gear records.
          */
         GearsListResponse: {
-            /**
-             * Total
-             * @description Total number of gear records
-             */
-            total: number;
             /**
              * Num Records
              * @description Number of records returned
@@ -6509,7 +6709,48 @@ export interface components {
              * @description List of gear records
              */
             records: components["schemas"]["GearRead"][];
+            /**
+             * Total
+             * @description Total number of gear records
+             */
+            total: number;
         };
+        /**
+         * Gender
+         * @description User gender enumeration.
+         *
+         *     Attributes:
+         *         MALE: Male gender.
+         *         FEMALE: Female gender.
+         *         UNSPECIFIED: Unspecified or undisclosed gender.
+         * @enum {string}
+         */
+        Gender: "male" | "female" | "unspecified";
+        /**
+         * GoalType
+         * @description Types of measurable user goals.
+         *
+         *     Attributes:
+         *         CALORIES: Target calories burned.
+         *         ACTIVITIES: Target count of completed activities.
+         *         DISTANCE: Target distance traveled.
+         *         ELEVATION: Target elevation gain.
+         *         DURATION: Target total duration.
+         * @enum {string}
+         */
+        GoalType: "calories" | "activities" | "distance" | "elevation" | "duration";
+        /**
+         * HRVStatus
+         * @description Enum representing the Heart Rate Variability (HRV) status classification.
+         *
+         *     Attributes:
+         *         BALANCED: Indicates healthy HRV levels with good cardiovascular autonomic balance.
+         *         UNBALANCED: Indicates HRV levels showing some autonomic imbalance or stress.
+         *         LOW: Indicates HRV levels that are lower than optimal, suggesting fatigue or overtraining.
+         *         POOR: Indicates critically low HRV levels, suggesting significant stress, illness, or recovery issues.
+         * @enum {string}
+         */
+        HRVStatus: "BALANCED" | "UNBALANCED" | "LOW" | "POOR";
         /**
          * HealthDashboardResponse
          * @description Consolidated dashboard response with current health metrics.
@@ -6523,18 +6764,18 @@ export interface components {
          *         poop: Today's bowel movement summary.
          */
         HealthDashboardResponse: {
-            /** @description Latest sleep metrics */
-            sleep?: components["schemas"]["HealthSleepDashboard"] | null;
-            /** @description Latest weight metrics */
-            weight?: components["schemas"]["HealthWeightDashboard"] | null;
-            /** @description Latest steps data */
-            steps?: components["schemas"]["HealthStepsDashboard"] | null;
             /** @description Active or latest fasting session */
             fasting?: components["schemas"]["HealthFastingDashboard"] | null;
-            /** @description Today's water intake */
-            water?: components["schemas"]["HealthWaterDashboard"] | null;
             /** @description Today's bowel movement summary */
             poop?: components["schemas"]["HealthPoopDashboard"] | null;
+            /** @description Latest sleep metrics */
+            sleep?: components["schemas"]["HealthSleepDashboard"] | null;
+            /** @description Latest steps data */
+            steps?: components["schemas"]["HealthStepsDashboard"] | null;
+            /** @description Today's water intake */
+            water?: components["schemas"]["HealthWaterDashboard"] | null;
+            /** @description Latest weight metrics */
+            weight?: components["schemas"]["HealthWeightDashboard"] | null;
         };
         /**
          * HealthFastingComplete
@@ -6553,15 +6794,15 @@ export interface components {
              */
             fast_end_time: string;
             /**
-             * @description Final status of the fasting session
-             * @default completed
-             */
-            status: components["schemas"]["FastingStatus"];
-            /**
              * Notes
              * @description Optional notes about the fasting session
              */
             notes?: string | null;
+            /**
+             * @description Final status of the fasting session
+             * @default completed
+             */
+            status: components["schemas"]["FastingStatus"];
         };
         /**
          * HealthFastingCreate
@@ -6571,29 +6812,22 @@ export interface components {
          */
         HealthFastingCreate: {
             /**
-             * Fast Start Time
-             * @description Start time of fast
+             * Actual Duration Seconds
+             * @description Actual fasting duration in seconds
              */
-            fast_start_time?: string | null;
+            actual_duration_seconds?: number | null;
             /**
              * Fast End Time
              * @description End time of fast (null if ongoing)
              */
             fast_end_time?: string | null;
             /**
-             * Target Duration Seconds
-             * @description Target fasting duration in seconds (max 72h)
+             * Fast Start Time
+             * @description Start time of fast
              */
-            target_duration_seconds?: number | null;
-            /**
-             * Actual Duration Seconds
-             * @description Actual fasting duration in seconds
-             */
-            actual_duration_seconds?: number | null;
+            fast_start_time?: string | null;
             /** @description Type of fasting protocol */
             fasting_type?: components["schemas"]["FastingType"] | null;
-            /** @description Current status of the fasting session */
-            status?: components["schemas"]["FastingStatus"] | null;
             /**
              * Notes
              * @description Optional notes about the fasting session
@@ -6601,6 +6835,13 @@ export interface components {
             notes?: string | null;
             /** @description Data source for the record */
             source?: components["schemas"]["modules__health__health_fasting__schema__Source"] | null;
+            /** @description Current status of the fasting session */
+            status?: components["schemas"]["FastingStatus"] | null;
+            /**
+             * Target Duration Seconds
+             * @description Target fasting duration in seconds (max 72h)
+             */
+            target_duration_seconds?: number | null;
         };
         /**
          * HealthFastingDashboard
@@ -6615,10 +6856,15 @@ export interface components {
          */
         HealthFastingDashboard: {
             /**
-             * Id
-             * @description Unique identifier for the fasting record
+             * Actual Duration Seconds
+             * @description Actual fasting duration in seconds
              */
-            id: number;
+            actual_duration_seconds?: number | null;
+            /**
+             * Fast End Time
+             * @description End time of fast (null if ongoing)
+             */
+            fast_end_time?: string | null;
             /**
              * Fast Start Time
              * Format: date-time
@@ -6626,20 +6872,15 @@ export interface components {
              */
             fast_start_time: string;
             /**
-             * Fast End Time
-             * @description End time of fast (null if ongoing)
+             * Id
+             * @description Unique identifier for the fasting record
              */
-            fast_end_time?: string | null;
+            id: number;
             /**
              * Status
              * @description Current status of the fasting session
              */
             status: string;
-            /**
-             * Actual Duration Seconds
-             * @description Actual fasting duration in seconds
-             */
-            actual_duration_seconds?: number | null;
         };
         /**
          * HealthFastingListResponse
@@ -6655,11 +6896,6 @@ export interface components {
          */
         HealthFastingListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -6674,6 +6910,11 @@ export interface components {
              * @description List of fasting records
              */
             records: components["schemas"]["HealthFastingRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthFastingRead
@@ -6685,29 +6926,27 @@ export interface components {
          */
         HealthFastingRead: {
             /**
-             * Fast Start Time
-             * @description Start time of fast
+             * Actual Duration Seconds
+             * @description Actual fasting duration in seconds
              */
-            fast_start_time?: string | null;
+            actual_duration_seconds?: number | null;
             /**
              * Fast End Time
              * @description End time of fast (null if ongoing)
              */
             fast_end_time?: string | null;
             /**
-             * Target Duration Seconds
-             * @description Target fasting duration in seconds (max 72h)
+             * Fast Start Time
+             * @description Start time of fast
              */
-            target_duration_seconds?: number | null;
-            /**
-             * Actual Duration Seconds
-             * @description Actual fasting duration in seconds
-             */
-            actual_duration_seconds?: number | null;
+            fast_start_time?: string | null;
             /** @description Type of fasting protocol */
             fasting_type?: components["schemas"]["FastingType"] | null;
-            /** @description Current status of the fasting session */
-            status?: components["schemas"]["FastingStatus"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the fasting record
+             */
+            id: number;
             /**
              * Notes
              * @description Optional notes about the fasting session
@@ -6715,11 +6954,13 @@ export interface components {
             notes?: string | null;
             /** @description Data source for the record */
             source?: components["schemas"]["modules__health__health_fasting__schema__Source"] | null;
+            /** @description Current status of the fasting session */
+            status?: components["schemas"]["FastingStatus"] | null;
             /**
-             * Id
-             * @description Unique identifier for the fasting record
+             * Target Duration Seconds
+             * @description Target fasting duration in seconds (max 72h)
              */
-            id: number;
+            target_duration_seconds?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -6740,10 +6981,15 @@ export interface components {
          */
         HealthFastingStatsResponse: {
             /**
-             * Total Fasts
-             * @description Total number of completed fasts
+             * Avg Duration Seconds
+             * @description Average fasting duration in seconds
              */
-            total_fasts: number;
+            avg_duration_seconds?: number | null;
+            /**
+             * Completion Rate
+             * @description Percentage of fasts completed vs started
+             */
+            completion_rate: number;
             /**
              * Current Streak
              * @description Current consecutive days of fasting
@@ -6755,20 +7001,15 @@ export interface components {
              */
             longest_streak: number;
             /**
-             * Avg Duration Seconds
-             * @description Average fasting duration in seconds
-             */
-            avg_duration_seconds?: number | null;
-            /**
              * Total Fasting Seconds
              * @description Total time spent fasting in seconds
              */
             total_fasting_seconds: number;
             /**
-             * Completion Rate
-             * @description Percentage of fasts completed vs started
+             * Total Fasts
+             * @description Total number of completed fasts
              */
-            completion_rate: number;
+            total_fasts: number;
         };
         /**
          * HealthFastingUpdate
@@ -6778,29 +7019,27 @@ export interface components {
          */
         HealthFastingUpdate: {
             /**
-             * Fast Start Time
-             * @description Start time of fast
+             * Actual Duration Seconds
+             * @description Actual fasting duration in seconds
              */
-            fast_start_time?: string | null;
+            actual_duration_seconds?: number | null;
             /**
              * Fast End Time
              * @description End time of fast (null if ongoing)
              */
             fast_end_time?: string | null;
             /**
-             * Target Duration Seconds
-             * @description Target fasting duration in seconds (max 72h)
+             * Fast Start Time
+             * @description Start time of fast
              */
-            target_duration_seconds?: number | null;
-            /**
-             * Actual Duration Seconds
-             * @description Actual fasting duration in seconds
-             */
-            actual_duration_seconds?: number | null;
+            fast_start_time?: string | null;
             /** @description Type of fasting protocol */
             fasting_type?: components["schemas"]["FastingType"] | null;
-            /** @description Current status of the fasting session */
-            status?: components["schemas"]["FastingStatus"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the fasting record
+             */
+            id: number;
             /**
              * Notes
              * @description Optional notes about the fasting session
@@ -6808,11 +7047,13 @@ export interface components {
             notes?: string | null;
             /** @description Data source for the record */
             source?: components["schemas"]["modules__health__health_fasting__schema__Source"] | null;
+            /** @description Current status of the fasting session */
+            status?: components["schemas"]["FastingStatus"] | null;
             /**
-             * Id
-             * @description Unique identifier for the fasting record
+             * Target Duration Seconds
+             * @description Target fasting duration in seconds (max 72h)
              */
-            id: number;
+            target_duration_seconds?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -6826,15 +7067,15 @@ export interface components {
          *     Requires date_time and sets defaults for source.
          */
         HealthPoopCreate: {
+            /** @description Bristol Stool Scale type (1-7) */
+            bristol_type?: components["schemas"]["BristolType"] | null;
+            /** @description Stool color description */
+            color?: components["schemas"]["Color"] | null;
             /**
              * Date Time
              * @description Date and time of the bowel movement
              */
             date_time?: string | null;
-            /** @description Bristol Stool Scale type (1-7) */
-            bristol_type?: components["schemas"]["BristolType"] | null;
-            /** @description Stool color description */
-            color?: components["schemas"]["Color"] | null;
             /**
              * Notes
              * @description Optional notes about the bowel movement
@@ -6867,11 +7108,6 @@ export interface components {
          */
         HealthPoopListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -6886,6 +7122,11 @@ export interface components {
              * @description List of health poop records
              */
             records: components["schemas"]["HealthPoopRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthPoopRead
@@ -6896,15 +7137,20 @@ export interface components {
          *         user_id: Foreign key reference to the user.
          */
         HealthPoopRead: {
+            /** @description Bristol Stool Scale type (1-7) */
+            bristol_type?: components["schemas"]["BristolType"] | null;
+            /** @description Stool color description */
+            color?: components["schemas"]["Color"] | null;
             /**
              * Date Time
              * @description Date and time of the bowel movement
              */
             date_time?: string | null;
-            /** @description Bristol Stool Scale type (1-7) */
-            bristol_type?: components["schemas"]["BristolType"] | null;
-            /** @description Stool color description */
-            color?: components["schemas"]["Color"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the poop record
+             */
+            id: number;
             /**
              * Notes
              * @description Optional notes about the bowel movement
@@ -6912,11 +7158,6 @@ export interface components {
             notes?: string | null;
             /** @description Source of the data */
             source?: components["schemas"]["modules__health__health_poop__schema__Source"] | null;
-            /**
-             * Id
-             * @description Unique identifier for the poop record
-             */
-            id: number;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -6931,15 +7172,20 @@ export interface components {
          *     operations while allowing modifications to poop data.
          */
         HealthPoopUpdate: {
+            /** @description Bristol Stool Scale type (1-7) */
+            bristol_type?: components["schemas"]["BristolType"] | null;
+            /** @description Stool color description */
+            color?: components["schemas"]["Color"] | null;
             /**
              * Date Time
              * @description Date and time of the bowel movement
              */
             date_time?: string | null;
-            /** @description Bristol Stool Scale type (1-7) */
-            bristol_type?: components["schemas"]["BristolType"] | null;
-            /** @description Stool color description */
-            color?: components["schemas"]["Color"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the poop record
+             */
+            id: number;
             /**
              * Notes
              * @description Optional notes about the bowel movement
@@ -6947,11 +7193,6 @@ export interface components {
             notes?: string | null;
             /** @description Source of the data */
             source?: components["schemas"]["modules__health__health_poop__schema__Source"] | null;
-            /**
-             * Id
-             * @description Unique identifier for the poop record
-             */
-            id: number;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -6967,110 +7208,30 @@ export interface components {
          */
         HealthSleepCreate: {
             /**
-             * Date
-             * @description Calendar date of the sleep session
-             */
-            date?: string | null;
-            /**
-             * Sleep Start Time Gmt
-             * @description Start time of sleep in GMT
-             */
-            sleep_start_time_gmt?: string | null;
-            /**
-             * Sleep End Time Gmt
-             * @description End time of sleep in GMT
-             */
-            sleep_end_time_gmt?: string | null;
-            /**
-             * Sleep Start Time Local
-             * @description Start time of sleep in local time
-             */
-            sleep_start_time_local?: string | null;
-            /**
-             * Sleep End Time Local
-             * @description End time of sleep in local time
-             */
-            sleep_end_time_local?: string | null;
-            /**
-             * Total Sleep Seconds
-             * @description Total duration of sleep in seconds
-             */
-            total_sleep_seconds?: number | null;
-            /**
-             * Nap Time Seconds
-             * @description Duration of naps in seconds
-             */
-            nap_time_seconds?: number | null;
-            /**
-             * Unmeasurable Sleep Seconds
-             * @description Unmeasurable sleep duration in seconds
-             */
-            unmeasurable_sleep_seconds?: number | null;
-            /**
-             * Deep Sleep Seconds
-             * @description Duration of deep sleep in seconds
-             */
-            deep_sleep_seconds?: number | null;
-            /**
-             * Light Sleep Seconds
-             * @description Duration of light sleep in seconds
-             */
-            light_sleep_seconds?: number | null;
-            /**
-             * Rem Sleep Seconds
-             * @description Duration of REM sleep in seconds
-             */
-            rem_sleep_seconds?: number | null;
-            /**
-             * Awake Sleep Seconds
-             * @description Duration of awake time in seconds
-             */
-            awake_sleep_seconds?: number | null;
-            /**
              * Avg Heart Rate
              * @description Average heart rate during sleep
              */
             avg_heart_rate?: number | null;
-            /**
-             * Min Heart Rate
-             * @description Minimum heart rate during sleep
-             */
-            min_heart_rate?: number | null;
-            /**
-             * Max Heart Rate
-             * @description Maximum heart rate during sleep
-             */
-            max_heart_rate?: number | null;
-            /**
-             * Avg Spo2
-             * @description Average SpO2 oxygen saturation percentage
-             */
-            avg_spo2?: number | null;
-            /**
-             * Lowest Spo2
-             * @description Lowest SpO2 reading during sleep
-             */
-            lowest_spo2?: number | null;
-            /**
-             * Highest Spo2
-             * @description Highest SpO2 reading during sleep
-             */
-            highest_spo2?: number | null;
             /**
              * Avg Respiration
              * @description Average respiration rate
              */
             avg_respiration?: number | null;
             /**
-             * Lowest Respiration
-             * @description Lowest respiration rate
+             * Avg Skin Temp Deviation
+             * @description Average skin temperature deviation
              */
-            lowest_respiration?: number | null;
+            avg_skin_temp_deviation?: number | null;
             /**
-             * Highest Respiration
-             * @description Highest respiration rate
+             * Avg Sleep Stress
+             * @description Average sleep stress
              */
-            highest_respiration?: number | null;
+            avg_sleep_stress?: number | null;
+            /**
+             * Avg Spo2
+             * @description Average SpO2 oxygen saturation percentage
+             */
+            avg_spo2?: number | null;
             /**
              * Avg Stress Level
              * @description Average stress level
@@ -7081,59 +7242,139 @@ export interface components {
              * @description Number of times awake during sleep
              */
             awake_count?: number | null;
+            /** @description Awake count score */
+            awake_count_score?: components["schemas"]["SleepScore"] | null;
             /**
-             * Restless Moments Count
-             * @description Number of restless moments during sleep
+             * Awake Sleep Seconds
+             * @description Duration of awake time in seconds
              */
-            restless_moments_count?: number | null;
+            awake_sleep_seconds?: number | null;
             /**
-             * Sleep Score Overall
-             * @description Overall sleep score (0-100)
+             * Date
+             * @description Calendar date of the sleep session
              */
-            sleep_score_overall?: number | null;
-            /** @description Sleep duration score */
-            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
-            /** @description Sleep quality score */
-            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            date?: string | null;
+            /** @description Deep sleep percentage score */
+            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Deep Sleep Seconds
+             * @description Duration of deep sleep in seconds
+             */
+            deep_sleep_seconds?: number | null;
             /**
              * Garminconnect Sleep Id
              * @description Garmin Connect sleep record ID
              */
             garminconnect_sleep_id?: string | null;
             /**
-             * Sleep Stages
-             * @description List of sleep stages
+             * Highest Respiration
+             * @description Highest respiration rate
              */
-            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
-            /** @description Source of the sleep data */
-            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
+            highest_respiration?: number | null;
+            /**
+             * Highest Spo2
+             * @description Highest SpO2 reading during sleep
+             */
+            highest_spo2?: number | null;
             /** @description Heart rate variability status */
             hrv_status?: components["schemas"]["HRVStatus"] | null;
+            /** @description Light sleep percentage score */
+            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Light Sleep Seconds
+             * @description Duration of light sleep in seconds
+             */
+            light_sleep_seconds?: number | null;
+            /**
+             * Lowest Respiration
+             * @description Lowest respiration rate
+             */
+            lowest_respiration?: number | null;
+            /**
+             * Lowest Spo2
+             * @description Lowest SpO2 reading during sleep
+             */
+            lowest_spo2?: number | null;
+            /**
+             * Max Heart Rate
+             * @description Maximum heart rate during sleep
+             */
+            max_heart_rate?: number | null;
+            /**
+             * Min Heart Rate
+             * @description Minimum heart rate during sleep
+             */
+            min_heart_rate?: number | null;
+            /**
+             * Nap Time Seconds
+             * @description Duration of naps in seconds
+             */
+            nap_time_seconds?: number | null;
+            /** @description REM percentage score */
+            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Rem Sleep Seconds
+             * @description Duration of REM sleep in seconds
+             */
+            rem_sleep_seconds?: number | null;
             /**
              * Resting Heart Rate
              * @description Resting heart rate
              */
             resting_heart_rate?: number | null;
             /**
-             * Avg Skin Temp Deviation
-             * @description Average skin temperature deviation
+             * Restless Moments Count
+             * @description Number of restless moments during sleep
              */
-            avg_skin_temp_deviation?: number | null;
-            /** @description Awake count score */
-            awake_count_score?: components["schemas"]["SleepScore"] | null;
-            /** @description REM percentage score */
-            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Deep sleep percentage score */
-            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Light sleep percentage score */
-            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            restless_moments_count?: number | null;
             /**
-             * Avg Sleep Stress
-             * @description Average sleep stress
+             * Sleep End Time Gmt
+             * @description End time of sleep in GMT
              */
-            avg_sleep_stress?: number | null;
+            sleep_end_time_gmt?: string | null;
+            /**
+             * Sleep End Time Local
+             * @description End time of sleep in local time
+             */
+            sleep_end_time_local?: string | null;
+            /** @description Sleep duration score */
+            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Score Overall
+             * @description Overall sleep score (0-100)
+             */
+            sleep_score_overall?: number | null;
+            /** @description Sleep quality score */
+            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Stages
+             * @description List of sleep stages
+             */
+            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
+            /**
+             * Sleep Start Time Gmt
+             * @description Start time of sleep in GMT
+             */
+            sleep_start_time_gmt?: string | null;
+            /**
+             * Sleep Start Time Local
+             * @description Start time of sleep in local time
+             */
+            sleep_start_time_local?: string | null;
             /** @description Sleep stress score */
             sleep_stress_score?: components["schemas"]["SleepScore"] | null;
+            /** @description Source of the sleep data */
+            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
+            /**
+             * Total Sleep Seconds
+             * @description Total duration of sleep in seconds
+             */
+            total_sleep_seconds?: number | null;
+            /**
+             * Unmeasurable Sleep Seconds
+             * @description Unmeasurable sleep duration in seconds
+             */
+            unmeasurable_sleep_seconds?: number | null;
         };
         /**
          * HealthSleepDashboard
@@ -7147,25 +7388,25 @@ export interface components {
          */
         HealthSleepDashboard: {
             /**
-             * Total Sleep Seconds
-             * @description Total sleep duration in seconds
+             * Avg Skin Temp Deviation
+             * @description Average skin temperature deviation
              */
-            total_sleep_seconds?: number | null;
-            /**
-             * Resting Heart Rate
-             * @description Resting heart rate in bpm
-             */
-            resting_heart_rate?: number | null;
+            avg_skin_temp_deviation?: number | null;
             /**
              * Hrv Status
              * @description Heart rate variability status
              */
             hrv_status?: string | null;
             /**
-             * Avg Skin Temp Deviation
-             * @description Average skin temperature deviation
+             * Resting Heart Rate
+             * @description Resting heart rate in bpm
              */
-            avg_skin_temp_deviation?: number | null;
+            resting_heart_rate?: number | null;
+            /**
+             * Total Sleep Seconds
+             * @description Total sleep duration in seconds
+             */
+            total_sleep_seconds?: number | null;
         };
         /**
          * HealthSleepListResponse
@@ -7181,11 +7422,6 @@ export interface components {
          */
         HealthSleepListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -7200,6 +7436,11 @@ export interface components {
              * @description List of health sleep records
              */
             records: components["schemas"]["HealthSleepRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthSleepRead
@@ -7214,110 +7455,30 @@ export interface components {
          */
         HealthSleepRead: {
             /**
-             * Date
-             * @description Calendar date of the sleep session
-             */
-            date?: string | null;
-            /**
-             * Sleep Start Time Gmt
-             * @description Start time of sleep in GMT
-             */
-            sleep_start_time_gmt?: string | null;
-            /**
-             * Sleep End Time Gmt
-             * @description End time of sleep in GMT
-             */
-            sleep_end_time_gmt?: string | null;
-            /**
-             * Sleep Start Time Local
-             * @description Start time of sleep in local time
-             */
-            sleep_start_time_local?: string | null;
-            /**
-             * Sleep End Time Local
-             * @description End time of sleep in local time
-             */
-            sleep_end_time_local?: string | null;
-            /**
-             * Total Sleep Seconds
-             * @description Total duration of sleep in seconds
-             */
-            total_sleep_seconds?: number | null;
-            /**
-             * Nap Time Seconds
-             * @description Duration of naps in seconds
-             */
-            nap_time_seconds?: number | null;
-            /**
-             * Unmeasurable Sleep Seconds
-             * @description Unmeasurable sleep duration in seconds
-             */
-            unmeasurable_sleep_seconds?: number | null;
-            /**
-             * Deep Sleep Seconds
-             * @description Duration of deep sleep in seconds
-             */
-            deep_sleep_seconds?: number | null;
-            /**
-             * Light Sleep Seconds
-             * @description Duration of light sleep in seconds
-             */
-            light_sleep_seconds?: number | null;
-            /**
-             * Rem Sleep Seconds
-             * @description Duration of REM sleep in seconds
-             */
-            rem_sleep_seconds?: number | null;
-            /**
-             * Awake Sleep Seconds
-             * @description Duration of awake time in seconds
-             */
-            awake_sleep_seconds?: number | null;
-            /**
              * Avg Heart Rate
              * @description Average heart rate during sleep
              */
             avg_heart_rate?: number | null;
-            /**
-             * Min Heart Rate
-             * @description Minimum heart rate during sleep
-             */
-            min_heart_rate?: number | null;
-            /**
-             * Max Heart Rate
-             * @description Maximum heart rate during sleep
-             */
-            max_heart_rate?: number | null;
-            /**
-             * Avg Spo2
-             * @description Average SpO2 oxygen saturation percentage
-             */
-            avg_spo2?: number | null;
-            /**
-             * Lowest Spo2
-             * @description Lowest SpO2 reading during sleep
-             */
-            lowest_spo2?: number | null;
-            /**
-             * Highest Spo2
-             * @description Highest SpO2 reading during sleep
-             */
-            highest_spo2?: number | null;
             /**
              * Avg Respiration
              * @description Average respiration rate
              */
             avg_respiration?: number | null;
             /**
-             * Lowest Respiration
-             * @description Lowest respiration rate
+             * Avg Skin Temp Deviation
+             * @description Average skin temperature deviation
              */
-            lowest_respiration?: number | null;
+            avg_skin_temp_deviation?: number | null;
             /**
-             * Highest Respiration
-             * @description Highest respiration rate
+             * Avg Sleep Stress
+             * @description Average sleep stress
              */
-            highest_respiration?: number | null;
+            avg_sleep_stress?: number | null;
+            /**
+             * Avg Spo2
+             * @description Average SpO2 oxygen saturation percentage
+             */
+            avg_spo2?: number | null;
             /**
              * Avg Stress Level
              * @description Average stress level
@@ -7328,64 +7489,144 @@ export interface components {
              * @description Number of times awake during sleep
              */
             awake_count?: number | null;
+            /** @description Awake count score */
+            awake_count_score?: components["schemas"]["SleepScore"] | null;
             /**
-             * Restless Moments Count
-             * @description Number of restless moments during sleep
+             * Awake Sleep Seconds
+             * @description Duration of awake time in seconds
              */
-            restless_moments_count?: number | null;
+            awake_sleep_seconds?: number | null;
             /**
-             * Sleep Score Overall
-             * @description Overall sleep score (0-100)
+             * Date
+             * @description Calendar date of the sleep session
              */
-            sleep_score_overall?: number | null;
-            /** @description Sleep duration score */
-            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
-            /** @description Sleep quality score */
-            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            date?: string | null;
+            /** @description Deep sleep percentage score */
+            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Deep Sleep Seconds
+             * @description Duration of deep sleep in seconds
+             */
+            deep_sleep_seconds?: number | null;
             /**
              * Garminconnect Sleep Id
              * @description Garmin Connect sleep record ID
              */
             garminconnect_sleep_id?: string | null;
             /**
-             * Sleep Stages
-             * @description List of sleep stages
+             * Highest Respiration
+             * @description Highest respiration rate
              */
-            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
-            /** @description Source of the sleep data */
-            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
+            highest_respiration?: number | null;
+            /**
+             * Highest Spo2
+             * @description Highest SpO2 reading during sleep
+             */
+            highest_spo2?: number | null;
             /** @description Heart rate variability status */
             hrv_status?: components["schemas"]["HRVStatus"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the sleep record to update
+             */
+            id: number;
+            /** @description Light sleep percentage score */
+            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Light Sleep Seconds
+             * @description Duration of light sleep in seconds
+             */
+            light_sleep_seconds?: number | null;
+            /**
+             * Lowest Respiration
+             * @description Lowest respiration rate
+             */
+            lowest_respiration?: number | null;
+            /**
+             * Lowest Spo2
+             * @description Lowest SpO2 reading during sleep
+             */
+            lowest_spo2?: number | null;
+            /**
+             * Max Heart Rate
+             * @description Maximum heart rate during sleep
+             */
+            max_heart_rate?: number | null;
+            /**
+             * Min Heart Rate
+             * @description Minimum heart rate during sleep
+             */
+            min_heart_rate?: number | null;
+            /**
+             * Nap Time Seconds
+             * @description Duration of naps in seconds
+             */
+            nap_time_seconds?: number | null;
+            /** @description REM percentage score */
+            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Rem Sleep Seconds
+             * @description Duration of REM sleep in seconds
+             */
+            rem_sleep_seconds?: number | null;
             /**
              * Resting Heart Rate
              * @description Resting heart rate
              */
             resting_heart_rate?: number | null;
             /**
-             * Avg Skin Temp Deviation
-             * @description Average skin temperature deviation
+             * Restless Moments Count
+             * @description Number of restless moments during sleep
              */
-            avg_skin_temp_deviation?: number | null;
-            /** @description Awake count score */
-            awake_count_score?: components["schemas"]["SleepScore"] | null;
-            /** @description REM percentage score */
-            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Deep sleep percentage score */
-            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Light sleep percentage score */
-            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            restless_moments_count?: number | null;
             /**
-             * Avg Sleep Stress
-             * @description Average sleep stress
+             * Sleep End Time Gmt
+             * @description End time of sleep in GMT
              */
-            avg_sleep_stress?: number | null;
+            sleep_end_time_gmt?: string | null;
+            /**
+             * Sleep End Time Local
+             * @description End time of sleep in local time
+             */
+            sleep_end_time_local?: string | null;
+            /** @description Sleep duration score */
+            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Score Overall
+             * @description Overall sleep score (0-100)
+             */
+            sleep_score_overall?: number | null;
+            /** @description Sleep quality score */
+            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Stages
+             * @description List of sleep stages
+             */
+            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
+            /**
+             * Sleep Start Time Gmt
+             * @description Start time of sleep in GMT
+             */
+            sleep_start_time_gmt?: string | null;
+            /**
+             * Sleep Start Time Local
+             * @description Start time of sleep in local time
+             */
+            sleep_start_time_local?: string | null;
             /** @description Sleep stress score */
             sleep_stress_score?: components["schemas"]["SleepScore"] | null;
+            /** @description Source of the sleep data */
+            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
             /**
-             * Id
-             * @description Unique identifier for the sleep record to update
+             * Total Sleep Seconds
+             * @description Total duration of sleep in seconds
              */
-            id: number;
+            total_sleep_seconds?: number | null;
+            /**
+             * Unmeasurable Sleep Seconds
+             * @description Unmeasurable sleep duration in seconds
+             */
+            unmeasurable_sleep_seconds?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7406,6 +7647,16 @@ export interface components {
          *         duration_seconds: The length of the sleep stage in seconds. Must be non-negative.
          */
         HealthSleepStage: {
+            /**
+             * Duration Seconds
+             * @description Duration of the stage in seconds
+             */
+            duration_seconds?: number | null;
+            /**
+             * End Time Gmt
+             * @description End time of the stage in GMT
+             */
+            end_time_gmt?: string | null;
             /** @description Type of sleep stage */
             stage_type?: components["schemas"]["SleepStageType"] | null;
             /**
@@ -7413,16 +7664,6 @@ export interface components {
              * @description Start time of the stage in GMT
              */
             start_time_gmt?: string | null;
-            /**
-             * End Time Gmt
-             * @description End time of the stage in GMT
-             */
-            end_time_gmt?: string | null;
-            /**
-             * Duration Seconds
-             * @description Duration of the stage in seconds
-             */
-            duration_seconds?: number | null;
         };
         /**
          * HealthSleepUpdate
@@ -7436,110 +7677,30 @@ export interface components {
          */
         HealthSleepUpdate: {
             /**
-             * Date
-             * @description Calendar date of the sleep session
-             */
-            date?: string | null;
-            /**
-             * Sleep Start Time Gmt
-             * @description Start time of sleep in GMT
-             */
-            sleep_start_time_gmt?: string | null;
-            /**
-             * Sleep End Time Gmt
-             * @description End time of sleep in GMT
-             */
-            sleep_end_time_gmt?: string | null;
-            /**
-             * Sleep Start Time Local
-             * @description Start time of sleep in local time
-             */
-            sleep_start_time_local?: string | null;
-            /**
-             * Sleep End Time Local
-             * @description End time of sleep in local time
-             */
-            sleep_end_time_local?: string | null;
-            /**
-             * Total Sleep Seconds
-             * @description Total duration of sleep in seconds
-             */
-            total_sleep_seconds?: number | null;
-            /**
-             * Nap Time Seconds
-             * @description Duration of naps in seconds
-             */
-            nap_time_seconds?: number | null;
-            /**
-             * Unmeasurable Sleep Seconds
-             * @description Unmeasurable sleep duration in seconds
-             */
-            unmeasurable_sleep_seconds?: number | null;
-            /**
-             * Deep Sleep Seconds
-             * @description Duration of deep sleep in seconds
-             */
-            deep_sleep_seconds?: number | null;
-            /**
-             * Light Sleep Seconds
-             * @description Duration of light sleep in seconds
-             */
-            light_sleep_seconds?: number | null;
-            /**
-             * Rem Sleep Seconds
-             * @description Duration of REM sleep in seconds
-             */
-            rem_sleep_seconds?: number | null;
-            /**
-             * Awake Sleep Seconds
-             * @description Duration of awake time in seconds
-             */
-            awake_sleep_seconds?: number | null;
-            /**
              * Avg Heart Rate
              * @description Average heart rate during sleep
              */
             avg_heart_rate?: number | null;
-            /**
-             * Min Heart Rate
-             * @description Minimum heart rate during sleep
-             */
-            min_heart_rate?: number | null;
-            /**
-             * Max Heart Rate
-             * @description Maximum heart rate during sleep
-             */
-            max_heart_rate?: number | null;
-            /**
-             * Avg Spo2
-             * @description Average SpO2 oxygen saturation percentage
-             */
-            avg_spo2?: number | null;
-            /**
-             * Lowest Spo2
-             * @description Lowest SpO2 reading during sleep
-             */
-            lowest_spo2?: number | null;
-            /**
-             * Highest Spo2
-             * @description Highest SpO2 reading during sleep
-             */
-            highest_spo2?: number | null;
             /**
              * Avg Respiration
              * @description Average respiration rate
              */
             avg_respiration?: number | null;
             /**
-             * Lowest Respiration
-             * @description Lowest respiration rate
+             * Avg Skin Temp Deviation
+             * @description Average skin temperature deviation
              */
-            lowest_respiration?: number | null;
+            avg_skin_temp_deviation?: number | null;
             /**
-             * Highest Respiration
-             * @description Highest respiration rate
+             * Avg Sleep Stress
+             * @description Average sleep stress
              */
-            highest_respiration?: number | null;
+            avg_sleep_stress?: number | null;
+            /**
+             * Avg Spo2
+             * @description Average SpO2 oxygen saturation percentage
+             */
+            avg_spo2?: number | null;
             /**
              * Avg Stress Level
              * @description Average stress level
@@ -7550,64 +7711,144 @@ export interface components {
              * @description Number of times awake during sleep
              */
             awake_count?: number | null;
+            /** @description Awake count score */
+            awake_count_score?: components["schemas"]["SleepScore"] | null;
             /**
-             * Restless Moments Count
-             * @description Number of restless moments during sleep
+             * Awake Sleep Seconds
+             * @description Duration of awake time in seconds
              */
-            restless_moments_count?: number | null;
+            awake_sleep_seconds?: number | null;
             /**
-             * Sleep Score Overall
-             * @description Overall sleep score (0-100)
+             * Date
+             * @description Calendar date of the sleep session
              */
-            sleep_score_overall?: number | null;
-            /** @description Sleep duration score */
-            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
-            /** @description Sleep quality score */
-            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            date?: string | null;
+            /** @description Deep sleep percentage score */
+            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Deep Sleep Seconds
+             * @description Duration of deep sleep in seconds
+             */
+            deep_sleep_seconds?: number | null;
             /**
              * Garminconnect Sleep Id
              * @description Garmin Connect sleep record ID
              */
             garminconnect_sleep_id?: string | null;
             /**
-             * Sleep Stages
-             * @description List of sleep stages
+             * Highest Respiration
+             * @description Highest respiration rate
              */
-            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
-            /** @description Source of the sleep data */
-            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
+            highest_respiration?: number | null;
+            /**
+             * Highest Spo2
+             * @description Highest SpO2 reading during sleep
+             */
+            highest_spo2?: number | null;
             /** @description Heart rate variability status */
             hrv_status?: components["schemas"]["HRVStatus"] | null;
+            /**
+             * Id
+             * @description Unique identifier for the sleep record to update
+             */
+            id: number;
+            /** @description Light sleep percentage score */
+            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Light Sleep Seconds
+             * @description Duration of light sleep in seconds
+             */
+            light_sleep_seconds?: number | null;
+            /**
+             * Lowest Respiration
+             * @description Lowest respiration rate
+             */
+            lowest_respiration?: number | null;
+            /**
+             * Lowest Spo2
+             * @description Lowest SpO2 reading during sleep
+             */
+            lowest_spo2?: number | null;
+            /**
+             * Max Heart Rate
+             * @description Maximum heart rate during sleep
+             */
+            max_heart_rate?: number | null;
+            /**
+             * Min Heart Rate
+             * @description Minimum heart rate during sleep
+             */
+            min_heart_rate?: number | null;
+            /**
+             * Nap Time Seconds
+             * @description Duration of naps in seconds
+             */
+            nap_time_seconds?: number | null;
+            /** @description REM percentage score */
+            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Rem Sleep Seconds
+             * @description Duration of REM sleep in seconds
+             */
+            rem_sleep_seconds?: number | null;
             /**
              * Resting Heart Rate
              * @description Resting heart rate
              */
             resting_heart_rate?: number | null;
             /**
-             * Avg Skin Temp Deviation
-             * @description Average skin temperature deviation
+             * Restless Moments Count
+             * @description Number of restless moments during sleep
              */
-            avg_skin_temp_deviation?: number | null;
-            /** @description Awake count score */
-            awake_count_score?: components["schemas"]["SleepScore"] | null;
-            /** @description REM percentage score */
-            rem_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Deep sleep percentage score */
-            deep_percentage_score?: components["schemas"]["SleepScore"] | null;
-            /** @description Light sleep percentage score */
-            light_percentage_score?: components["schemas"]["SleepScore"] | null;
+            restless_moments_count?: number | null;
             /**
-             * Avg Sleep Stress
-             * @description Average sleep stress
+             * Sleep End Time Gmt
+             * @description End time of sleep in GMT
              */
-            avg_sleep_stress?: number | null;
+            sleep_end_time_gmt?: string | null;
+            /**
+             * Sleep End Time Local
+             * @description End time of sleep in local time
+             */
+            sleep_end_time_local?: string | null;
+            /** @description Sleep duration score */
+            sleep_score_duration?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Score Overall
+             * @description Overall sleep score (0-100)
+             */
+            sleep_score_overall?: number | null;
+            /** @description Sleep quality score */
+            sleep_score_quality?: components["schemas"]["SleepScore"] | null;
+            /**
+             * Sleep Stages
+             * @description List of sleep stages
+             */
+            sleep_stages?: components["schemas"]["HealthSleepStage"][] | null;
+            /**
+             * Sleep Start Time Gmt
+             * @description Start time of sleep in GMT
+             */
+            sleep_start_time_gmt?: string | null;
+            /**
+             * Sleep Start Time Local
+             * @description Start time of sleep in local time
+             */
+            sleep_start_time_local?: string | null;
             /** @description Sleep stress score */
             sleep_stress_score?: components["schemas"]["SleepScore"] | null;
+            /** @description Source of the sleep data */
+            source?: components["schemas"]["modules__health__health_sleep__schema__Source"] | null;
             /**
-             * Id
-             * @description Unique identifier for the sleep record to update
+             * Total Sleep Seconds
+             * @description Total duration of sleep in seconds
              */
-            id: number;
+            total_sleep_seconds?: number | null;
+            /**
+             * Unmeasurable Sleep Seconds
+             * @description Unmeasurable sleep duration in seconds
+             */
+            unmeasurable_sleep_seconds?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7627,13 +7868,13 @@ export interface components {
              * @description Calendar date of the steps
              */
             date?: string | null;
+            /** @description Source of the steps data */
+            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
             /**
              * Steps
              * @description Number of steps taken
              */
             steps?: number | null;
-            /** @description Source of the steps data */
-            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
         };
         /**
          * HealthStepsDashboard
@@ -7663,11 +7904,6 @@ export interface components {
          */
         HealthStepsListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -7682,6 +7918,11 @@ export interface components {
              * @description List of health steps records
              */
             records: components["schemas"]["HealthStepsRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthStepsRead
@@ -7701,17 +7942,17 @@ export interface components {
              */
             date?: string | null;
             /**
-             * Steps
-             * @description Number of steps taken
-             */
-            steps?: number | null;
-            /** @description Source of the steps data */
-            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
-            /**
              * Id
              * @description Unique identifier for the steps record to update
              */
             id: number;
+            /** @description Source of the steps data */
+            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
+            /**
+             * Steps
+             * @description Number of steps taken
+             */
+            steps?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7733,17 +7974,17 @@ export interface components {
              */
             date?: string | null;
             /**
-             * Steps
-             * @description Number of steps taken
-             */
-            steps?: number | null;
-            /** @description Source of the steps data */
-            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
-            /**
              * Id
              * @description Unique identifier for the steps record to update
              */
             id: number;
+            /** @description Source of the steps data */
+            source?: components["schemas"]["modules__health__health_steps__schema__Source"] | null;
+            /**
+             * Steps
+             * @description Number of steps taken
+             */
+            steps?: number | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7760,45 +8001,45 @@ export interface components {
          */
         HealthTargetsRead: {
             /**
-             * Weight
-             * @description Target weight in kg
-             */
-            weight?: number | null;
-            /**
-             * Steps
-             * @description Target daily steps count
-             */
-            steps?: number | null;
-            /**
-             * Sleep
-             * @description Target sleep duration in seconds
-             */
-            sleep?: number | null;
-            /**
              * Fasting
              * @description Target fasting duration in seconds (max 72h)
              */
             fasting?: number | null;
-            /**
-             * Water Ml
-             * @description Target daily water intake in milliliters
-             */
-            water_ml?: number | null;
-            /**
-             * Poop Count
-             * @description Target daily bowel movement count
-             */
-            poop_count?: number | null;
             /**
              * Id
              * @description Unique identifier for the health target
              */
             id: number;
             /**
+             * Poop Count
+             * @description Target daily bowel movement count
+             */
+            poop_count?: number | null;
+            /**
+             * Sleep
+             * @description Target sleep duration in seconds
+             */
+            sleep?: number | null;
+            /**
+             * Steps
+             * @description Target daily steps count
+             */
+            steps?: number | null;
+            /**
              * User Id
              * @description Foreign key reference to the user
              */
             user_id: number;
+            /**
+             * Water Ml
+             * @description Target daily water intake in milliliters
+             */
+            water_ml?: number | null;
+            /**
+             * Weight
+             * @description Target weight in kg
+             */
+            weight?: number | null;
         };
         /**
          * HealthTargetsUpdate
@@ -7809,45 +8050,45 @@ export interface components {
          */
         HealthTargetsUpdate: {
             /**
-             * Weight
-             * @description Target weight in kg
-             */
-            weight?: number | null;
-            /**
-             * Steps
-             * @description Target daily steps count
-             */
-            steps?: number | null;
-            /**
-             * Sleep
-             * @description Target sleep duration in seconds
-             */
-            sleep?: number | null;
-            /**
              * Fasting
              * @description Target fasting duration in seconds (max 72h)
              */
             fasting?: number | null;
-            /**
-             * Water Ml
-             * @description Target daily water intake in milliliters
-             */
-            water_ml?: number | null;
-            /**
-             * Poop Count
-             * @description Target daily bowel movement count
-             */
-            poop_count?: number | null;
             /**
              * Id
              * @description Unique identifier for the health target
              */
             id: number;
             /**
+             * Poop Count
+             * @description Target daily bowel movement count
+             */
+            poop_count?: number | null;
+            /**
+             * Sleep
+             * @description Target sleep duration in seconds
+             */
+            sleep?: number | null;
+            /**
+             * Steps
+             * @description Target daily steps count
+             */
+            steps?: number | null;
+            /**
              * User Id
              * @description Foreign key reference to the user
              */
             user_id: number;
+            /**
+             * Water Ml
+             * @description Target daily water intake in milliliters
+             */
+            water_ml?: number | null;
+            /**
+             * Weight
+             * @description Target weight in kg
+             */
+            weight?: number | null;
         };
         /**
          * HealthWaterCreate
@@ -7857,15 +8098,15 @@ export interface components {
          */
         HealthWaterCreate: {
             /**
-             * Date
-             * @description Calendar date of the water intake
-             */
-            date?: string | null;
-            /**
              * Amount Ml
              * @description Water consumed in milliliters
              */
             amount_ml?: number | null;
+            /**
+             * Date
+             * @description Calendar date of the water intake
+             */
+            date?: string | null;
             /** @description Source of the water intake data */
             source?: components["schemas"]["modules__health__health_water__schema__Source"] | null;
         };
@@ -7893,11 +8134,6 @@ export interface components {
          */
         HealthWaterListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -7912,6 +8148,11 @@ export interface components {
              * @description List of health water intake records
              */
             records: components["schemas"]["HealthWaterRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthWaterRead
@@ -7923,22 +8164,22 @@ export interface components {
          */
         HealthWaterRead: {
             /**
+             * Amount Ml
+             * @description Water consumed in milliliters
+             */
+            amount_ml?: number | null;
+            /**
              * Date
              * @description Calendar date of the water intake
              */
             date?: string | null;
             /**
-             * Amount Ml
-             * @description Water consumed in milliliters
-             */
-            amount_ml?: number | null;
-            /** @description Source of the water intake data */
-            source?: components["schemas"]["modules__health__health_water__schema__Source"] | null;
-            /**
              * Id
              * @description Unique identifier for the water intake record
              */
             id: number;
+            /** @description Source of the water intake data */
+            source?: components["schemas"]["modules__health__health_water__schema__Source"] | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7954,22 +8195,22 @@ export interface components {
          */
         HealthWaterUpdate: {
             /**
+             * Amount Ml
+             * @description Water consumed in milliliters
+             */
+            amount_ml?: number | null;
+            /**
              * Date
              * @description Calendar date of the water intake
              */
             date?: string | null;
             /**
-             * Amount Ml
-             * @description Water consumed in milliliters
-             */
-            amount_ml?: number | null;
-            /** @description Source of the water intake data */
-            source?: components["schemas"]["modules__health__health_water__schema__Source"] | null;
-            /**
              * Id
              * @description Unique identifier for the water intake record
              */
             id: number;
+            /** @description Source of the water intake data */
+            source?: components["schemas"]["modules__health__health_water__schema__Source"] | null;
             /**
              * User Id
              * @description Foreign key reference to the user
@@ -7985,16 +8226,6 @@ export interface components {
          */
         HealthWeightCreate: {
             /**
-             * Date
-             * @description Health weight date (date)
-             */
-            date?: string | null;
-            /**
-             * Weight
-             * @description Weight in kilograms
-             */
-            weight?: number | null;
-            /**
              * Bmi
              * @description Body Mass Index
              */
@@ -8015,6 +8246,16 @@ export interface components {
              */
             bone_mass?: number | null;
             /**
+             * Date
+             * @description Health weight date (date)
+             */
+            date?: string | null;
+            /**
+             * Metabolic Age
+             * @description Metabolic age
+             */
+            metabolic_age?: number | null;
+            /**
              * Muscle Mass
              * @description Muscle mass in kilograms
              */
@@ -8024,18 +8265,18 @@ export interface components {
              * @description Physique rating
              */
             physique_rating?: number | null;
+            /** @description Source of the weight data */
+            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
             /**
              * Visceral Fat
              * @description Visceral fat
              */
             visceral_fat?: number | null;
             /**
-             * Metabolic Age
-             * @description Metabolic age
+             * Weight
+             * @description Weight in kilograms
              */
-            metabolic_age?: number | null;
-            /** @description Source of the weight data */
-            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
+            weight?: number | null;
         };
         /**
          * HealthWeightDashboard
@@ -8047,15 +8288,15 @@ export interface components {
          */
         HealthWeightDashboard: {
             /**
-             * Weight
-             * @description Weight in kilograms
-             */
-            weight?: number | null;
-            /**
              * Bmi
              * @description Body Mass Index
              */
             bmi?: number | null;
+            /**
+             * Weight
+             * @description Weight in kilograms
+             */
+            weight?: number | null;
         };
         /**
          * HealthWeightListResponse
@@ -8071,11 +8312,6 @@ export interface components {
          */
         HealthWeightListResponse: {
             /**
-             * Total
-             * @description Total number of health records for the user
-             */
-            total: number;
-            /**
              * Num Records
              * @description Number of records in this response
              */
@@ -8090,6 +8326,11 @@ export interface components {
              * @description List of health weight records
              */
             records: components["schemas"]["HealthWeightRead"][];
+            /**
+             * Total
+             * @description Total number of health records for the user
+             */
+            total: number;
         };
         /**
          * HealthWeightRead
@@ -8104,16 +8345,6 @@ export interface components {
          */
         HealthWeightRead: {
             /**
-             * Date
-             * @description Health weight date (date)
-             */
-            date?: string | null;
-            /**
-             * Weight
-             * @description Weight in kilograms
-             */
-            weight?: number | null;
-            /**
              * Bmi
              * @description Body Mass Index
              */
@@ -8134,6 +8365,21 @@ export interface components {
              */
             bone_mass?: number | null;
             /**
+             * Date
+             * @description Health weight date (date)
+             */
+            date?: string | null;
+            /**
+             * Id
+             * @description Unique identifier for the weight record to update
+             */
+            id: number;
+            /**
+             * Metabolic Age
+             * @description Metabolic age
+             */
+            metabolic_age?: number | null;
+            /**
              * Muscle Mass
              * @description Muscle mass in kilograms
              */
@@ -8143,28 +8389,23 @@ export interface components {
              * @description Physique rating
              */
             physique_rating?: number | null;
+            /** @description Source of the weight data */
+            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
+            /**
+             * User Id
+             * @description Foreign key reference to the user
+             */
+            user_id: number;
             /**
              * Visceral Fat
              * @description Visceral fat
              */
             visceral_fat?: number | null;
             /**
-             * Metabolic Age
-             * @description Metabolic age
+             * Weight
+             * @description Weight in kilograms
              */
-            metabolic_age?: number | null;
-            /** @description Source of the weight data */
-            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
-            /**
-             * Id
-             * @description Unique identifier for the weight record to update
-             */
-            id: number;
-            /**
-             * User Id
-             * @description Foreign key reference to the user
-             */
-            user_id: number;
+            weight?: number | null;
         };
         /**
          * HealthWeightUpdate
@@ -8176,16 +8417,6 @@ export interface components {
          */
         HealthWeightUpdate: {
             /**
-             * Date
-             * @description Health weight date (date)
-             */
-            date?: string | null;
-            /**
-             * Weight
-             * @description Weight in kilograms
-             */
-            weight?: number | null;
-            /**
              * Bmi
              * @description Body Mass Index
              */
@@ -8206,6 +8437,21 @@ export interface components {
              */
             bone_mass?: number | null;
             /**
+             * Date
+             * @description Health weight date (date)
+             */
+            date?: string | null;
+            /**
+             * Id
+             * @description Unique identifier for the weight record to update
+             */
+            id: number;
+            /**
+             * Metabolic Age
+             * @description Metabolic age
+             */
+            metabolic_age?: number | null;
+            /**
              * Muscle Mass
              * @description Muscle mass in kilograms
              */
@@ -8215,28 +8461,23 @@ export interface components {
              * @description Physique rating
              */
             physique_rating?: number | null;
+            /** @description Source of the weight data */
+            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
+            /**
+             * User Id
+             * @description Foreign key reference to the user
+             */
+            user_id: number;
             /**
              * Visceral Fat
              * @description Visceral fat
              */
             visceral_fat?: number | null;
             /**
-             * Metabolic Age
-             * @description Metabolic age
+             * Weight
+             * @description Weight in kilograms
              */
-            metabolic_age?: number | null;
-            /** @description Source of the weight data */
-            source?: components["schemas"]["modules__health__health_weight__schema__Source"] | null;
-            /**
-             * Id
-             * @description Unique identifier for the weight record to update
-             */
-            id: number;
-            /**
-             * User Id
-             * @description Foreign key reference to the user
-             */
-            user_id: number;
+            weight?: number | null;
         };
         /**
          * IdentityProvider
@@ -8262,21 +8503,23 @@ export interface components {
          */
         IdentityProvider: {
             /**
-             * Name
-             * @description Display name of the IdP
+             * Authorization Endpoint
+             * @description OAuth2/OIDC authorization endpoint
              */
-            name: string;
+            authorization_endpoint?: string | null;
             /**
-             * Slug
-             * @description URL-safe identifier
+             * Auto Create Users
+             * @description Auto-create users on first login
+             * @default true
              */
-            slug: string;
+            auto_create_users: boolean;
+            /** Client Id */
+            client_id?: string | null;
             /**
-             * Provider Type
-             * @description Provider type: oidc, oauth2, or saml
-             * @default oidc
+             * Created At
+             * Format: date-time
              */
-            provider_type: string;
+            created_at: string;
             /**
              * Enabled
              * @description Whether this provider is enabled
@@ -8284,30 +8527,33 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Icon
+             * @description Icon name or URL
+             */
+            icon?: string | null;
+            /** Id */
+            id: number;
+            /**
              * Issuer Url
              * @description OIDC issuer/discovery URL
              */
             issuer_url?: string | null;
             /**
-             * Authorization Endpoint
-             * @description OAuth2/OIDC authorization endpoint
-             */
-            authorization_endpoint?: string | null;
-            /**
-             * Token Endpoint
-             * @description OAuth2/OIDC token endpoint
-             */
-            token_endpoint?: string | null;
-            /**
-             * Userinfo Endpoint
-             * @description OIDC userinfo endpoint
-             */
-            userinfo_endpoint?: string | null;
-            /**
              * Jwks Uri
              * @description OIDC JWKS URI
              */
             jwks_uri?: string | null;
+            /**
+             * Name
+             * @description Display name of the IdP
+             */
+            name: string;
+            /**
+             * Provider Type
+             * @description Provider type: oidc, oauth2, or saml
+             * @default oidc
+             */
+            provider_type: string;
             /**
              * Scopes
              * @description OAuth2/OIDC scopes
@@ -8315,16 +8561,10 @@ export interface components {
              */
             scopes: string;
             /**
-             * Icon
-             * @description Icon name or URL
+             * Slug
+             * @description URL-safe identifier
              */
-            icon?: string | null;
-            /**
-             * Auto Create Users
-             * @description Auto-create users on first login
-             * @default true
-             */
-            auto_create_users: boolean;
+            slug: string;
             /**
              * Sync User Info
              * @description Sync user info on each login
@@ -8332,26 +8572,27 @@ export interface components {
              */
             sync_user_info: boolean;
             /**
+             * Token Endpoint
+             * @description OAuth2/OIDC token endpoint
+             */
+            token_endpoint?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
              * User Mapping
              * @description Claims mapping configuration
              */
             user_mapping?: {
                 [key: string]: unknown;
             } | null;
-            /** Client Id */
-            client_id?: string | null;
-            /** Id */
-            id: number;
             /**
-             * Created At
-             * Format: date-time
+             * Userinfo Endpoint
+             * @description OIDC userinfo endpoint
              */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
+            userinfo_endpoint?: string | null;
         };
         /**
          * IdentityProviderCreate
@@ -8365,82 +8606,16 @@ export interface components {
          */
         IdentityProviderCreate: {
             /**
-             * Name
-             * @description Display name of the IdP
-             */
-            name: string;
-            /**
-             * Slug
-             * @description URL-safe identifier
-             */
-            slug: string;
-            /**
-             * Provider Type
-             * @description Provider type: oidc, oauth2, or saml
-             * @default oidc
-             */
-            provider_type: string;
-            /**
-             * Enabled
-             * @description Whether this provider is enabled
-             * @default false
-             */
-            enabled: boolean;
-            /**
-             * Issuer Url
-             * @description OIDC issuer/discovery URL
-             */
-            issuer_url?: string | null;
-            /**
              * Authorization Endpoint
              * @description OAuth2/OIDC authorization endpoint
              */
             authorization_endpoint?: string | null;
-            /**
-             * Token Endpoint
-             * @description OAuth2/OIDC token endpoint
-             */
-            token_endpoint?: string | null;
-            /**
-             * Userinfo Endpoint
-             * @description OIDC userinfo endpoint
-             */
-            userinfo_endpoint?: string | null;
-            /**
-             * Jwks Uri
-             * @description OIDC JWKS URI
-             */
-            jwks_uri?: string | null;
-            /**
-             * Scopes
-             * @description OAuth2/OIDC scopes
-             * @default openid profile email
-             */
-            scopes: string;
-            /**
-             * Icon
-             * @description Icon name or URL
-             */
-            icon?: string | null;
             /**
              * Auto Create Users
              * @description Auto-create users on first login
              * @default true
              */
             auto_create_users: boolean;
-            /**
-             * Sync User Info
-             * @description Sync user info on each login
-             * @default true
-             */
-            sync_user_info: boolean;
-            /**
-             * User Mapping
-             * @description Claims mapping configuration
-             */
-            user_mapping?: {
-                [key: string]: unknown;
-            } | null;
             /** Client Id */
             client_id?: string | null;
             /**
@@ -8448,6 +8623,72 @@ export interface components {
              * @description OAuth2/OIDC client secret
              */
             client_secret: string;
+            /**
+             * Enabled
+             * @description Whether this provider is enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * Icon
+             * @description Icon name or URL
+             */
+            icon?: string | null;
+            /**
+             * Issuer Url
+             * @description OIDC issuer/discovery URL
+             */
+            issuer_url?: string | null;
+            /**
+             * Jwks Uri
+             * @description OIDC JWKS URI
+             */
+            jwks_uri?: string | null;
+            /**
+             * Name
+             * @description Display name of the IdP
+             */
+            name: string;
+            /**
+             * Provider Type
+             * @description Provider type: oidc, oauth2, or saml
+             * @default oidc
+             */
+            provider_type: string;
+            /**
+             * Scopes
+             * @description OAuth2/OIDC scopes
+             * @default openid profile email
+             */
+            scopes: string;
+            /**
+             * Slug
+             * @description URL-safe identifier
+             */
+            slug: string;
+            /**
+             * Sync User Info
+             * @description Sync user info on each login
+             * @default true
+             */
+            sync_user_info: boolean;
+            /**
+             * Token Endpoint
+             * @description OAuth2/OIDC token endpoint
+             */
+            token_endpoint?: string | null;
+            /**
+             * User Mapping
+             * @description Claims mapping configuration
+             */
+            user_mapping?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Userinfo Endpoint
+             * @description OIDC userinfo endpoint
+             */
+            userinfo_endpoint?: string | null;
         };
         /**
          * IdentityProviderPublic
@@ -8463,14 +8704,14 @@ export interface components {
          *         model_config (dict): Pydantic model configuration to allow population from ORM attributes.
          */
         IdentityProviderPublic: {
+            /** Icon */
+            icon?: string | null;
             /** Id */
             id: number;
             /** Name */
             name: string;
             /** Slug */
             slug: string;
-            /** Icon */
-            icon?: string | null;
         };
         /**
          * IdentityProviderTemplate
@@ -8489,34 +8730,34 @@ export interface components {
          */
         IdentityProviderTemplate: {
             /**
-             * Template Id
-             * @description Template identifier (e.g., 'keycloak', 'authentik')
+             * Configuration Notes
+             * @description Setup instructions for this IdP
              */
-            template_id: string;
-            /** Name */
-            name: string;
-            /** Provider Type */
-            provider_type: string;
-            /** Issuer Url */
-            issuer_url?: string | null;
-            /** Scopes */
-            scopes: string;
-            /** Icon */
-            icon?: string | null;
-            /** User Mapping */
-            user_mapping?: {
-                [key: string]: unknown;
-            } | null;
+            configuration_notes?: string | null;
             /**
              * Description
              * @description Description of this template
              */
             description: string;
+            /** Icon */
+            icon?: string | null;
+            /** Issuer Url */
+            issuer_url?: string | null;
+            /** Name */
+            name: string;
+            /** Provider Type */
+            provider_type: string;
+            /** Scopes */
+            scopes: string;
             /**
-             * Configuration Notes
-             * @description Setup instructions for this IdP
+             * Template Id
+             * @description Template identifier (e.g., 'keycloak', 'authentik')
              */
-            configuration_notes?: string | null;
+            template_id: string;
+            /** User Mapping */
+            user_mapping?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * IdentityProviderUpdate
@@ -8530,21 +8771,20 @@ export interface components {
          */
         IdentityProviderUpdate: {
             /**
-             * Name
-             * @description Display name of the IdP
+             * Authorization Endpoint
+             * @description OAuth2/OIDC authorization endpoint
              */
-            name: string;
+            authorization_endpoint?: string | null;
             /**
-             * Slug
-             * @description URL-safe identifier
+             * Auto Create Users
+             * @description Auto-create users on first login
+             * @default true
              */
-            slug: string;
-            /**
-             * Provider Type
-             * @description Provider type: oidc, oauth2, or saml
-             * @default oidc
-             */
-            provider_type: string;
+            auto_create_users: boolean;
+            /** Client Id */
+            client_id?: string | null;
+            /** Client Secret */
+            client_secret?: string | null;
             /**
              * Enabled
              * @description Whether this provider is enabled
@@ -8552,30 +8792,31 @@ export interface components {
              */
             enabled: boolean;
             /**
+             * Icon
+             * @description Icon name or URL
+             */
+            icon?: string | null;
+            /**
              * Issuer Url
              * @description OIDC issuer/discovery URL
              */
             issuer_url?: string | null;
             /**
-             * Authorization Endpoint
-             * @description OAuth2/OIDC authorization endpoint
-             */
-            authorization_endpoint?: string | null;
-            /**
-             * Token Endpoint
-             * @description OAuth2/OIDC token endpoint
-             */
-            token_endpoint?: string | null;
-            /**
-             * Userinfo Endpoint
-             * @description OIDC userinfo endpoint
-             */
-            userinfo_endpoint?: string | null;
-            /**
              * Jwks Uri
              * @description OIDC JWKS URI
              */
             jwks_uri?: string | null;
+            /**
+             * Name
+             * @description Display name of the IdP
+             */
+            name: string;
+            /**
+             * Provider Type
+             * @description Provider type: oidc, oauth2, or saml
+             * @default oidc
+             */
+            provider_type: string;
             /**
              * Scopes
              * @description OAuth2/OIDC scopes
@@ -8583,16 +8824,10 @@ export interface components {
              */
             scopes: string;
             /**
-             * Icon
-             * @description Icon name or URL
+             * Slug
+             * @description URL-safe identifier
              */
-            icon?: string | null;
-            /**
-             * Auto Create Users
-             * @description Auto-create users on first login
-             * @default true
-             */
-            auto_create_users: boolean;
+            slug: string;
             /**
              * Sync User Info
              * @description Sync user info on each login
@@ -8600,16 +8835,22 @@ export interface components {
              */
             sync_user_info: boolean;
             /**
+             * Token Endpoint
+             * @description OAuth2/OIDC token endpoint
+             */
+            token_endpoint?: string | null;
+            /**
              * User Mapping
              * @description Claims mapping configuration
              */
             user_mapping?: {
                 [key: string]: unknown;
             } | null;
-            /** Client Id */
-            client_id?: string | null;
-            /** Client Secret */
-            client_secret?: string | null;
+            /**
+             * Userinfo Endpoint
+             * @description OIDC userinfo endpoint
+             */
+            userinfo_endpoint?: string | null;
         };
         /**
          * IdpLinkTokenRequest
@@ -8648,17 +8889,52 @@ export interface components {
          */
         IdpLinkTokenResponse: {
             /**
-             * Token
-             * @description One-time link token
-             */
-            token: string;
-            /**
              * Expires At
              * Format: date-time
              * @description Token expiration timestamp
              */
             expires_at: string;
+            /**
+             * Token
+             * @description One-time link token
+             */
+            token: string;
         };
+        /**
+         * IngestionJobErrorCode
+         * @description Stable, sanitized reasons an ingestion job can fail.
+         *
+         *     Deliberately a closed set. The underlying exception text can carry
+         *     filesystem paths, parser internals and provider tokens, so the client is
+         *     given a code it can translate instead of a message the server happened to
+         *     produce.
+         * @enum {string}
+         */
+        IngestionJobErrorCode: "unsupported_format" | "invalid_file" | "no_activities_found" | "processing_failed" | "provider_unavailable";
+        /**
+         * IngestionJobKind
+         * @description What kind of ingestion the job performs.
+         * @enum {string}
+         */
+        IngestionJobKind: "upload" | "refresh" | "bulk_import";
+        /**
+         * IngestionJobStatus
+         * @description Lifecycle states of an ingestion job.
+         * @enum {string}
+         */
+        IngestionJobStatus: "pending" | "processing" | "completed" | "failed";
+        /**
+         * Interval
+         * @description Recurrence intervals for user goals.
+         *
+         *     Attributes:
+         *         DAILY: Daily recurrence interval.
+         *         WEEKLY: Weekly recurrence interval.
+         *         MONTHLY: Monthly recurrence interval.
+         *         YEARLY: Yearly recurrence interval.
+         * @enum {string}
+         */
+        "Interval-Output": "daily" | "weekly" | "monthly" | "yearly";
         /**
          * JobReplayResult
          * @description The outcome of replaying a dead-lettered job.
@@ -8684,20 +8960,20 @@ export interface components {
          *         dead_letter: Count that exhausted retries.
          */
         JobSubscriberStats: {
-            /** Subscriber Id */
-            subscriber_id: string;
-            /** Event Type */
-            event_type: string;
-            /** Total */
-            total: number;
-            /** Pending */
-            pending: number;
             /** Claimed */
             claimed: number;
             /** Completed */
             completed: number;
             /** Dead Letter */
             dead_letter: number;
+            /** Event Type */
+            event_type: string;
+            /** Pending */
+            pending: number;
+            /** Subscriber Id */
+            subscriber_id: string;
+            /** Total */
+            total: number;
         };
         /**
          * JobsSummary
@@ -8715,12 +8991,8 @@ export interface components {
          *         recent_dead_letter: The current dead-letter queue contents (most recent first).
          */
         JobsSummary: {
-            /** Window Hours */
-            window_hours: number;
-            /** Total Jobs */
-            total_jobs: number;
-            /** Pending */
-            pending: number;
+            /** By Subscriber */
+            by_subscriber: components["schemas"]["JobSubscriberStats"][];
             /** Claimed */
             claimed: number;
             /** Completed */
@@ -8729,11 +9001,53 @@ export interface components {
             dead_letter: number;
             /** Oldest Pending Seconds */
             oldest_pending_seconds: number | null;
-            /** By Subscriber */
-            by_subscriber: components["schemas"]["JobSubscriberStats"][];
+            /** Pending */
+            pending: number;
             /** Recent Dead Letter */
             recent_dead_letter: components["schemas"]["DeadLetterJob"][];
+            /** Total Jobs */
+            total_jobs: number;
+            /** Window Hours */
+            window_hours: number;
         };
+        /**
+         * Language
+         * @description Supported application languages.
+         *
+         *     Attributes:
+         *         CATALAN: Catalan (ca).
+         *         CHINESE_SIMPLIFIED: Simplified Chinese (zh-Hans).
+         *         CHINESE_TRADITIONAL: Traditional Chinese (zh-Hant).
+         *         GERMAN: German (de).
+         *         FRENCH: French (fr).
+         *         GALICIAN: Galician (gl).
+         *         ITALIAN: Italian (it).
+         *         DUTCH: Dutch (nl).
+         *         PORTUGUESE: Portuguese (pt-PT).
+         *         SLOVENIAN: Slovenian (sl).
+         *         SWEDISH: Swedish (sv).
+         *         SPANISH: Spanish (es).
+         *         ENGLISH: English (en).
+         *         POLISH: Polish (pl).
+         *         TURKISH: Turkish (tr).
+         *         UKRAINIAN: Ukrainian (uk).
+         *         ROMANIAN: Romanian (ro).
+         *         NORWEGIAN: Norwegian Bokmål (nb).
+         *         DANISH: Danish (da).
+         *         FINNISH: Finnish (fi).
+         *         CZECH: Czech (cs).
+         *         GREEK: Greek (el).
+         *         HUNGARIAN: Hungarian (hu).
+         *         BULGARIAN: Bulgarian (bg).
+         *         CROATIAN: Croatian (hr).
+         *         SERBIAN: Serbian (sr).
+         *         SLOVAK: Slovak (sk).
+         *         LITHUANIAN: Lithuanian (lt).
+         *         LATVIAN: Latvian (lv).
+         *         ESTONIAN: Estonian (et).
+         * @enum {string}
+         */
+        Language: "ca" | "zh-Hans" | "zh-Hant" | "de" | "fr" | "gl" | "it" | "nl" | "pt-PT" | "sl" | "sv" | "es" | "en" | "pl" | "tr" | "uk" | "ro" | "nb" | "da" | "fi" | "cs" | "el" | "hu" | "bg" | "hr" | "sr" | "sk" | "lt" | "lv" | "et";
         /**
          * LicenseInfo
          * @description API license metadata.
@@ -8744,10 +9058,10 @@ export interface components {
          *         url: Public license URL.
          */
         LicenseInfo: {
-            /** Name */
-            name: string;
             /** Identifier */
             identifier: string;
+            /** Name */
+            name: string;
             /** Url */
             url: string;
         };
@@ -8760,6 +9074,23 @@ export interface components {
          *         type_breakdown: Optional breakdown by type.
          */
         LifetimeSummaryRead: {
+            /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Breakdown
+             * @description List of yearly summaries
+             */
+            breakdown: components["schemas"]["YearlyPeriodSummary"][];
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
             /**
              * Total Distance
              * @description Total distance in meters
@@ -8778,23 +9109,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Breakdown
-             * @description List of yearly summaries
-             */
-            breakdown: components["schemas"]["YearlyPeriodSummary"][];
             /**
              * Type Breakdown
              * @description Optional breakdown by activity type
@@ -8824,6 +9138,8 @@ export interface components {
          *         created_at: Timestamp when the current set of codes was generated.
          */
         MFABackupCodeStatus: {
+            /** Created At */
+            created_at?: string | null;
             /** Has Codes */
             has_codes: boolean;
             /** Total */
@@ -8832,8 +9148,6 @@ export interface components {
             unused: number;
             /** Used */
             used: number;
-            /** Created At */
-            created_at?: string | null;
         };
         /**
          * MFABackupCodesResponse
@@ -8880,15 +9194,15 @@ export interface components {
          */
         MFADisableRequest: {
             /**
-             * Mfa Code
-             * @description MFA code (6-digit TOTP or XXXX-XXXX)
-             */
-            mfa_code: string;
-            /**
              * Current Password
              * @description Current password (step-up verification). Required when the account has a local password.
              */
             current_password?: string | null;
+            /**
+             * Mfa Code
+             * @description MFA code (6-digit TOTP or XXXX-XXXX)
+             */
+            mfa_code: string;
         };
         /**
          * MFALoginRequest
@@ -8899,10 +9213,10 @@ export interface components {
          *         mfa_code: Either a 6-digit TOTP code or a backup code.
          */
         MFALoginRequest: {
-            /** Username */
-            username: string;
             /** Mfa Code */
             mfa_code: string;
+            /** Username */
+            username: string;
         };
         /**
          * MFARequiredResponse
@@ -8915,17 +9229,17 @@ export interface components {
          */
         MFARequiredResponse: {
             /**
+             * Message
+             * @default MFA verification required
+             */
+            message: string;
+            /**
              * Mfa Required
              * @default true
              */
             mfa_required: boolean;
             /** Username */
             username: string;
-            /**
-             * Message
-             * @default MFA verification required
-             */
-            message: string;
         };
         /**
          * MFASetupRequest
@@ -8956,15 +9270,15 @@ export interface components {
          */
         MFASetupRequest: {
             /**
-             * Mfa Code
-             * @description 6-digit TOTP code
-             */
-            mfa_code: string;
-            /**
              * Current Password
              * @description Current password (step-up verification). Required when the account has a local password.
              */
             current_password?: string | null;
+            /**
+             * Mfa Code
+             * @description 6-digit TOTP code
+             */
+            mfa_code: string;
         };
         /**
          * MFASetupResponse
@@ -8977,21 +9291,21 @@ export interface components {
          */
         MFASetupResponse: {
             /**
-             * Secret
-             * @description TOTP secret key
+             * App Name
+             * @description Application name for MFA
+             * @default Endurain
              */
-            secret: string;
+            app_name: string;
             /**
              * Qr Code
              * @description Base64-encoded QR code image
              */
             qr_code: string;
             /**
-             * App Name
-             * @description Application name for MFA
-             * @default Endurain
+             * Secret
+             * @description TOTP secret key
              */
-            app_name: string;
+            secret: string;
         };
         /**
          * MFAStatusResponse
@@ -9017,18 +9331,18 @@ export interface components {
          *         message: Instructions for the client on next steps.
          */
         MobileSessionResponse: {
-            /** Session Id */
-            session_id: string;
-            /**
-             * Mfa Required
-             * @default false
-             */
-            mfa_required: boolean;
             /**
              * Message
              * @default Complete authentication by exchanging tokens at /public/idp/session/{session_id}/tokens
              */
             message: string;
+            /**
+             * Mfa Required
+             * @default false
+             */
+            mfa_required: boolean;
+            /** Session Id */
+            session_id: string;
         };
         /**
          * MonthSummary
@@ -9038,6 +9352,23 @@ export interface components {
          *         month_number: Month (1=Jan, 12=Dec).
          */
         MonthSummary: {
+            /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Month Number
+             * @description Month (1=January, 12=December)
+             */
+            month_number: number;
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
             /**
              * Total Distance
              * @description Total distance in meters
@@ -9056,23 +9387,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Month Number
-             * @description Month (1=January, 12=December)
-             */
-            month_number: number;
         };
         /**
          * MonthlySummaryRead
@@ -9084,6 +9398,23 @@ export interface components {
          */
         MonthlySummaryRead: {
             /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Breakdown
+             * @description List of weekly summaries
+             */
+            breakdown: components["schemas"]["WeekSummary"][];
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
+            /**
              * Total Distance
              * @description Total distance in meters
              * @default 0
@@ -9101,23 +9432,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Breakdown
-             * @description List of weekly summaries
-             */
-            breakdown: components["schemas"]["WeekSummary"][];
             /**
              * Type Breakdown
              * @description Optional breakdown by activity type
@@ -9136,10 +9450,15 @@ export interface components {
          */
         NotificationRead: {
             /**
-             * Type
-             * @description Type of the notification
+             * Created At
+             * @description Timestamp of creation
              */
-            type?: number | null;
+            created_at?: string | null;
+            /**
+             * Id
+             * @description Unique notification ID
+             */
+            id: number;
             /**
              * Options
              * @description Additional notification metadata
@@ -9148,117 +9467,112 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
-             * Id
-             * @description Unique notification ID
-             */
-            id: number;
-            /**
-             * User Id
-             * @description FK to user
-             */
-            user_id: number;
-            /**
              * Read
              * @description Whether notification is read
              * @default false
              */
             read: boolean;
             /**
-             * Created At
-             * @description Timestamp of creation
+             * Type
+             * @description Type of the notification
              */
-            created_at?: string | null;
+            type?: number | null;
+            /**
+             * User Id
+             * @description FK to user
+             */
+            user_id: number;
         };
         /** Page[ActivityLapsRead] */
         Page_ActivityLapsRead_: {
             /** Items */
             items: components["schemas"]["ActivityLapsRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[ActivityMediaRead] */
         Page_ActivityMediaRead_: {
             /** Items */
             items: components["schemas"]["ActivityMediaRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[ActivityRead] */
         Page_ActivityRead_: {
             /** Items */
             items: components["schemas"]["ActivityRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[ActivitySetsRead] */
         Page_ActivitySetsRead_: {
             /** Items */
             items: components["schemas"]["ActivitySetsRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[ActivityStreamsRead] */
         Page_ActivityStreamsRead_: {
             /** Items */
             items: components["schemas"]["ActivityStreamsRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[ActivityWorkoutStepsRead] */
         Page_ActivityWorkoutStepsRead_: {
             /** Items */
             items: components["schemas"]["ActivityWorkoutStepsRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /** Page[FollowRelationshipRead] */
         Page_FollowRelationshipRead_: {
             /** Items */
             items: components["schemas"]["FollowRelationshipRead"][];
-            /** Total */
-            total: number;
-            /** Page */
-            page: number;
-            /** Num Records */
-            num_records: number;
             /** Next */
             next?: number | null;
+            /** Num Records */
+            num_records: number;
+            /** Page */
+            page: number;
+            /** Total */
+            total: number;
         };
         /**
          * PasswordResetConfirm
@@ -9270,15 +9584,15 @@ export interface components {
          */
         PasswordResetConfirm: {
             /**
-             * Token
-             * @description The reset token received by the user
-             */
-            token: string;
-            /**
              * New Password
              * @description The new password to set
              */
             new_password: string;
+            /**
+             * Token
+             * @description The reset token received by the user
+             */
+            token: string;
         };
         /**
          * PasswordResetRequest
@@ -9310,6 +9624,16 @@ export interface components {
             message: string;
         };
         /**
+         * PasswordType
+         * @description An enumeration representing password policy types.
+         *
+         *     Attributes:
+         *         STRICT (str): Strict password policy.
+         *         LENGTH_ONLY (str): Length-only password policy.
+         * @enum {string}
+         */
+        PasswordType: "strict" | "length_only";
+        /**
          * ProblemDetail
          * @description An RFC 9457 problem document, as returned for every API error.
          *
@@ -9332,17 +9656,15 @@ export interface components {
          *             validation error.
          */
         ProblemDetail: {
-            /**
-             * Type
-             * @default about:blank
-             */
-            type: string;
-            /** Title */
-            title: string;
-            /** Status */
-            status: number;
             /** Detail */
             detail: string;
+            /**
+             * Errors
+             * @default null
+             */
+            errors: {
+                [key: string]: unknown;
+            }[] | null;
             /**
              * Instance
              * @default null
@@ -9353,13 +9675,15 @@ export interface components {
              * @default null
              */
             request_id: string | null;
+            /** Status */
+            status: number;
+            /** Title */
+            title: string;
             /**
-             * Errors
-             * @default null
+             * Type
+             * @default about:blank
              */
-            errors: {
-                [key: string]: unknown;
-            }[] | null;
+            type: string;
         } & {
             [key: string]: unknown;
         };
@@ -9397,27 +9721,27 @@ export interface components {
          *         repoint their avatar at another user's blob.
          */
         ProfileUpdate: {
-            /** Name */
-            name?: string | null;
-            /** Username */
-            username?: string | null;
-            /** Email */
-            email?: string | null;
-            /** City */
-            city?: string | null;
             /** Birthdate */
             birthdate?: string | null;
-            preferred_language?: components["schemas"]["Language"] | null;
+            /** City */
+            city?: string | null;
+            currency?: components["schemas"]["Currency"] | null;
+            /** Email */
+            email?: string | null;
+            first_day_of_week?: components["schemas"]["WeekDay"] | null;
             gender?: components["schemas"]["Gender"] | null;
-            units?: components["schemas"]["Units"] | null;
             /** Height */
             height?: number | null;
             /** Max Heart Rate */
             max_heart_rate?: number | null;
-            first_day_of_week?: components["schemas"]["WeekDay"] | null;
-            currency?: components["schemas"]["Currency"] | null;
+            /** Name */
+            name?: string | null;
+            preferred_language?: components["schemas"]["Language"] | null;
             /** Timezone */
             timezone?: string | null;
+            units?: components["schemas"]["Units"] | null;
+            /** Username */
+            username?: string | null;
         };
         /**
          * RelationshipRead
@@ -9428,8 +9752,8 @@ export interface components {
          *         incoming: The other user's follow of the authenticated user, if any.
          */
         RelationshipRead: {
-            outgoing?: components["schemas"]["FollowRelationshipRead"] | null;
             incoming?: components["schemas"]["FollowRelationshipRead"] | null;
+            outgoing?: components["schemas"]["FollowRelationshipRead"] | null;
         };
         /**
          * ServerSettingsEdit
@@ -9444,11 +9768,51 @@ export interface components {
          *             sign-ups (true - yes, false - no).
          */
         ServerSettingsEdit: {
+            /** @description Currency (euro, dollar, pound) */
+            currency: components["schemas"]["Currency"];
             /**
-             * @description Units (metric, imperial)
-             * @default metric
+             * Id
+             * @description Unique identifier for server settings (always 1)
              */
-            units: components["schemas"]["Units"];
+            id: number;
+            /**
+             * Local Login Enabled
+             * @description Allow local username/password login (true - yes, false - no)
+             */
+            local_login_enabled: boolean;
+            /**
+             * Login Photo Set
+             * @description Is login photo set (true - yes, false - no)
+             */
+            login_photo_set: boolean;
+            /**
+             * Map Background Color
+             * @description Background color for the map (hex format)
+             */
+            map_background_color: string;
+            /**
+             * Num Records Per Page
+             * @description Number of records per page in lists
+             * @default 25
+             */
+            num_records_per_page: number;
+            /**
+             * Password Length Admin Users
+             * @description Minimum password length for admin users
+             * @default 12
+             */
+            password_length_admin_users: number;
+            /**
+             * Password Length Regular Users
+             * @description Minimum password length for regular users
+             * @default 8
+             */
+            password_length_regular_users: number;
+            /**
+             * @description Password type policy (strict, length_only)
+             * @default strict
+             */
+            password_type: components["schemas"]["PasswordType"];
             /**
              * Public Shareable Links
              * @description Allow public shareable links (true - yes, false - no)
@@ -9460,86 +9824,10 @@ export interface components {
              */
             public_shareable_links_user_info: boolean;
             /**
-             * Login Photo Set
-             * @description Is login photo set (true - yes, false - no)
-             */
-            login_photo_set: boolean;
-            /** @description Currency (euro, dollar, pound) */
-            currency: components["schemas"]["Currency"];
-            /**
-             * Num Records Per Page
-             * @description Number of records per page in lists
-             * @default 25
-             */
-            num_records_per_page: number;
-            /**
              * Signup Enabled
              * @description Allow user sign-up registration (true - yes, false - no)
              */
             signup_enabled: boolean;
-            /**
-             * Sso Enabled
-             * @description Enable SSO/IdP login (true - yes, false - no)
-             */
-            sso_enabled: boolean;
-            /**
-             * Local Login Enabled
-             * @description Allow local username/password login (true - yes, false - no)
-             */
-            local_login_enabled: boolean;
-            /**
-             * Sso Auto Redirect
-             * @description Auto-redirect to SSO if only one IdP (true - yes, false - no)
-             */
-            sso_auto_redirect: boolean;
-            /**
-             * Tileserver Url
-             * @description URL template for the map tileserver
-             */
-            tileserver_url: string;
-            /**
-             * Tileserver Attribution
-             * @description Attribution string for the map tileserver
-             */
-            tileserver_attribution: string;
-            /**
-             * Map Background Color
-             * @description Background color for the map (hex format)
-             */
-            map_background_color: string;
-            /**
-             * Tileserver Regenerate Thumbnails On Change
-             * @description Delete and regenerate all activity thumbnails when tile server settings change
-             * @default false
-             */
-            tileserver_regenerate_thumbnails_on_change: boolean;
-            /**
-             * @description Password type policy (strict, length_only)
-             * @default strict
-             */
-            password_type: components["schemas"]["PasswordType"];
-            /**
-             * Password Length Regular Users
-             * @description Minimum password length for regular users
-             * @default 8
-             */
-            password_length_regular_users: number;
-            /**
-             * Password Length Admin Users
-             * @description Minimum password length for admin users
-             * @default 12
-             */
-            password_length_admin_users: number;
-            /**
-             * Id
-             * @description Unique identifier for server settings (always 1)
-             */
-            id: number;
-            /**
-             * Tileserver Api Key
-             * @description API key encrypted for the tile server
-             */
-            tileserver_api_key?: string | null;
             /**
              * Signup Require Admin Approval
              * @description Require admin approval for new sign-ups (true - yes, false - no)
@@ -9550,6 +9838,42 @@ export interface components {
              * @description Require email verification for new sign-ups (true - yes, false - no)
              */
             signup_require_email_verification: boolean;
+            /**
+             * Sso Auto Redirect
+             * @description Auto-redirect to SSO if only one IdP (true - yes, false - no)
+             */
+            sso_auto_redirect: boolean;
+            /**
+             * Sso Enabled
+             * @description Enable SSO/IdP login (true - yes, false - no)
+             */
+            sso_enabled: boolean;
+            /**
+             * Tileserver Api Key
+             * @description API key encrypted for the tile server
+             */
+            tileserver_api_key?: string | null;
+            /**
+             * Tileserver Attribution
+             * @description Attribution string for the map tileserver
+             */
+            tileserver_attribution: string;
+            /**
+             * Tileserver Regenerate Thumbnails On Change
+             * @description Delete and regenerate all activity thumbnails when tile server settings change
+             * @default false
+             */
+            tileserver_regenerate_thumbnails_on_change: boolean;
+            /**
+             * Tileserver Url
+             * @description URL template for the map tileserver
+             */
+            tileserver_url: string;
+            /**
+             * @description Units (metric, imperial)
+             * @default metric
+             */
+            units: components["schemas"]["Units"];
         };
         /**
          * ServerSettingsRead
@@ -9560,11 +9884,51 @@ export interface components {
          *     complete server configuration.
          */
         ServerSettingsRead: {
+            /** @description Currency (euro, dollar, pound) */
+            currency: components["schemas"]["Currency"];
             /**
-             * @description Units (metric, imperial)
-             * @default metric
+             * Id
+             * @description Unique identifier for server settings (always 1)
              */
-            units: components["schemas"]["Units"];
+            id: number;
+            /**
+             * Local Login Enabled
+             * @description Allow local username/password login (true - yes, false - no)
+             */
+            local_login_enabled: boolean;
+            /**
+             * Login Photo Set
+             * @description Is login photo set (true - yes, false - no)
+             */
+            login_photo_set: boolean;
+            /**
+             * Map Background Color
+             * @description Background color for the map (hex format)
+             */
+            map_background_color: string;
+            /**
+             * Num Records Per Page
+             * @description Number of records per page in lists
+             * @default 25
+             */
+            num_records_per_page: number;
+            /**
+             * Password Length Admin Users
+             * @description Minimum password length for admin users
+             * @default 12
+             */
+            password_length_admin_users: number;
+            /**
+             * Password Length Regular Users
+             * @description Minimum password length for regular users
+             * @default 8
+             */
+            password_length_regular_users: number;
+            /**
+             * @description Password type policy (strict, length_only)
+             * @default strict
+             */
+            password_type: components["schemas"]["PasswordType"];
             /**
              * Public Shareable Links
              * @description Allow public shareable links (true - yes, false - no)
@@ -9576,86 +9940,10 @@ export interface components {
              */
             public_shareable_links_user_info: boolean;
             /**
-             * Login Photo Set
-             * @description Is login photo set (true - yes, false - no)
-             */
-            login_photo_set: boolean;
-            /** @description Currency (euro, dollar, pound) */
-            currency: components["schemas"]["Currency"];
-            /**
-             * Num Records Per Page
-             * @description Number of records per page in lists
-             * @default 25
-             */
-            num_records_per_page: number;
-            /**
              * Signup Enabled
              * @description Allow user sign-up registration (true - yes, false - no)
              */
             signup_enabled: boolean;
-            /**
-             * Sso Enabled
-             * @description Enable SSO/IdP login (true - yes, false - no)
-             */
-            sso_enabled: boolean;
-            /**
-             * Local Login Enabled
-             * @description Allow local username/password login (true - yes, false - no)
-             */
-            local_login_enabled: boolean;
-            /**
-             * Sso Auto Redirect
-             * @description Auto-redirect to SSO if only one IdP (true - yes, false - no)
-             */
-            sso_auto_redirect: boolean;
-            /**
-             * Tileserver Url
-             * @description URL template for the map tileserver
-             */
-            tileserver_url: string;
-            /**
-             * Tileserver Attribution
-             * @description Attribution string for the map tileserver
-             */
-            tileserver_attribution: string;
-            /**
-             * Map Background Color
-             * @description Background color for the map (hex format)
-             */
-            map_background_color: string;
-            /**
-             * Tileserver Regenerate Thumbnails On Change
-             * @description Delete and regenerate all activity thumbnails when tile server settings change
-             * @default false
-             */
-            tileserver_regenerate_thumbnails_on_change: boolean;
-            /**
-             * @description Password type policy (strict, length_only)
-             * @default strict
-             */
-            password_type: components["schemas"]["PasswordType"];
-            /**
-             * Password Length Regular Users
-             * @description Minimum password length for regular users
-             * @default 8
-             */
-            password_length_regular_users: number;
-            /**
-             * Password Length Admin Users
-             * @description Minimum password length for admin users
-             * @default 12
-             */
-            password_length_admin_users: number;
-            /**
-             * Id
-             * @description Unique identifier for server settings (always 1)
-             */
-            id: number;
-            /**
-             * Tileserver Api Key
-             * @description API key encrypted for the tile server
-             */
-            tileserver_api_key?: string | null;
             /**
              * Signup Require Admin Approval
              * @description Require admin approval for new sign-ups (true - yes, false - no)
@@ -9666,6 +9954,42 @@ export interface components {
              * @description Require email verification for new sign-ups (true - yes, false - no)
              */
             signup_require_email_verification: boolean;
+            /**
+             * Sso Auto Redirect
+             * @description Auto-redirect to SSO if only one IdP (true - yes, false - no)
+             */
+            sso_auto_redirect: boolean;
+            /**
+             * Sso Enabled
+             * @description Enable SSO/IdP login (true - yes, false - no)
+             */
+            sso_enabled: boolean;
+            /**
+             * Tileserver Api Key
+             * @description API key encrypted for the tile server
+             */
+            tileserver_api_key?: string | null;
+            /**
+             * Tileserver Attribution
+             * @description Attribution string for the map tileserver
+             */
+            tileserver_attribution: string;
+            /**
+             * Tileserver Regenerate Thumbnails On Change
+             * @description Delete and regenerate all activity thumbnails when tile server settings change
+             * @default false
+             */
+            tileserver_regenerate_thumbnails_on_change: boolean;
+            /**
+             * Tileserver Url
+             * @description URL template for the map tileserver
+             */
+            tileserver_url: string;
+            /**
+             * @description Units (metric, imperial)
+             * @default metric
+             */
+            units: components["schemas"]["Units"];
         };
         /**
          * ServerSettingsReadPublic
@@ -9679,11 +10003,46 @@ export interface components {
          *     excludes admin-level configuration fields.
          */
         ServerSettingsReadPublic: {
+            /** @description Currency (euro, dollar, pound) */
+            currency: components["schemas"]["Currency"];
             /**
-             * @description Units (metric, imperial)
-             * @default metric
+             * Local Login Enabled
+             * @description Allow local username/password login (true - yes, false - no)
              */
-            units: components["schemas"]["Units"];
+            local_login_enabled: boolean;
+            /**
+             * Login Photo Set
+             * @description Is login photo set (true - yes, false - no)
+             */
+            login_photo_set: boolean;
+            /**
+             * Map Background Color
+             * @description Background color for the map (hex format)
+             */
+            map_background_color: string;
+            /**
+             * Num Records Per Page
+             * @description Number of records per page in lists
+             * @default 25
+             */
+            num_records_per_page: number;
+            /**
+             * Password Length Admin Users
+             * @description Minimum password length for admin users
+             * @default 12
+             */
+            password_length_admin_users: number;
+            /**
+             * Password Length Regular Users
+             * @description Minimum password length for regular users
+             * @default 8
+             */
+            password_length_regular_users: number;
+            /**
+             * @description Password type policy (strict, length_only)
+             * @default strict
+             */
+            password_type: components["schemas"]["PasswordType"];
             /**
              * Public Shareable Links
              * @description Allow public shareable links (true - yes, false - no)
@@ -9695,53 +10054,25 @@ export interface components {
              */
             public_shareable_links_user_info: boolean;
             /**
-             * Login Photo Set
-             * @description Is login photo set (true - yes, false - no)
-             */
-            login_photo_set: boolean;
-            /** @description Currency (euro, dollar, pound) */
-            currency: components["schemas"]["Currency"];
-            /**
-             * Num Records Per Page
-             * @description Number of records per page in lists
-             * @default 25
-             */
-            num_records_per_page: number;
-            /**
              * Signup Enabled
              * @description Allow user sign-up registration (true - yes, false - no)
              */
             signup_enabled: boolean;
-            /**
-             * Sso Enabled
-             * @description Enable SSO/IdP login (true - yes, false - no)
-             */
-            sso_enabled: boolean;
-            /**
-             * Local Login Enabled
-             * @description Allow local username/password login (true - yes, false - no)
-             */
-            local_login_enabled: boolean;
             /**
              * Sso Auto Redirect
              * @description Auto-redirect to SSO if only one IdP (true - yes, false - no)
              */
             sso_auto_redirect: boolean;
             /**
-             * Tileserver Url
-             * @description URL template for the map tileserver
+             * Sso Enabled
+             * @description Enable SSO/IdP login (true - yes, false - no)
              */
-            tileserver_url: string;
+            sso_enabled: boolean;
             /**
              * Tileserver Attribution
              * @description Attribution string for the map tileserver
              */
             tileserver_attribution: string;
-            /**
-             * Map Background Color
-             * @description Background color for the map (hex format)
-             */
-            map_background_color: string;
             /**
              * Tileserver Regenerate Thumbnails On Change
              * @description Delete and regenerate all activity thumbnails when tile server settings change
@@ -9749,22 +10080,15 @@ export interface components {
              */
             tileserver_regenerate_thumbnails_on_change: boolean;
             /**
-             * @description Password type policy (strict, length_only)
-             * @default strict
+             * Tileserver Url
+             * @description URL template for the map tileserver
              */
-            password_type: components["schemas"]["PasswordType"];
+            tileserver_url: string;
             /**
-             * Password Length Regular Users
-             * @description Minimum password length for regular users
-             * @default 8
+             * @description Units (metric, imperial)
+             * @default metric
              */
-            password_length_regular_users: number;
-            /**
-             * Password Length Admin Users
-             * @description Minimum password length for admin users
-             * @default 12
-             */
-            password_length_admin_users: number;
+            units: components["schemas"]["Units"];
         };
         /**
          * SignUpConfirm
@@ -9791,21 +10115,45 @@ export interface components {
          */
         SignUpResponse: {
             /**
-             * Message
-             * @description Human-readable result message
+             * Admin Approval Required
+             * @description Whether admin approval is required
              */
-            message: string;
+            admin_approval_required?: boolean | null;
             /**
              * Email Verification Required
              * @description Whether email verification is required
              */
             email_verification_required?: boolean | null;
             /**
-             * Admin Approval Required
-             * @description Whether admin approval is required
+             * Message
+             * @description Human-readable result message
              */
-            admin_approval_required?: boolean | null;
+            message: string;
         };
+        /**
+         * SleepScore
+         * @description Enumeration of sleep quality score levels.
+         *
+         *     Attributes:
+         *         EXCELLENT (str): Represents excellent sleep quality.
+         *         GOOD (str): Represents good sleep quality.
+         *         FAIR (str): Represents fair sleep quality.
+         *         POOR (str): Represents poor sleep quality.
+         * @enum {string}
+         */
+        SleepScore: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
+        /**
+         * SleepStageType
+         * @description Enum representing different stages of sleep.
+         *
+         *     Attributes:
+         *         DEEP (int): Deep sleep stage, value 0. Characterized by slow brain waves and muscle relaxation.
+         *         LIGHT (int): Light sleep stage, value 1. Transitional sleep between wakefulness and deep sleep.
+         *         REM (int): Rapid Eye Movement sleep stage, value 2. Associated with vivid dreams and mental activity.
+         *         AWAKE (int): Awake state, value 3. The stage when the person is conscious and not sleeping.
+         * @enum {integer}
+         */
+        SleepStageType: 0 | 1 | 2 | 3;
         /**
          * StepUpVerification
          * @description Generic step-up verification payload.
@@ -9861,21 +10209,6 @@ export interface components {
          */
         TileMapsTemplate: {
             /**
-             * Template Id
-             * @description Template identifier (e.g., 'openstreetmap', 'stadia_outdoors')
-             */
-            template_id: string;
-            /**
-             * Name
-             * @description Human-readable name of the tile map template
-             */
-            name: string;
-            /**
-             * Url Template
-             * @description URL template for fetching map tiles
-             */
-            url_template: string;
-            /**
              * Attribution
              * @description HTML string for map attribution
              */
@@ -9886,15 +10219,30 @@ export interface components {
              */
             map_background_color: string;
             /**
-             * Requires Api Key Frontend
-             * @description Indicates if an API key is required on the frontend to use the tile map
+             * Name
+             * @description Human-readable name of the tile map template
              */
-            requires_api_key_frontend: boolean;
+            name: string;
             /**
              * Requires Api Key Backend
              * @description Indicates if an API key is required on the backend to use the tile map
              */
             requires_api_key_backend: boolean;
+            /**
+             * Requires Api Key Frontend
+             * @description Indicates if an API key is required on the frontend to use the tile map
+             */
+            requires_api_key_frontend: boolean;
+            /**
+             * Template Id
+             * @description Template identifier (e.g., 'openstreetmap', 'stadia_outdoors')
+             */
+            template_id: string;
+            /**
+             * Url Template
+             * @description URL template for fetching map tiles
+             */
+            url_template: string;
         };
         /**
          * TokenExchangeRequest
@@ -9935,20 +10283,10 @@ export interface components {
          */
         TokenExchangeResponse: {
             /**
-             * Session Id
-             * @description Session identifier
-             */
-            session_id: string;
-            /**
              * Access Token
              * @description JWT access token
              */
             access_token: string;
-            /**
-             * Refresh Token
-             * @description JWT refresh token (mobile only)
-             */
-            refresh_token?: string | null;
             /**
              * Csrf Token
              * @description CSRF protection token (web only)
@@ -9961,11 +10299,21 @@ export interface components {
              */
             expires_in: number;
             /**
+             * Refresh Token
+             * @description JWT refresh token (mobile only)
+             */
+            refresh_token?: string | null;
+            /**
              * Refresh Token Expires In
              * @description Refresh token lifetime in seconds
              * @default 604800
              */
             refresh_token_expires_in: number;
+            /**
+             * Session Id
+             * @description Session identifier
+             */
+            session_id: string;
             /**
              * Token Type
              * @description Token type
@@ -9986,22 +10334,22 @@ export interface components {
          *         refresh_token_expires_in: Seconds until the refresh token expires.
          */
         TokenResponseMobile: {
-            /** Session Id */
-            session_id: string;
             /** Access Token */
             access_token: string;
+            /** Expires In */
+            expires_in: number;
             /** Refresh Token */
             refresh_token: string;
+            /** Refresh Token Expires In */
+            refresh_token_expires_in: number;
+            /** Session Id */
+            session_id: string;
             /**
              * Token Type
              * @default bearer
              * @constant
              */
             token_type: "bearer";
-            /** Expires In */
-            expires_in: number;
-            /** Refresh Token Expires In */
-            refresh_token_expires_in: number;
         };
         /**
          * TokenResponseWeb
@@ -10016,22 +10364,22 @@ export interface components {
          *         refresh_token_expires_in: Seconds until the refresh token expires.
          */
         TokenResponseWeb: {
-            /** Session Id */
-            session_id: string;
             /** Access Token */
             access_token: string;
             /** Csrf Token */
             csrf_token: string;
+            /** Expires In */
+            expires_in: number;
+            /** Refresh Token Expires In */
+            refresh_token_expires_in: number;
+            /** Session Id */
+            session_id: string;
             /**
              * Token Type
              * @default bearer
              * @constant
              */
             token_type: "bearer";
-            /** Expires In */
-            expires_in: number;
-            /** Refresh Token Expires In */
-            refresh_token_expires_in: number;
         };
         /**
          * TypeBreakdownItem
@@ -10042,6 +10390,28 @@ export interface components {
          *         activity_type: Human-readable type name.
          */
         TypeBreakdownItem: {
+            /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Activity Type
+             * @description Human-readable activity type name
+             */
+            activity_type: string;
+            /**
+             * Activity Type Id
+             * @description Numeric activity type ID
+             */
+            activity_type_id: number;
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
             /**
              * Total Distance
              * @description Total distance in meters
@@ -10060,29 +10430,27 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Activity Type Id
-             * @description Numeric activity type ID
-             */
-            activity_type_id: number;
-            /**
-             * Activity Type
-             * @description Human-readable activity type name
-             */
-            activity_type: string;
         };
+        /**
+         * Units
+         * @description An enumeration representing measurement units.
+         *
+         *     Attributes:
+         *         METRIC: Metric system (e.g., meters, kilograms).
+         *         IMPERIAL: Imperial system (e.g., miles, pounds).
+         * @enum {string}
+         */
+        Units: "metric" | "imperial";
+        /**
+         * UserAccessType
+         * @description User access level enumeration.
+         *
+         *     Attributes:
+         *         REGULAR: Standard user access.
+         *         ADMIN: Administrative access.
+         * @enum {string}
+         */
+        UserAccessType: "regular" | "admin";
         /**
          * UsersAdminEditPassword
          * @description Schema for admin password reset operations.
@@ -10131,6 +10499,21 @@ export interface components {
          */
         UsersApiKeyCreate: {
             /**
+             * Current Password
+             * @description Current password (step-up verification). Required when the account has a local password.
+             */
+            current_password?: string | null;
+            /**
+             * Expires At
+             * @description Optional expiration datetime. None means the key never expires.
+             */
+            expires_at?: string | null;
+            /**
+             * Mfa Code
+             * @description TOTP or backup code, required when MFA is enabled
+             */
+            mfa_code?: string | null;
+            /**
              * Name
              * @description User-friendly label for the key
              */
@@ -10140,21 +10523,6 @@ export interface components {
              * @description List of scope strings to grant
              */
             scopes: string[];
-            /**
-             * Expires At
-             * @description Optional expiration datetime. None means the key never expires.
-             */
-            expires_at?: string | null;
-            /**
-             * Current Password
-             * @description Current password (step-up verification). Required when the account has a local password.
-             */
-            current_password?: string | null;
-            /**
-             * Mfa Code
-             * @description TOTP or backup code, required when MFA is enabled
-             */
-            mfa_code?: string | null;
         };
         /**
          * UsersApiKeyCreated
@@ -10170,46 +10538,21 @@ export interface components {
          */
         UsersApiKeyCreated: {
             /**
-             * Id
-             * @description Unique key identifier (UUID)
+             * Created At
+             * Format: date-time
+             * @description Key creation timestamp
              */
-            id: string;
-            /**
-             * User Id
-             * @description Owner's user ID
-             */
-            user_id: number;
-            /**
-             * Name
-             * @description User-friendly label
-             */
-            name: string;
-            /**
-             * Key Prefix
-             * @description First 8 chars of the random part
-             */
-            key_prefix: string;
-            /**
-             * Scopes
-             * @description JSON-encoded list of granted scopes
-             */
-            scopes: string;
+            created_at: string;
             /**
              * Expires At
              * @description Optional expiration timestamp
              */
             expires_at?: string | null;
             /**
-             * Last Used At
-             * @description Last successful use timestamp
+             * Id
+             * @description Unique key identifier (UUID)
              */
-            last_used_at?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             * @description Key creation timestamp
-             */
-            created_at: string;
+            id: string;
             /**
              * Is Active
              * @description Whether the key is currently active
@@ -10220,6 +10563,31 @@ export interface components {
              * @description Full raw API key. Shown once at creation only — store it securely.
              */
             key: string;
+            /**
+             * Key Prefix
+             * @description First 8 chars of the random part
+             */
+            key_prefix: string;
+            /**
+             * Last Used At
+             * @description Last successful use timestamp
+             */
+            last_used_at?: string | null;
+            /**
+             * Name
+             * @description User-friendly label
+             */
+            name: string;
+            /**
+             * Scopes
+             * @description JSON-encoded list of granted scopes
+             */
+            scopes: string;
+            /**
+             * User Id
+             * @description Owner's user ID
+             */
+            user_id: number;
         };
         /**
          * UsersApiKeyRead
@@ -10241,51 +10609,51 @@ export interface components {
          */
         UsersApiKeyRead: {
             /**
-             * Id
-             * @description Unique key identifier (UUID)
-             */
-            id: string;
-            /**
-             * User Id
-             * @description Owner's user ID
-             */
-            user_id: number;
-            /**
-             * Name
-             * @description User-friendly label
-             */
-            name: string;
-            /**
-             * Key Prefix
-             * @description First 8 chars of the random part
-             */
-            key_prefix: string;
-            /**
-             * Scopes
-             * @description JSON-encoded list of granted scopes
-             */
-            scopes: string;
-            /**
-             * Expires At
-             * @description Optional expiration timestamp
-             */
-            expires_at?: string | null;
-            /**
-             * Last Used At
-             * @description Last successful use timestamp
-             */
-            last_used_at?: string | null;
-            /**
              * Created At
              * Format: date-time
              * @description Key creation timestamp
              */
             created_at: string;
             /**
+             * Expires At
+             * @description Optional expiration timestamp
+             */
+            expires_at?: string | null;
+            /**
+             * Id
+             * @description Unique key identifier (UUID)
+             */
+            id: string;
+            /**
              * Is Active
              * @description Whether the key is currently active
              */
             is_active: boolean;
+            /**
+             * Key Prefix
+             * @description First 8 chars of the random part
+             */
+            key_prefix: string;
+            /**
+             * Last Used At
+             * @description Last successful use timestamp
+             */
+            last_used_at?: string | null;
+            /**
+             * Name
+             * @description User-friendly label
+             */
+            name: string;
+            /**
+             * Scopes
+             * @description JSON-encoded list of granted scopes
+             */
+            scopes: string;
+            /**
+             * User Id
+             * @description Owner's user ID
+             */
+            user_id: number;
         };
         /**
          * UsersCreate
@@ -10295,16 +10663,28 @@ export interface components {
          *         password: User's password (min 8 chars).
          */
         UsersCreate: {
+            /** @description User access level */
+            access_type: components["schemas"]["UserAccessType"];
             /**
-             * Name
-             * @description User's full name
+             * Active
+             * @description Whether the user is active
              */
-            name: string;
+            active: boolean;
             /**
-             * Username
-             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             * Birthdate
+             * @description User's birthdate
              */
-            username: string;
+            birthdate?: string | null;
+            /**
+             * City
+             * @description User's city
+             */
+            city?: string | null;
+            /**
+             * @description User currency (euro, dollar, pound)
+             * @default euro
+             */
+            currency: components["schemas"]["Currency"];
             /**
              * Email
              * Format: email
@@ -10312,30 +10692,21 @@ export interface components {
              */
             email: string;
             /**
-             * City
-             * @description User's city
+             * Email Verified
+             * @description Whether email is verified
+             * @default false
              */
-            city?: string | null;
+            email_verified: boolean;
             /**
-             * Birthdate
-             * @description User's birthdate
+             * @description First day of the week
+             * @default monday
              */
-            birthdate?: string | null;
-            /**
-             * @description Preferred language
-             * @default en
-             */
-            preferred_language: components["schemas"]["Language"];
+            first_day_of_week: components["schemas"]["WeekDay"];
             /**
              * @description User's gender
              * @default unspecified
              */
             gender: components["schemas"]["Gender"];
-            /**
-             * @description User units (metric, imperial)
-             * @default metric
-             */
-            units: components["schemas"]["Units"];
             /**
              * Height
              * @description Height in centimeters
@@ -10347,44 +10718,21 @@ export interface components {
              */
             max_heart_rate?: number | null;
             /**
-             * @description First day of the week
-             * @default monday
-             */
-            first_day_of_week: components["schemas"]["WeekDay"];
-            /**
-             * @description User currency (euro, dollar, pound)
-             * @default euro
-             */
-            currency: components["schemas"]["Currency"];
-            /**
-             * Timezone
-             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
-             */
-            timezone?: string | null;
-            /** @description User access level */
-            access_type: components["schemas"]["UserAccessType"];
-            /**
-             * Photo Path
-             * @description Servable URL of the user's photo (read-only)
-             */
-            photo_path?: string | null;
-            /**
-             * Active
-             * @description Whether the user is active
-             */
-            active: boolean;
-            /**
              * Mfa Enabled
              * @description Whether MFA is enabled
              * @default false
              */
             mfa_enabled: boolean;
             /**
-             * Email Verified
-             * @description Whether email is verified
-             * @default false
+             * Name
+             * @description User's full name
              */
-            email_verified: boolean;
+            name: string;
+            /**
+             * Password
+             * @description User's password
+             */
+            password: string;
             /**
              * Pending Admin Approval
              * @description Whether pending admin approval
@@ -10392,10 +10740,30 @@ export interface components {
              */
             pending_admin_approval: boolean;
             /**
-             * Password
-             * @description User's password
+             * Photo Path
+             * @description Servable URL of the user's photo (read-only)
              */
-            password: string;
+            photo_path?: string | null;
+            /**
+             * @description Preferred language
+             * @default en
+             */
+            preferred_language: components["schemas"]["Language"];
+            /**
+             * Timezone
+             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
+             */
+            timezone?: string | null;
+            /**
+             * @description User units (metric, imperial)
+             * @default metric
+             */
+            units: components["schemas"]["Units"];
+            /**
+             * Username
+             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             */
+            username: string;
         };
         /**
          * UsersDefaultGearRead
@@ -10409,90 +10777,90 @@ export interface components {
          */
         UsersDefaultGearRead: {
             /**
-             * Run Gear Id
-             * @description Default gear for run activities
+             * Alpine Ski Gear Id
+             * @description Default gear for alpine ski activities
              */
-            run_gear_id?: number | null;
-            /**
-             * Trail Run Gear Id
-             * @description Default gear for trail run activities
-             */
-            trail_run_gear_id?: number | null;
-            /**
-             * Virtual Run Gear Id
-             * @description Default gear for virtual run activities
-             */
-            virtual_run_gear_id?: number | null;
-            /**
-             * Ride Gear Id
-             * @description Default gear for ride activities
-             */
-            ride_gear_id?: number | null;
+            alpine_ski_gear_id?: number | null;
             /**
              * Gravel Ride Gear Id
              * @description Default gear for gravel ride activities
              */
             gravel_ride_gear_id?: number | null;
             /**
-             * Mtb Ride Gear Id
-             * @description Default gear for MTB ride activities
-             */
-            mtb_ride_gear_id?: number | null;
-            /**
-             * Virtual Ride Gear Id
-             * @description Default gear for virtual ride activities
-             */
-            virtual_ride_gear_id?: number | null;
-            /**
-             * Ows Gear Id
-             * @description Default gear for OWS activities
-             */
-            ows_gear_id?: number | null;
-            /**
-             * Walk Gear Id
-             * @description Default gear for walk activities
-             */
-            walk_gear_id?: number | null;
-            /**
              * Hike Gear Id
              * @description Default gear for hike activities
              */
             hike_gear_id?: number | null;
-            /**
-             * Tennis Gear Id
-             * @description Default gear for tennis activities
-             */
-            tennis_gear_id?: number | null;
-            /**
-             * Alpine Ski Gear Id
-             * @description Default gear for alpine ski activities
-             */
-            alpine_ski_gear_id?: number | null;
-            /**
-             * Nordic Ski Gear Id
-             * @description Default gear for nordic ski activities
-             */
-            nordic_ski_gear_id?: number | null;
-            /**
-             * Snowboard Gear Id
-             * @description Default gear for snowboard activities
-             */
-            snowboard_gear_id?: number | null;
-            /**
-             * Windsurf Gear Id
-             * @description Default gear for windsurf activities
-             */
-            windsurf_gear_id?: number | null;
             /**
              * Id
              * @description Unique identifier
              */
             id: number;
             /**
+             * Mtb Ride Gear Id
+             * @description Default gear for MTB ride activities
+             */
+            mtb_ride_gear_id?: number | null;
+            /**
+             * Nordic Ski Gear Id
+             * @description Default gear for nordic ski activities
+             */
+            nordic_ski_gear_id?: number | null;
+            /**
+             * Ows Gear Id
+             * @description Default gear for OWS activities
+             */
+            ows_gear_id?: number | null;
+            /**
+             * Ride Gear Id
+             * @description Default gear for ride activities
+             */
+            ride_gear_id?: number | null;
+            /**
+             * Run Gear Id
+             * @description Default gear for run activities
+             */
+            run_gear_id?: number | null;
+            /**
+             * Snowboard Gear Id
+             * @description Default gear for snowboard activities
+             */
+            snowboard_gear_id?: number | null;
+            /**
+             * Tennis Gear Id
+             * @description Default gear for tennis activities
+             */
+            tennis_gear_id?: number | null;
+            /**
+             * Trail Run Gear Id
+             * @description Default gear for trail run activities
+             */
+            trail_run_gear_id?: number | null;
+            /**
              * User Id
              * @description User ID
              */
             user_id: number;
+            /**
+             * Virtual Ride Gear Id
+             * @description Default gear for virtual ride activities
+             */
+            virtual_ride_gear_id?: number | null;
+            /**
+             * Virtual Run Gear Id
+             * @description Default gear for virtual run activities
+             */
+            virtual_run_gear_id?: number | null;
+            /**
+             * Walk Gear Id
+             * @description Default gear for walk activities
+             */
+            walk_gear_id?: number | null;
+            /**
+             * Windsurf Gear Id
+             * @description Default gear for windsurf activities
+             */
+            windsurf_gear_id?: number | null;
         };
         /**
          * UsersDefaultGearUpdate
@@ -10503,90 +10871,90 @@ export interface components {
          */
         UsersDefaultGearUpdate: {
             /**
-             * Run Gear Id
-             * @description Default gear for run activities
+             * Alpine Ski Gear Id
+             * @description Default gear for alpine ski activities
              */
-            run_gear_id?: number | null;
-            /**
-             * Trail Run Gear Id
-             * @description Default gear for trail run activities
-             */
-            trail_run_gear_id?: number | null;
-            /**
-             * Virtual Run Gear Id
-             * @description Default gear for virtual run activities
-             */
-            virtual_run_gear_id?: number | null;
-            /**
-             * Ride Gear Id
-             * @description Default gear for ride activities
-             */
-            ride_gear_id?: number | null;
+            alpine_ski_gear_id?: number | null;
             /**
              * Gravel Ride Gear Id
              * @description Default gear for gravel ride activities
              */
             gravel_ride_gear_id?: number | null;
             /**
-             * Mtb Ride Gear Id
-             * @description Default gear for MTB ride activities
-             */
-            mtb_ride_gear_id?: number | null;
-            /**
-             * Virtual Ride Gear Id
-             * @description Default gear for virtual ride activities
-             */
-            virtual_ride_gear_id?: number | null;
-            /**
-             * Ows Gear Id
-             * @description Default gear for OWS activities
-             */
-            ows_gear_id?: number | null;
-            /**
-             * Walk Gear Id
-             * @description Default gear for walk activities
-             */
-            walk_gear_id?: number | null;
-            /**
              * Hike Gear Id
              * @description Default gear for hike activities
              */
             hike_gear_id?: number | null;
-            /**
-             * Tennis Gear Id
-             * @description Default gear for tennis activities
-             */
-            tennis_gear_id?: number | null;
-            /**
-             * Alpine Ski Gear Id
-             * @description Default gear for alpine ski activities
-             */
-            alpine_ski_gear_id?: number | null;
-            /**
-             * Nordic Ski Gear Id
-             * @description Default gear for nordic ski activities
-             */
-            nordic_ski_gear_id?: number | null;
-            /**
-             * Snowboard Gear Id
-             * @description Default gear for snowboard activities
-             */
-            snowboard_gear_id?: number | null;
-            /**
-             * Windsurf Gear Id
-             * @description Default gear for windsurf activities
-             */
-            windsurf_gear_id?: number | null;
             /**
              * Id
              * @description Unique identifier
              */
             id: number;
             /**
+             * Mtb Ride Gear Id
+             * @description Default gear for MTB ride activities
+             */
+            mtb_ride_gear_id?: number | null;
+            /**
+             * Nordic Ski Gear Id
+             * @description Default gear for nordic ski activities
+             */
+            nordic_ski_gear_id?: number | null;
+            /**
+             * Ows Gear Id
+             * @description Default gear for OWS activities
+             */
+            ows_gear_id?: number | null;
+            /**
+             * Ride Gear Id
+             * @description Default gear for ride activities
+             */
+            ride_gear_id?: number | null;
+            /**
+             * Run Gear Id
+             * @description Default gear for run activities
+             */
+            run_gear_id?: number | null;
+            /**
+             * Snowboard Gear Id
+             * @description Default gear for snowboard activities
+             */
+            snowboard_gear_id?: number | null;
+            /**
+             * Tennis Gear Id
+             * @description Default gear for tennis activities
+             */
+            tennis_gear_id?: number | null;
+            /**
+             * Trail Run Gear Id
+             * @description Default gear for trail run activities
+             */
+            trail_run_gear_id?: number | null;
+            /**
              * User Id
              * @description User ID
              */
             user_id: number;
+            /**
+             * Virtual Ride Gear Id
+             * @description Default gear for virtual ride activities
+             */
+            virtual_ride_gear_id?: number | null;
+            /**
+             * Virtual Run Gear Id
+             * @description Default gear for virtual run activities
+             */
+            virtual_run_gear_id?: number | null;
+            /**
+             * Walk Gear Id
+             * @description Default gear for walk activities
+             */
+            walk_gear_id?: number | null;
+            /**
+             * Windsurf Gear Id
+             * @description Default gear for windsurf activities
+             */
+            windsurf_gear_id?: number | null;
         };
         /**
          * UsersEditPassword
@@ -10611,15 +10979,15 @@ export interface components {
              */
             current_password: string;
             /**
-             * Password
-             * @description New password
-             */
-            password: string;
-            /**
              * Mfa Code
              * @description TOTP or backup code, required when MFA is enabled
              */
             mfa_code?: string | null;
+            /**
+             * Password
+             * @description New password
+             */
+            password: string;
             /**
              * Revoke Other Sessions
              * @description When true, revoke all of the user's other sessions (keeping the current one) after the password change. Use this to evict an attacker when changing a password because of a suspected compromise.
@@ -10634,37 +11002,37 @@ export interface components {
          *     Inherits all validation from UsersGoalBase.
          */
         UsersGoalCreate: {
-            /** @description Goal time interval */
-            interval: components["schemas"]["modules__users__users_goals__schema__Interval"];
             /** @description Type of activity for the goal */
             activity_type: components["schemas"]["ActivityType"];
-            /** @description Type of goal metric being tracked */
-            goal_type: components["schemas"]["GoalType"];
-            /**
-             * Goal Calories
-             * @description Target calories in kcal
-             */
-            goal_calories?: number | null;
             /**
              * Goal Activities Number
              * @description Target number of activities
              */
             goal_activities_number?: number | null;
             /**
+             * Goal Calories
+             * @description Target calories in kcal
+             */
+            goal_calories?: number | null;
+            /**
              * Goal Distance
              * @description Target distance in meters
              */
             goal_distance?: number | null;
             /**
-             * Goal Elevation
-             * @description Target elevation gain in meters
-             */
-            goal_elevation?: number | null;
-            /**
              * Goal Duration
              * @description Target duration in seconds
              */
             goal_duration?: number | null;
+            /**
+             * Goal Elevation
+             * @description Target elevation gain in meters
+             */
+            goal_elevation?: number | null;
+            /** @description Type of goal metric being tracked */
+            goal_type: components["schemas"]["GoalType"];
+            /** @description Goal time interval */
+            interval: components["schemas"]["modules__users__users_goals__schema__Interval"];
         };
         /**
          * UsersGoalProgress
@@ -10690,81 +11058,81 @@ export interface components {
          *         goal_duration: Target duration.
          */
         UsersGoalProgress: {
-            /**
-             * Goal Id
-             * @description Goal identifier
-             */
-            goal_id: number;
-            /** @description Goal time interval */
-            interval: components["schemas"]["Interval-Output"];
             /** @description Activity type for this goal */
             activity_type: components["schemas"]["ActivityType"];
-            goal_type: components["schemas"]["GoalType"];
-            /**
-             * Start Date
-             * @description Period start date
-             */
-            start_date: string;
             /**
              * End Date
              * @description Period end date
              */
             end_date: string;
             /**
-             * Percentage Completed
-             * @description Completion percentage
+             * Goal Activities Number
+             * @description Target activities count
              */
-            percentage_completed?: number | null;
-            /**
-             * Total Calories
-             * @description Total calories achieved
-             */
-            total_calories?: number | null;
-            /**
-             * Total Activities Number
-             * @description Total activities completed
-             */
-            total_activities_number?: number | null;
-            /**
-             * Total Distance
-             * @description Total distance achieved
-             */
-            total_distance?: number | null;
-            /**
-             * Total Elevation
-             * @description Total elevation gained
-             */
-            total_elevation?: number | null;
-            /**
-             * Total Duration
-             * @description Total duration achieved
-             */
-            total_duration?: number | null;
+            goal_activities_number?: number | null;
             /**
              * Goal Calories
              * @description Target calories
              */
             goal_calories?: number | null;
             /**
-             * Goal Activities Number
-             * @description Target activities count
-             */
-            goal_activities_number?: number | null;
-            /**
              * Goal Distance
              * @description Target distance
              */
             goal_distance?: number | null;
+            /**
+             * Goal Duration
+             * @description Target duration
+             */
+            goal_duration?: number | null;
             /**
              * Goal Elevation
              * @description Target elevation
              */
             goal_elevation?: number | null;
             /**
-             * Goal Duration
-             * @description Target duration
+             * Goal Id
+             * @description Goal identifier
              */
-            goal_duration?: number | null;
+            goal_id: number;
+            goal_type: components["schemas"]["GoalType"];
+            /** @description Goal time interval */
+            interval: components["schemas"]["Interval-Output"];
+            /**
+             * Percentage Completed
+             * @description Completion percentage
+             */
+            percentage_completed?: number | null;
+            /**
+             * Start Date
+             * @description Period start date
+             */
+            start_date: string;
+            /**
+             * Total Activities Number
+             * @description Total activities completed
+             */
+            total_activities_number?: number | null;
+            /**
+             * Total Calories
+             * @description Total calories achieved
+             */
+            total_calories?: number | null;
+            /**
+             * Total Distance
+             * @description Total distance achieved
+             */
+            total_distance?: number | null;
+            /**
+             * Total Duration
+             * @description Total duration achieved
+             */
+            total_duration?: number | null;
+            /**
+             * Total Elevation
+             * @description Total elevation gained
+             */
+            total_elevation?: number | null;
         };
         /**
          * UsersGoalRead
@@ -10775,42 +11143,42 @@ export interface components {
          *         user_id: User who owns this goal.
          */
         UsersGoalRead: {
-            /** @description Goal time interval */
-            interval: components["schemas"]["Interval-Output"];
             /** @description Type of activity for the goal */
             activity_type: components["schemas"]["ActivityType"];
-            /** @description Type of goal metric being tracked */
-            goal_type: components["schemas"]["GoalType"];
-            /**
-             * Goal Calories
-             * @description Target calories in kcal
-             */
-            goal_calories?: number | null;
             /**
              * Goal Activities Number
              * @description Target number of activities
              */
             goal_activities_number?: number | null;
             /**
+             * Goal Calories
+             * @description Target calories in kcal
+             */
+            goal_calories?: number | null;
+            /**
              * Goal Distance
              * @description Target distance in meters
              */
             goal_distance?: number | null;
-            /**
-             * Goal Elevation
-             * @description Target elevation gain in meters
-             */
-            goal_elevation?: number | null;
             /**
              * Goal Duration
              * @description Target duration in seconds
              */
             goal_duration?: number | null;
             /**
+             * Goal Elevation
+             * @description Target elevation gain in meters
+             */
+            goal_elevation?: number | null;
+            /** @description Type of goal metric being tracked */
+            goal_type: components["schemas"]["GoalType"];
+            /**
              * Id
              * @description Unique identifier for the goal
              */
             id: number;
+            /** @description Goal time interval */
+            interval: components["schemas"]["Interval-Output"];
             /**
              * User Id
              * @description User who owns this goal
@@ -10824,42 +11192,42 @@ export interface components {
          *     Supports partial updates. Omitted fields remain unchanged.
          */
         UsersGoalUpdate: {
-            /** @description Goal time interval */
-            interval: components["schemas"]["modules__users__users_goals__schema__Interval"];
             /** @description Type of activity for the goal */
             activity_type: components["schemas"]["ActivityType"];
-            /** @description Type of goal metric being tracked */
-            goal_type: components["schemas"]["GoalType"];
-            /**
-             * Goal Calories
-             * @description Target calories in kcal
-             */
-            goal_calories?: number | null;
             /**
              * Goal Activities Number
              * @description Target number of activities
              */
             goal_activities_number?: number | null;
             /**
+             * Goal Calories
+             * @description Target calories in kcal
+             */
+            goal_calories?: number | null;
+            /**
              * Goal Distance
              * @description Target distance in meters
              */
             goal_distance?: number | null;
-            /**
-             * Goal Elevation
-             * @description Target elevation gain in meters
-             */
-            goal_elevation?: number | null;
             /**
              * Goal Duration
              * @description Target duration in seconds
              */
             goal_duration?: number | null;
             /**
+             * Goal Elevation
+             * @description Target elevation gain in meters
+             */
+            goal_elevation?: number | null;
+            /** @description Type of goal metric being tracked */
+            goal_type: components["schemas"]["GoalType"];
+            /**
              * Id
              * @description Unique identifier for the goal
              */
             id: number;
+            /** @description Goal time interval */
+            interval: components["schemas"]["modules__users__users_goals__schema__Interval"];
             /**
              * User Id
              * @description User who owns this goal
@@ -10881,25 +11249,55 @@ export interface components {
          */
         UsersIdentityProviderResponse: {
             /**
-             * User Id
-             * @description User ID
+             * Id
+             * @description Link ID
              */
-            user_id: number;
+            id: number;
+            /**
+             * Idp Access Token Expires At
+             * @description Access token expiry
+             */
+            idp_access_token_expires_at?: string | null;
+            /**
+             * Idp Icon
+             * @description Identity provider icon
+             */
+            idp_icon?: string | null;
             /**
              * Idp Id
              * @description Identity Provider ID
              */
             idp_id: number;
             /**
+             * Idp Name
+             * @description Identity provider name
+             */
+            idp_name?: string | null;
+            /**
+             * Idp Provider Type
+             * @description Provider type
+             */
+            idp_provider_type?: string | null;
+            /**
+             * Idp Refresh Token Updated At
+             * @description Last refresh token update
+             */
+            idp_refresh_token_updated_at?: string | null;
+            /**
+             * Idp Slug
+             * @description Identity provider slug
+             */
+            idp_slug?: string | null;
+            /**
              * Idp Subject
              * @description Subject/ID from the identity provider
              */
             idp_subject: string;
             /**
-             * Id
-             * @description Link ID
+             * Last Login
+             * @description Last login using this IdP
              */
-            id: number;
+            last_login?: string | null;
             /**
              * Linked At
              * Format: date-time
@@ -10907,40 +11305,10 @@ export interface components {
              */
             linked_at: string;
             /**
-             * Last Login
-             * @description Last login using this IdP
+             * User Id
+             * @description User ID
              */
-            last_login?: string | null;
-            /**
-             * Idp Access Token Expires At
-             * @description Access token expiry
-             */
-            idp_access_token_expires_at?: string | null;
-            /**
-             * Idp Refresh Token Updated At
-             * @description Last refresh token update
-             */
-            idp_refresh_token_updated_at?: string | null;
-            /**
-             * Idp Name
-             * @description Identity provider name
-             */
-            idp_name?: string | null;
-            /**
-             * Idp Slug
-             * @description Identity provider slug
-             */
-            idp_slug?: string | null;
-            /**
-             * Idp Icon
-             * @description Identity provider icon
-             */
-            idp_icon?: string | null;
-            /**
-             * Idp Provider Type
-             * @description Provider type
-             */
-            idp_provider_type?: string | null;
+            user_id: number;
         };
         /**
          * UsersListResponse
@@ -10953,11 +11321,6 @@ export interface components {
          *         records: List of user records.
          */
         UsersListResponse: {
-            /**
-             * Total
-             * @description Total number of user records
-             */
-            total: number;
             /**
              * Num Records
              * @description Number of records in this response
@@ -10973,6 +11336,11 @@ export interface components {
              * @description List of user records
              */
             records: components["schemas"]["UsersRead"][];
+            /**
+             * Total
+             * @description Total number of user records
+             */
+            total: number;
         };
         /**
          * UsersMe
@@ -11001,16 +11369,33 @@ export interface components {
          *             password (False for SSO-only accounts).
          */
         UsersMe: {
+            /** @description User access level */
+            access_type: components["schemas"]["UserAccessType"];
             /**
-             * Name
-             * @description User's full name
+             * Active
+             * @description Whether the user is active
              */
-            name: string;
+            active: boolean;
             /**
-             * Username
-             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             * Birthdate
+             * @description User's birthdate
              */
-            username: string;
+            birthdate?: string | null;
+            /**
+             * City
+             * @description User's city
+             */
+            city?: string | null;
+            /**
+             * @description User currency (euro, dollar, pound)
+             * @default euro
+             */
+            currency: components["schemas"]["Currency"];
+            /**
+             * Default Activity Visibility
+             * @description Default activity visibility
+             */
+            default_activity_visibility?: string | null;
             /**
              * Email
              * Format: email
@@ -11018,90 +11403,11 @@ export interface components {
              */
             email: string;
             /**
-             * City
-             * @description User's city
-             */
-            city?: string | null;
-            /**
-             * Birthdate
-             * @description User's birthdate
-             */
-            birthdate?: string | null;
-            /**
-             * @description Preferred language
-             * @default en
-             */
-            preferred_language: components["schemas"]["Language"];
-            /**
-             * @description User's gender
-             * @default unspecified
-             */
-            gender: components["schemas"]["Gender"];
-            /**
-             * @description User units (metric, imperial)
-             * @default metric
-             */
-            units: components["schemas"]["Units"];
-            /**
-             * Height
-             * @description Height in centimeters
-             */
-            height?: number | null;
-            /**
-             * Max Heart Rate
-             * @description Maximum heart rate in bpm
-             */
-            max_heart_rate?: number | null;
-            /**
-             * @description First day of the week
-             * @default monday
-             */
-            first_day_of_week: components["schemas"]["WeekDay"];
-            /**
-             * @description User currency (euro, dollar, pound)
-             * @default euro
-             */
-            currency: components["schemas"]["Currency"];
-            /**
-             * Timezone
-             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
-             */
-            timezone?: string | null;
-            /** @description User access level */
-            access_type: components["schemas"]["UserAccessType"];
-            /**
-             * Photo Path
-             * @description Servable URL of the user's photo (read-only)
-             */
-            photo_path?: string | null;
-            /**
-             * Active
-             * @description Whether the user is active
-             */
-            active: boolean;
-            /**
-             * Mfa Enabled
-             * @description Whether MFA is enabled
-             * @default false
-             */
-            mfa_enabled: boolean;
-            /**
              * Email Verified
              * @description Whether email is verified
              * @default false
              */
             email_verified: boolean;
-            /**
-             * Pending Admin Approval
-             * @description Whether pending admin approval
-             * @default false
-             */
-            pending_admin_approval: boolean;
-            /**
-             * Id
-             * @description User ID
-             */
-            id: number;
             /**
              * External Auth Count
              * @description Number of external auth providers linked
@@ -11109,45 +11415,25 @@ export interface components {
              */
             external_auth_count: number;
             /**
-             * Is Strava Linked
-             * @description Whether Strava is linked
+             * @description First day of the week
+             * @default monday
              */
-            is_strava_linked?: number | null;
+            first_day_of_week: components["schemas"]["WeekDay"];
             /**
-             * Is Garminconnect Linked
-             * @description Whether Garmin Connect is linked
+             * @description User's gender
+             * @default unspecified
              */
-            is_garminconnect_linked?: number | null;
+            gender: components["schemas"]["Gender"];
             /**
-             * Default Activity Visibility
-             * @description Default activity visibility
+             * Has Local Password
+             * @description Whether the account has a local password set. False indicates an SSO-only account, in which case step-up flows must skip the password factor. The raw password hash is never exposed; only this derived boolean is returned.
              */
-            default_activity_visibility?: string | null;
+            has_local_password?: boolean | null;
             /**
-             * Hide Activity Start Time
-             * @description Hide activity start time
+             * Height
+             * @description Height in centimeters
              */
-            hide_activity_start_time?: boolean | null;
-            /**
-             * Hide Activity Location
-             * @description Hide activity location
-             */
-            hide_activity_location?: boolean | null;
-            /**
-             * Hide Activity Map
-             * @description Hide activity map
-             */
-            hide_activity_map?: boolean | null;
-            /**
-             * Hide Activity Hr
-             * @description Hide activity heart rate
-             */
-            hide_activity_hr?: boolean | null;
-            /**
-             * Hide Activity Power
-             * @description Hide activity power
-             */
-            hide_activity_power?: boolean | null;
+            height?: number | null;
             /**
              * Hide Activity Cadence
              * @description Hide activity cadence
@@ -11159,35 +11445,117 @@ export interface components {
              */
             hide_activity_elevation?: boolean | null;
             /**
-             * Hide Activity Speed
-             * @description Hide activity speed
+             * Hide Activity Gear
+             * @description Hide activity gear
              */
-            hide_activity_speed?: boolean | null;
+            hide_activity_gear?: boolean | null;
             /**
-             * Hide Activity Pace
-             * @description Hide activity pace
+             * Hide Activity Hr
+             * @description Hide activity heart rate
              */
-            hide_activity_pace?: boolean | null;
+            hide_activity_hr?: boolean | null;
             /**
              * Hide Activity Laps
              * @description Hide activity laps
              */
             hide_activity_laps?: boolean | null;
             /**
+             * Hide Activity Location
+             * @description Hide activity location
+             */
+            hide_activity_location?: boolean | null;
+            /**
+             * Hide Activity Map
+             * @description Hide activity map
+             */
+            hide_activity_map?: boolean | null;
+            /**
+             * Hide Activity Pace
+             * @description Hide activity pace
+             */
+            hide_activity_pace?: boolean | null;
+            /**
+             * Hide Activity Power
+             * @description Hide activity power
+             */
+            hide_activity_power?: boolean | null;
+            /**
+             * Hide Activity Speed
+             * @description Hide activity speed
+             */
+            hide_activity_speed?: boolean | null;
+            /**
+             * Hide Activity Start Time
+             * @description Hide activity start time
+             */
+            hide_activity_start_time?: boolean | null;
+            /**
              * Hide Activity Workout Sets Steps
              * @description Hide activity workout sets and steps
              */
             hide_activity_workout_sets_steps?: boolean | null;
             /**
-             * Hide Activity Gear
-             * @description Hide activity gear
+             * Id
+             * @description User ID
              */
-            hide_activity_gear?: boolean | null;
+            id: number;
             /**
-             * Has Local Password
-             * @description Whether the account has a local password set. False indicates an SSO-only account, in which case step-up flows must skip the password factor. The raw password hash is never exposed; only this derived boolean is returned.
+             * Is Garminconnect Linked
+             * @description Whether Garmin Connect is linked
              */
-            has_local_password?: boolean | null;
+            is_garminconnect_linked?: number | null;
+            /**
+             * Is Strava Linked
+             * @description Whether Strava is linked
+             */
+            is_strava_linked?: number | null;
+            /**
+             * Max Heart Rate
+             * @description Maximum heart rate in bpm
+             */
+            max_heart_rate?: number | null;
+            /**
+             * Mfa Enabled
+             * @description Whether MFA is enabled
+             * @default false
+             */
+            mfa_enabled: boolean;
+            /**
+             * Name
+             * @description User's full name
+             */
+            name: string;
+            /**
+             * Pending Admin Approval
+             * @description Whether pending admin approval
+             * @default false
+             */
+            pending_admin_approval: boolean;
+            /**
+             * Photo Path
+             * @description Servable URL of the user's photo (read-only)
+             */
+            photo_path?: string | null;
+            /**
+             * @description Preferred language
+             * @default en
+             */
+            preferred_language: components["schemas"]["Language"];
+            /**
+             * Timezone
+             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
+             */
+            timezone?: string | null;
+            /**
+             * @description User units (metric, imperial)
+             * @default metric
+             */
+            units: components["schemas"]["Units"];
+            /**
+             * Username
+             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             */
+            username: string;
         };
         /**
          * UsersPrivacySettingsUpdate
@@ -11203,11 +11571,35 @@ export interface components {
              */
             default_activity_visibility: components["schemas"]["ActivityVisibility"] | null;
             /**
-             * Hide Activity Start Time
-             * @description Hide activity start time
+             * Hide Activity Cadence
+             * @description Hide activity cadence
              * @default false
              */
-            hide_activity_start_time: boolean | null;
+            hide_activity_cadence: boolean | null;
+            /**
+             * Hide Activity Elevation
+             * @description Hide activity elevation
+             * @default false
+             */
+            hide_activity_elevation: boolean | null;
+            /**
+             * Hide Activity Gear
+             * @description Hide activity gear
+             * @default false
+             */
+            hide_activity_gear: boolean | null;
+            /**
+             * Hide Activity Hr
+             * @description Hide activity heart rate
+             * @default false
+             */
+            hide_activity_hr: boolean | null;
+            /**
+             * Hide Activity Laps
+             * @description Hide activity laps
+             * @default false
+             */
+            hide_activity_laps: boolean | null;
             /**
              * Hide Activity Location
              * @description Hide activity location
@@ -11221,11 +11613,11 @@ export interface components {
              */
             hide_activity_map: boolean | null;
             /**
-             * Hide Activity Hr
-             * @description Hide activity heart rate
+             * Hide Activity Pace
+             * @description Hide activity pace
              * @default false
              */
-            hide_activity_hr: boolean | null;
+            hide_activity_pace: boolean | null;
             /**
              * Hide Activity Power
              * @description Hide activity power
@@ -11233,47 +11625,23 @@ export interface components {
              */
             hide_activity_power: boolean | null;
             /**
-             * Hide Activity Cadence
-             * @description Hide activity cadence
-             * @default false
-             */
-            hide_activity_cadence: boolean | null;
-            /**
-             * Hide Activity Elevation
-             * @description Hide activity elevation
-             * @default false
-             */
-            hide_activity_elevation: boolean | null;
-            /**
              * Hide Activity Speed
              * @description Hide activity speed
              * @default false
              */
             hide_activity_speed: boolean | null;
             /**
-             * Hide Activity Pace
-             * @description Hide activity pace
+             * Hide Activity Start Time
+             * @description Hide activity start time
              * @default false
              */
-            hide_activity_pace: boolean | null;
-            /**
-             * Hide Activity Laps
-             * @description Hide activity laps
-             * @default false
-             */
-            hide_activity_laps: boolean | null;
+            hide_activity_start_time: boolean | null;
             /**
              * Hide Activity Workout Sets Steps
              * @description Hide activity workout sets and steps
              * @default false
              */
             hide_activity_workout_sets_steps: boolean | null;
-            /**
-             * Hide Activity Gear
-             * @description Hide activity gear
-             * @default false
-             */
-            hide_activity_gear: boolean | null;
         };
         /**
          * UsersRead
@@ -11284,16 +11652,28 @@ export interface components {
          *         external_auth_count: Number of external auth providers.
          */
         UsersRead: {
+            /** @description User access level */
+            access_type: components["schemas"]["UserAccessType"];
             /**
-             * Name
-             * @description User's full name
+             * Active
+             * @description Whether the user is active
              */
-            name: string;
+            active: boolean;
             /**
-             * Username
-             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             * Birthdate
+             * @description User's birthdate
              */
-            username: string;
+            birthdate?: string | null;
+            /**
+             * City
+             * @description User's city
+             */
+            city?: string | null;
+            /**
+             * @description User currency (euro, dollar, pound)
+             * @default euro
+             */
+            currency: components["schemas"]["Currency"];
             /**
              * Email
              * Format: email
@@ -11301,67 +11681,42 @@ export interface components {
              */
             email: string;
             /**
-             * City
-             * @description User's city
+             * Email Verified
+             * @description Whether email is verified
+             * @default false
              */
-            city?: string | null;
+            email_verified: boolean;
             /**
-             * Birthdate
-             * @description User's birthdate
+             * External Auth Count
+             * @description Number of external auth providers linked
+             * @default 0
              */
-            birthdate?: string | null;
-            /**
-             * @description Preferred language
-             * @default en
-             */
-            preferred_language: components["schemas"]["Language"];
-            /**
-             * @description User's gender
-             * @default unspecified
-             */
-            gender: components["schemas"]["Gender"];
-            /**
-             * @description User units (metric, imperial)
-             * @default metric
-             */
-            units: components["schemas"]["Units"];
-            /**
-             * Height
-             * @description Height in centimeters
-             */
-            height?: number | null;
-            /**
-             * Max Heart Rate
-             * @description Maximum heart rate in bpm
-             */
-            max_heart_rate?: number | null;
+            external_auth_count: number;
             /**
              * @description First day of the week
              * @default monday
              */
             first_day_of_week: components["schemas"]["WeekDay"];
             /**
-             * @description User currency (euro, dollar, pound)
-             * @default euro
+             * @description User's gender
+             * @default unspecified
              */
-            currency: components["schemas"]["Currency"];
+            gender: components["schemas"]["Gender"];
             /**
-             * Timezone
-             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
+             * Height
+             * @description Height in centimeters
              */
-            timezone?: string | null;
-            /** @description User access level */
-            access_type: components["schemas"]["UserAccessType"];
+            height?: number | null;
             /**
-             * Photo Path
-             * @description Servable URL of the user's photo (read-only)
+             * Id
+             * @description User ID
              */
-            photo_path?: string | null;
+            id: number;
             /**
-             * Active
-             * @description Whether the user is active
+             * Max Heart Rate
+             * @description Maximum heart rate in bpm
              */
-            active: boolean;
+            max_heart_rate?: number | null;
             /**
              * Mfa Enabled
              * @description Whether MFA is enabled
@@ -11369,11 +11724,10 @@ export interface components {
              */
             mfa_enabled: boolean;
             /**
-             * Email Verified
-             * @description Whether email is verified
-             * @default false
+             * Name
+             * @description User's full name
              */
-            email_verified: boolean;
+            name: string;
             /**
              * Pending Admin Approval
              * @description Whether pending admin approval
@@ -11381,16 +11735,30 @@ export interface components {
              */
             pending_admin_approval: boolean;
             /**
-             * Id
-             * @description User ID
+             * Photo Path
+             * @description Servable URL of the user's photo (read-only)
              */
-            id: number;
+            photo_path?: string | null;
             /**
-             * External Auth Count
-             * @description Number of external auth providers linked
-             * @default 0
+             * @description Preferred language
+             * @default en
              */
-            external_auth_count: number;
+            preferred_language: components["schemas"]["Language"];
+            /**
+             * Timezone
+             * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
+             */
+            timezone?: string | null;
+            /**
+             * @description User units (metric, imperial)
+             * @default metric
+             */
+            units: components["schemas"]["Units"];
+            /**
+             * Username
+             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             */
+            username: string;
         };
         /**
          * UsersSessionsRead
@@ -11400,31 +11768,6 @@ export interface components {
          *     like refresh_token and csrf_token_hash.
          */
         UsersSessionsRead: {
-            /**
-             * Id
-             * @description Unique session identifier
-             */
-            id: string;
-            /**
-             * Ip Address
-             * @description Client IP address
-             */
-            ip_address: string;
-            /**
-             * Device Type
-             * @description Device type
-             */
-            device_type: string;
-            /**
-             * Operating System
-             * @description Operating system
-             */
-            operating_system: string;
-            /**
-             * Operating System Version
-             * @description OS version
-             */
-            operating_system_version: string;
             /**
              * Browser
              * @description Browser name
@@ -11442,17 +11785,42 @@ export interface components {
              */
             created_at: string;
             /**
-             * Last Activity At
-             * Format: date-time
-             * @description Last activity timestamp
+             * Device Type
+             * @description Device type
              */
-            last_activity_at: string;
+            device_type: string;
             /**
              * Expires At
              * Format: date-time
              * @description Session expiration timestamp
              */
             expires_at: string;
+            /**
+             * Id
+             * @description Unique session identifier
+             */
+            id: string;
+            /**
+             * Ip Address
+             * @description Client IP address
+             */
+            ip_address: string;
+            /**
+             * Last Activity At
+             * Format: date-time
+             * @description Last activity timestamp
+             */
+            last_activity_at: string;
+            /**
+             * Operating System
+             * @description Operating system
+             */
+            operating_system: string;
+            /**
+             * Operating System Version
+             * @description OS version
+             */
+            operating_system_version: string;
             /**
              * User Id
              * @description User ID that owns this session
@@ -11468,15 +11836,20 @@ export interface components {
          */
         UsersSignup: {
             /**
-             * Name
-             * @description User's full name
+             * Birthdate
+             * @description User's birthdate
              */
-            name: string;
+            birthdate?: string | null;
             /**
-             * Username
-             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             * City
+             * @description User's city
              */
-            username: string;
+            city?: string | null;
+            /**
+             * @description User currency (euro, dollar, pound)
+             * @default euro
+             */
+            currency: components["schemas"]["Currency"];
             /**
              * Email
              * Format: email
@@ -11484,30 +11857,15 @@ export interface components {
              */
             email: string;
             /**
-             * City
-             * @description User's city
+             * @description First day of the week
+             * @default monday
              */
-            city?: string | null;
-            /**
-             * Birthdate
-             * @description User's birthdate
-             */
-            birthdate?: string | null;
-            /**
-             * @description Preferred language
-             * @default en
-             */
-            preferred_language: components["schemas"]["Language"];
+            first_day_of_week: components["schemas"]["WeekDay"];
             /**
              * @description User's gender
              * @default unspecified
              */
             gender: components["schemas"]["Gender"];
-            /**
-             * @description User units (metric, imperial)
-             * @default metric
-             */
-            units: components["schemas"]["Units"];
             /**
              * Height
              * @description Height in centimeters
@@ -11519,25 +11877,35 @@ export interface components {
              */
             max_heart_rate?: number | null;
             /**
-             * @description First day of the week
-             * @default monday
+             * Name
+             * @description User's full name
              */
-            first_day_of_week: components["schemas"]["WeekDay"];
+            name: string;
             /**
-             * @description User currency (euro, dollar, pound)
-             * @default euro
+             * Password
+             * @description User's password
              */
-            currency: components["schemas"]["Currency"];
+            password: string;
+            /**
+             * @description Preferred language
+             * @default en
+             */
+            preferred_language: components["schemas"]["Language"];
             /**
              * Timezone
              * @description IANA timezone the athlete lives in. Used as the fallback for activities imported without a GPS track, which would otherwise inherit the server's timezone. Null means not set.
              */
             timezone?: string | null;
             /**
-             * Password
-             * @description User's password
+             * @description User units (metric, imperial)
+             * @default metric
              */
-            password: string;
+            units: components["schemas"]["Units"];
+            /**
+             * Username
+             * @description Unique username (alphanumeric, dots, hyphen, underscore)
+             */
+            username: string;
         };
         /**
          * VisibilityUpdateRead
@@ -11554,6 +11922,21 @@ export interface components {
             updated: number;
         };
         /**
+         * WeekDay
+         * @description Days of the week enumeration.
+         *
+         *     Attributes:
+         *         SUNDAY: Sunday.
+         *         MONDAY: Monday.
+         *         TUESDAY: Tuesday.
+         *         WEDNESDAY: Wednesday.
+         *         THURSDAY: Thursday.
+         *         FRIDAY: Friday.
+         *         SATURDAY: Saturday.
+         * @enum {string}
+         */
+        WeekDay: "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
+        /**
          * WeekSummary
          * @description Weekly activity summary within a month.
          *
@@ -11561,6 +11944,18 @@ export interface components {
          *         week_number: Calendar week number within the month.
          */
         WeekSummary: {
+            /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
             /**
              * Total Distance
              * @description Total distance in meters
@@ -11579,18 +11974,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
             /**
              * Week Number
              * @description Calendar week number within the month
@@ -11607,6 +11990,23 @@ export interface components {
          */
         WeeklySummaryRead: {
             /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Breakdown
+             * @description List of daily summaries
+             */
+            breakdown: components["schemas"]["DaySummary"][];
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
+            /**
              * Total Distance
              * @description Total distance in meters
              * @default 0
@@ -11624,23 +12024,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Breakdown
-             * @description List of daily summaries
-             */
-            breakdown: components["schemas"]["DaySummary"][];
             /**
              * Type Breakdown
              * @description Optional breakdown by activity type
@@ -11656,6 +12039,18 @@ export interface components {
          */
         YearlyPeriodSummary: {
             /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
+            /**
              * Total Distance
              * @description Total distance in meters
              * @default 0
@@ -11673,18 +12068,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
             /**
              * Year Number
              * @description Calendar year
@@ -11701,6 +12084,23 @@ export interface components {
          */
         YearlySummaryRead: {
             /**
+             * Activity Count
+             * @description Number of activities
+             * @default 0
+             */
+            activity_count: number;
+            /**
+             * Breakdown
+             * @description List of monthly summaries
+             */
+            breakdown: components["schemas"]["MonthSummary"][];
+            /**
+             * Total Calories
+             * @description Total calories burned
+             * @default 0
+             */
+            total_calories: number;
+            /**
              * Total Distance
              * @description Total distance in meters
              * @default 0
@@ -11718,23 +12118,6 @@ export interface components {
              * @default 0
              */
             total_elevation_gain: number;
-            /**
-             * Activity Count
-             * @description Number of activities
-             * @default 0
-             */
-            activity_count: number;
-            /**
-             * Total Calories
-             * @description Total calories burned
-             * @default 0
-             */
-            total_calories: number;
-            /**
-             * Breakdown
-             * @description List of monthly summaries
-             */
-            breakdown: components["schemas"]["MonthSummary"][];
             /**
              * Type Breakdown
              * @description Optional breakdown by activity type
@@ -11761,326 +12144,6 @@ export interface components {
             /** Mfa Code */
             mfa_code: string;
         };
-        /** Body_create_activity_media_api_v1_activities__activity_id__media_post */
-        Body_create_activity_media_api_v1_activities__activity_id__media_post: {
-            /** File */
-            file: string;
-        };
-        /**
-         * ActivitySortField
-         * @enum {string}
-         */
-        ActivitySortField: "type" | "name" | "location" | "start_time" | "duration" | "distance" | "pace" | "calories" | "elevation" | "average_hr";
-        /**
-         * ActivitySortOrder
-         * @description Accepted sort directions.
-         *
-         *     Attributes:
-         *         ASC: Ascending.
-         *         DESC: Descending.
-         * @enum {string}
-         */
-        ActivitySortOrder: "asc" | "desc";
-        /**
-         * ActivityType
-         * @description Supported activity types for user goals.
-         *
-         *     Attributes:
-         *         RUN: Running activities.
-         *         BIKE: Cycling activities.
-         *         SWIM: Swimming activities.
-         *         WALK: Walking or hiking activities.
-         *         STRENGTH: Strength or resistance training.
-         *         CARDIO: Cardiovascular training.
-         * @enum {string}
-         */
-        ActivityType: "run" | "bike" | "swim" | "walk" | "strength" | "cardio";
-        /**
-         * ActivityVisibility
-         * @description Activity visibility levels.
-         *
-         *     Attributes:
-         *         PUBLIC: Visible to everyone.
-         *         FOLLOWERS: Visible only to followers.
-         *         PRIVATE: Visible only to the user.
-         * @enum {string}
-         */
-        ActivityVisibility: "public" | "followers" | "private";
-        /**
-         * BristolType
-         * @description Bristol Stool Scale classification types.
-         *
-         *     Attributes:
-         *         TYPE_1: Separate hard lumps (severe constipation).
-         *         TYPE_2: Lumpy and sausage-like (mild constipation).
-         *         TYPE_3: Sausage shape with cracks (normal).
-         *         TYPE_4: Smooth, soft sausage (normal, ideal).
-         *         TYPE_5: Soft blobs with clear edges (lacking fiber).
-         *         TYPE_6: Mushy with ragged edges (mild diarrhea).
-         *         TYPE_7: Liquid, no solid pieces (severe diarrhea).
-         * @enum {integer}
-         */
-        BristolType: 1 | 2 | 3 | 4 | 5 | 6 | 7;
-        /**
-         * Color
-         * @description Enumeration of common stool color descriptions.
-         *
-         *     Attributes:
-         *         BROWN: Normal brown color.
-         *         DARK_BROWN: Darker than normal brown.
-         *         LIGHT_BROWN: Lighter than normal brown.
-         *         YELLOW: Yellowish color.
-         *         GREEN: Greenish color.
-         *         BLACK: Black or very dark color.
-         *         RED: Red or reddish color.
-         *         WHITE: White or clay-colored.
-         * @enum {string}
-         */
-        Color: "brown" | "dark_brown" | "light_brown" | "yellow" | "green" | "black" | "red" | "white";
-        /**
-         * Currency
-         * @description An enumeration representing supported currencies.
-         *
-         *     Attributes:
-         *         EURO: Represents the Euro currency.
-         *         DOLLAR: Represents the US Dollar currency.
-         *         POUND: Represents the British Pound currency.
-         * @enum {string}
-         */
-        Currency: "euro" | "dollar" | "pound";
-        /**
-         * FastingStatus
-         * @description Enumeration of fasting session statuses.
-         *
-         *     Attributes:
-         *         IN_PROGRESS: Fasting session is currently active.
-         *         COMPLETED: Fasting session completed successfully.
-         *         BROKEN: Fasting session was broken before target.
-         *         CANCELLED: Fasting session was cancelled.
-         * @enum {string}
-         */
-        FastingStatus: "in_progress" | "completed" | "broken" | "cancelled";
-        /**
-         * FastingType
-         * @description Enumeration of fasting protocol types.
-         *
-         *     Attributes:
-         *         IF_16_8: 16-hour fast with 8-hour eating window.
-         *         IF_18_6: 18-hour fast with 6-hour eating window.
-         *         IF_20_4: 20-hour fast with 4-hour eating window.
-         *         OMAD: One meal a day (23:1 ratio).
-         *         EXTENDED_24: 24-hour extended fast.
-         *         EXTENDED_36: 36-hour extended fast.
-         *         EXTENDED_48: 48-hour extended fast.
-         *         EXTENDED_72: 72-hour extended fast.
-         *         CUSTOM: Custom fasting duration.
-         * @enum {string}
-         */
-        FastingType: "16:8" | "18:6" | "20:4" | "OMAD" | "24h" | "36h" | "48h" | "72h" | "custom";
-        /**
-         * FollowStatus
-         * @description Status of a follow relationship.
-         *
-         *     Attributes:
-         *         PENDING: The follow request has been sent but not yet accepted.
-         *         ACCEPTED: The follow request has been accepted.
-         * @enum {string}
-         */
-        FollowStatus: "pending" | "accepted";
-        /**
-         * GearType
-         * @description Supported gear type codes.
-         *
-         *     Attributes:
-         *         BIKE: Bicycle (1).
-         *         SHOES: Running or walking shoes (2).
-         *         WETSUIT: Wetsuit (3).
-         *         RACQUET: Racquet (4).
-         *         SKI: Skis (5).
-         *         SNOWBOARD: Snowboard (6).
-         *         WINDSURF: Windsurf board (7).
-         *         WATER_SPORTS_BOARD: Water sports board (8).
-         * @enum {integer}
-         */
-        GearType: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-        /**
-         * Gender
-         * @description User gender enumeration.
-         *
-         *     Attributes:
-         *         MALE: Male gender.
-         *         FEMALE: Female gender.
-         *         UNSPECIFIED: Unspecified or undisclosed gender.
-         * @enum {string}
-         */
-        Gender: "male" | "female" | "unspecified";
-        /**
-         * GoalType
-         * @description Types of measurable user goals.
-         *
-         *     Attributes:
-         *         CALORIES: Target calories burned.
-         *         ACTIVITIES: Target count of completed activities.
-         *         DISTANCE: Target distance traveled.
-         *         ELEVATION: Target elevation gain.
-         *         DURATION: Target total duration.
-         * @enum {string}
-         */
-        GoalType: "calories" | "activities" | "distance" | "elevation" | "duration";
-        /**
-         * HRVStatus
-         * @description Enum representing the Heart Rate Variability (HRV) status classification.
-         *
-         *     Attributes:
-         *         BALANCED: Indicates healthy HRV levels with good cardiovascular autonomic balance.
-         *         UNBALANCED: Indicates HRV levels showing some autonomic imbalance or stress.
-         *         LOW: Indicates HRV levels that are lower than optimal, suggesting fatigue or overtraining.
-         *         POOR: Indicates critically low HRV levels, suggesting significant stress, illness, or recovery issues.
-         * @enum {string}
-         */
-        HRVStatus: "BALANCED" | "UNBALANCED" | "LOW" | "POOR";
-        /**
-         * IngestionJobErrorCode
-         * @description Stable, sanitized reasons an ingestion job can fail.
-         *
-         *     Deliberately a closed set. The underlying exception text can carry
-         *     filesystem paths, parser internals and provider tokens, so the client is
-         *     given a code it can translate instead of a message the server happened to
-         *     produce.
-         * @enum {string}
-         */
-        IngestionJobErrorCode: "unsupported_format" | "invalid_file" | "no_activities_found" | "processing_failed" | "provider_unavailable";
-        /**
-         * IngestionJobKind
-         * @description What kind of ingestion the job performs.
-         * @enum {string}
-         */
-        IngestionJobKind: "upload" | "refresh" | "bulk_import";
-        /**
-         * IngestionJobStatus
-         * @description Lifecycle states of an ingestion job.
-         * @enum {string}
-         */
-        IngestionJobStatus: "pending" | "processing" | "completed" | "failed";
-        /**
-         * Interval
-         * @description Recurrence intervals for user goals.
-         *
-         *     Attributes:
-         *         DAILY: Daily recurrence interval.
-         *         WEEKLY: Weekly recurrence interval.
-         *         MONTHLY: Monthly recurrence interval.
-         *         YEARLY: Yearly recurrence interval.
-         * @enum {string}
-         */
-        "Interval-Output": "daily" | "weekly" | "monthly" | "yearly";
-        /**
-         * Language
-         * @description Supported application languages.
-         *
-         *     Attributes:
-         *         CATALAN: Catalan (ca).
-         *         CHINESE_SIMPLIFIED: Simplified Chinese (zh-Hans).
-         *         CHINESE_TRADITIONAL: Traditional Chinese (zh-Hant).
-         *         GERMAN: German (de).
-         *         FRENCH: French (fr).
-         *         GALICIAN: Galician (gl).
-         *         ITALIAN: Italian (it).
-         *         DUTCH: Dutch (nl).
-         *         PORTUGUESE: Portuguese (pt-PT).
-         *         SLOVENIAN: Slovenian (sl).
-         *         SWEDISH: Swedish (sv).
-         *         SPANISH: Spanish (es).
-         *         ENGLISH: English (en).
-         *         POLISH: Polish (pl).
-         *         TURKISH: Turkish (tr).
-         *         UKRAINIAN: Ukrainian (uk).
-         *         ROMANIAN: Romanian (ro).
-         *         NORWEGIAN: Norwegian Bokmål (nb).
-         *         DANISH: Danish (da).
-         *         FINNISH: Finnish (fi).
-         *         CZECH: Czech (cs).
-         *         GREEK: Greek (el).
-         *         HUNGARIAN: Hungarian (hu).
-         *         BULGARIAN: Bulgarian (bg).
-         *         CROATIAN: Croatian (hr).
-         *         SERBIAN: Serbian (sr).
-         *         SLOVAK: Slovak (sk).
-         *         LITHUANIAN: Lithuanian (lt).
-         *         LATVIAN: Latvian (lv).
-         *         ESTONIAN: Estonian (et).
-         * @enum {string}
-         */
-        Language: "ca" | "zh-Hans" | "zh-Hant" | "de" | "fr" | "gl" | "it" | "nl" | "pt-PT" | "sl" | "sv" | "es" | "en" | "pl" | "tr" | "uk" | "ro" | "nb" | "da" | "fi" | "cs" | "el" | "hu" | "bg" | "hr" | "sr" | "sk" | "lt" | "lv" | "et";
-        /**
-         * PasswordType
-         * @description An enumeration representing password policy types.
-         *
-         *     Attributes:
-         *         STRICT (str): Strict password policy.
-         *         LENGTH_ONLY (str): Length-only password policy.
-         * @enum {string}
-         */
-        PasswordType: "strict" | "length_only";
-        /**
-         * SleepScore
-         * @description Enumeration of sleep quality score levels.
-         *
-         *     Attributes:
-         *         EXCELLENT (str): Represents excellent sleep quality.
-         *         GOOD (str): Represents good sleep quality.
-         *         FAIR (str): Represents fair sleep quality.
-         *         POOR (str): Represents poor sleep quality.
-         * @enum {string}
-         */
-        SleepScore: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
-        /**
-         * SleepStageType
-         * @description Enum representing different stages of sleep.
-         *
-         *     Attributes:
-         *         DEEP (int): Deep sleep stage, value 0. Characterized by slow brain waves and muscle relaxation.
-         *         LIGHT (int): Light sleep stage, value 1. Transitional sleep between wakefulness and deep sleep.
-         *         REM (int): Rapid Eye Movement sleep stage, value 2. Associated with vivid dreams and mental activity.
-         *         AWAKE (int): Awake state, value 3. The stage when the person is conscious and not sleeping.
-         * @enum {integer}
-         */
-        SleepStageType: 0 | 1 | 2 | 3;
-        /**
-         * Units
-         * @description An enumeration representing measurement units.
-         *
-         *     Attributes:
-         *         METRIC: Metric system (e.g., meters, kilograms).
-         *         IMPERIAL: Imperial system (e.g., miles, pounds).
-         * @enum {string}
-         */
-        Units: "metric" | "imperial";
-        /**
-         * UserAccessType
-         * @description User access level enumeration.
-         *
-         *     Attributes:
-         *         REGULAR: Standard user access.
-         *         ADMIN: Administrative access.
-         * @enum {string}
-         */
-        UserAccessType: "regular" | "admin";
-        /**
-         * WeekDay
-         * @description Days of the week enumeration.
-         *
-         *     Attributes:
-         *         SUNDAY: Sunday.
-         *         MONDAY: Monday.
-         *         TUESDAY: Tuesday.
-         *         WEDNESDAY: Wednesday.
-         *         THURSDAY: Thursday.
-         *         FRIDAY: Friday.
-         *         SATURDAY: Saturday.
-         * @enum {string}
-         */
-        WeekDay: "sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
         /**
          * Interval
          * @description Enumeration of time intervals for health weight data queries.
@@ -12289,9 +12352,57 @@ export interface operations {
             };
         };
     };
-    create_activity_with_bulk_import_api_v1_activities_bulk_import_post: {
+    create_bulk_import_from_archive_api_v1_activities_bulk_import_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The archive layout: `generic` for plain activity files, or a provider export such as `strava`. */
+                source?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_bulk_import_from_archive_api_v1_activities_bulk_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_bulk_import_from_folder_api_v1_activities_bulk_import_folder_post: {
+        parameters: {
+            query?: {
+                /** @description The folder layout: `generic` for plain activity files, or a provider export such as `strava`. */
+                source?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12304,7 +12415,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActivityIngestionJobRead"][];
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected error */
@@ -13500,6 +13620,88 @@ export interface operations {
             };
         };
     };
+    reject_follow_request_api_v1_followers_follow_requests__follower_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follower_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    accept_follow_request_api_v1_followers_follow_requests__follower_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                follower_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowRequestAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowRelationshipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_user_followers_api_v1_followers_users__user_id__followers_get: {
         parameters: {
             query?: {
@@ -13725,7 +13927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
                 };
             };
             /** @description Validation Error */
@@ -18450,7 +18652,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ActivityIngestionJobRead"];
                 };
             };
             /** @description Validation Error */
@@ -18544,35 +18746,6 @@ export interface operations {
             };
         };
     };
-    import_activities_and_media_from_strava_export_api_v1_strava_import_activities_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Unexpected error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     import_bikes_from_strava_export_api_v1_strava_import_bikes_post: {
         parameters: {
             query?: never;
@@ -18580,7 +18753,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_bikes_from_strava_export_api_v1_strava_import_bikes_post"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -18589,6 +18766,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected error */
@@ -18609,7 +18795,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_shoes_from_strava_export_api_v1_strava_import_shoes_post"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {
@@ -18618,6 +18808,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected error */
@@ -19419,88 +19618,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unexpected error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    reject_follow_request_api_v1_followers_follow_requests__follower_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                follower_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unexpected error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    accept_follow_request_api_v1_followers_follow_requests__follower_id__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                follower_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FollowRequestAccept"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FollowRelationshipRead"];
-                };
             };
             /** @description Validation Error */
             422: {

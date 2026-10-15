@@ -21,8 +21,6 @@ import modules.activities.activity_media.scheduled_jobs as activity_media_schedu
 import modules.activities.activity_media.subscriber_registry as activity_media_subscriber_registry
 import modules.activities.activity_sets.integration_service as activity_sets_integration
 import modules.activities.activity_streams.integration_service as activity_streams_integration
-import modules.activities.activity_streams.scheduled_jobs as activity_streams_scheduled_jobs
-import modules.activities.activity_streams.subscriber_registry as activity_streams_subscriber_registry
 import modules.activities.activity_thumbnail.integration_service as activity_thumbnail_integration
 import modules.activities.activity_thumbnail.scheduled_jobs as activity_thumbnail_scheduled_jobs
 import modules.activities.activity_thumbnail.subscriber_registry as activity_thumbnail_subscriber_registry
@@ -72,20 +70,6 @@ MODULES: tuple[RuntimeModule, ...] = (
         ),
     ),
     RuntimeModule(
-        name="activity_streams",
-        register_bus=activity_streams_subscriber_registry.register_bus_subscribers,
-        register_durable=activity_streams_subscriber_registry.register_durable_handlers,
-        nets=activity_streams_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
-        recurring_jobs=activity_streams_scheduled_jobs.recurring_jobs,
-        startup_tasks=(
-            StartupTask(
-                "backfill_missing_hr_zones",
-                "Scheduling missing HR-zone backfill",
-                activity_streams_scheduled_jobs.schedule_missing_hr_zone_backfill,
-            ),
-        ),
-    ),
-    RuntimeModule(
         name="activity_geocoding",
         register_bus=activity_geocoding_subscriber_registry.register_bus_subscribers,
         register_durable=activity_geocoding_subscriber_registry.register_durable_handlers,
@@ -118,6 +102,13 @@ MODULES: tuple[RuntimeModule, ...] = (
         register_durable=activity_ingestion_subscriber_registry.register_durable_handlers,
         nets=activity_ingestion_subscriber_registry.DURABLE_SUBSCRIBER_NETS,
         recurring_jobs=activity_ingestion_scheduled_jobs.recurring_jobs,
+        startup_tasks=(
+            StartupTask(
+                "queue_provider_refreshes",
+                "Queueing a provider activity refresh for every linked user",
+                activity_ingestion_scheduled_jobs.schedule_provider_refresh,
+            ),
+        ),
     ),
     RuntimeModule(
         name="notifications",

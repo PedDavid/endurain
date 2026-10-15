@@ -7,20 +7,20 @@ instead of importing this module.
 
 from datetime import datetime
 
-from sqlalchemy.orm import Session
-
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.strava.activity_utils as strava_activity_utils
+import modules.strava.bulk_import_source as strava_bulk_import_source
+import modules.users.users_integrations.crud as user_integrations_crud
+from core.database import SessionLocal
 
 PROVIDER_NAME = "strava"
 
 
-async def _fetch_window(
+def _fetch_window(
     user_id: int,
     window_start: datetime,
     window_end: datetime,
-    db: Session,
 ) -> list[activity_schema.ActivityRead] | None:
     """
     Fetch and store a user's Strava activities recorded in the given window.
@@ -29,33 +29,29 @@ async def _fetch_window(
         user_id: The user whose Strava account to pull from.
         window_start: Inclusive start of the window.
         window_end: Inclusive end of the window.
-        db: Database session.
 
     Returns:
         The stored activities, or ``None`` when Strava is not linked.
-
-    Raises:
-        None.
     """
-    return await strava_activity_utils.get_user_strava_activities_by_dates(
-        start_date=window_start,
-        end_date=window_end,
-        user_id=user_id,
-        db=db,
-    )
+    return strava_activity_utils.get_user_strava_activities_by_dates(window_start, window_end, user_id)
+
+
+def _linked_user_ids(after_id: int, limit: int) -> list[int]:
+    """
+    Page through the users who have linked Strava.
+
+    Args:
+        after_id: Return only users with an id greater than this.
+        limit: Maximum number of user ids to return.
+
+    Returns:
+        The linked user ids, ascending.
+    """
+    with SessionLocal() as db:
+        return user_integrations_crud.list_user_ids_with_strava_linked(after_id, limit, db)
 
 
 def register_activity_provider() -> None:
-    """
-    Register Strava on the activities provider registry.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-
-    Raises:
-        None.
-    """
-    activity_ingestion_integration.register_activity_provider(PROVIDER_NAME, _fetch_window)
+    """Register Strava, and its export format, on the activities provider registry."""
+    activity_ingestion_integration.register_activity_provider(PROVIDER_NAME, _fetch_window, _linked_user_ids)
+    strava_bulk_import_source.register_bulk_import_format()

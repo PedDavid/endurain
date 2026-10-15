@@ -865,25 +865,34 @@
     "beta": "Beta",
     "bulk": {
       "title": "Bulk import",
-      "subtitle": "Import activity files placed in the server's bulk-import folder",
-      "button": "Import activities",
-      "started": "Importing 1 file in the background… | Importing {count} files in the background…",
-      "empty": "No importable files found in the bulk-import folder",
+      "subtitle": "Import a ZIP of activity files, or the files in your folder on the server",
+      "uploadButton": "Upload ZIP",
+      "folderButton": "Import from folder",
+      "started": "Import started. You can leave this page; it continues in the background.",
+      "alreadyRunning": "A bulk import is already running. Wait for it to finish.",
       "error": "Couldn't start the import. Please try again."
     },
     "strava": {
       "title": "Strava import",
-      "subtitle": "Import from a Strava bulk export placed in the server's strava-import folder",
+      "subtitle": "Import from a Strava bulk export: upload its ZIP, or use the files in your folder on the server",
       "import": "Import",
       "activities": "Import activities",
-      "bikes": "Import bikes",
-      "shoes": "Import shoes",
-      "activitiesQueued": "Strava activities queued for import; see logs for status…",
+      "bikes": "Import bikes (upload bikes.csv)",
+      "shoes": "Import shoes (upload shoes.csv)",
+      "activitiesQueued": "Strava activities queued for import. You can leave this page; it continues in the background.",
       "activitiesError": "Couldn't queue the Strava activities import. Please try again.",
       "bikesSuccess": "Strava bikes imported",
       "bikesError": "Couldn't import Strava bikes. Please try again.",
       "shoesSuccess": "Strava shoes imported",
-      "shoesError": "Couldn't import Strava shoes. Please try again."
+      "shoesError": "Couldn't import Strava shoes. Please try again.",
+      "activitiesUpload": "Import activities (upload ZIP)",
+      "activitiesFolder": "Import activities (server folder)"
+    },
+    "job": {
+      "preparing": "Preparing the import…",
+      "progress": "Imported {done} of {total} files ({failed} failed)…",
+      "finished": "Import finished: {done} of {total} files imported, {failed} failed.",
+      "failed": "The import could not be completed."
     }
   },
   "profile": {

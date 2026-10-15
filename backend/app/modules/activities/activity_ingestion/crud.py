@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import modules.activities.activity_ingestion.constants as activity_ingestion_constants
+import modules.activities.activity_ingestion.contracts as activity_ingestion_contracts
 import modules.activities.activity_ingestion.models as activity_ingestion_models
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.serializers as activity_ingestion_serializers
@@ -26,6 +27,11 @@ def create_ingestion_job(
     staged_key: str | None = None,
     idempotency_key: str | None = None,
     request_fingerprint: str | None = None,
+    provider: str | None = None,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+    import_source: str | None = None,
+    files_total: int | None = None,
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Stage an accepted ingestion request in the pending state (not committed).
 
@@ -41,6 +47,11 @@ def create_ingestion_job(
             and kind.
         request_fingerprint: SHA-256 of the uploaded bytes, stored so a reused
             key carrying different content can be rejected.
+        provider: The provider a refresh syncs; ``None`` for every linked one.
+        window_start: Start of the window a refresh fetches; refresh only.
+        window_end: End of the window a refresh fetches; refresh only.
+        import_source: The archive format a bulk import reads; bulk import only.
+        files_total: Importable files in a bulk import's archive; bulk import only.
 
     Returns:
         The created ingestion job.
@@ -57,6 +68,13 @@ def create_ingestion_job(
         staged_key=staged_key,
         idempotency_key=idempotency_key,
         request_fingerprint=request_fingerprint,
+        provider=provider,
+        window_start=window_start,
+        window_end=window_end,
+        import_source=import_source,
+        files_total=files_total,
+        files_done=0 if import_source is not None else None,
+        files_failed=0 if import_source is not None else None,
         status=activity_ingestion_constants.IngestionJobStatus.PENDING.value,
         created_at=now,
         updated_at=now,
@@ -167,6 +185,165 @@ def get_job_owner(job_id: str, db: Session) -> int | None:
     """
     orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
     return orm_job.user_id if orm_job else None
+
+
+def get_refresh_scope(job_id: str, db: Session) -> tuple[int, str | None, datetime | None, datetime | None] | None:
+    """Read what a refresh job was asked to sync, for the background executor.
+
+    Not user-scoped, for the same reason as :func:`get_job_owner`: the owner and
+    scope come from the row, not from an event payload that could be tampered
+    with.
+
+    Args:
+        job_id: The job identifier.
+        db: Database session.
+
+    Returns:
+        ``(user_id, provider, window_start, window_end)``, or ``None`` when the
+        job is unknown.
+    """
+    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
+    if orm_job is None:
+        return None
+    return orm_job.user_id, orm_job.provider, orm_job.window_start, orm_job.window_end
+
+
+def get_user_ids_with_active_refresh(user_ids: Sequence[int], db: Session) -> set[int]:
+    """Return which of the given users already have a refresh queued or running.
+
+    Lets the scheduled fan-out skip a user whose previous refresh has not finished
+    instead of piling a second one behind it.
+
+    Args:
+        user_ids: Candidate users.
+        db: Database session.
+
+    Returns:
+        The subset with a pending or processing refresh job.
+    """
+    if not user_ids:
+        return set()
+    stmt = select(activity_ingestion_models.ActivityIngestionJob.user_id).where(
+        activity_ingestion_models.ActivityIngestionJob.user_id.in_(user_ids),
+        activity_ingestion_models.ActivityIngestionJob.kind
+        == activity_ingestion_constants.IngestionJobKind.REFRESH.value,
+        activity_ingestion_models.ActivityIngestionJob.completed_at.is_(None),
+    )
+    return set(db.scalars(stmt).all())
+
+
+def get_active_bulk_import_job_id(user_id: int, db: Session) -> str | None:
+    """Return the id of the user's bulk import that has not finished, if any.
+
+    Args:
+        user_id: The user.
+        db: Database session.
+
+    Returns:
+        The running job's id, or ``None``.
+    """
+    stmt = select(activity_ingestion_models.ActivityIngestionJob.id).where(
+        activity_ingestion_models.ActivityIngestionJob.user_id == user_id,
+        activity_ingestion_models.ActivityIngestionJob.kind
+        == activity_ingestion_constants.IngestionJobKind.BULK_IMPORT.value,
+        activity_ingestion_models.ActivityIngestionJob.completed_at.is_(None),
+    )
+    return db.scalars(stmt).first()
+
+
+def get_bulk_import_state(job_id: str, db: Session) -> activity_ingestion_contracts.BulkImportState | None:
+    """Read a bulk-import job's resume state, for the background executor.
+
+    Not user-scoped, for the same reason as :func:`get_job_owner`.
+
+    Args:
+        job_id: The job identifier.
+        db: Database session.
+
+    Returns:
+        The state, or ``None`` when the job is unknown or is not a bulk import.
+    """
+    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
+    if orm_job is None or orm_job.kind != activity_ingestion_constants.IngestionJobKind.BULK_IMPORT.value:
+        return None
+    return activity_ingestion_contracts.BulkImportState(
+        user_id=orm_job.user_id,
+        import_source=orm_job.import_source or "",
+        staged_key=orm_job.staged_key,
+        cursor=orm_job.cursor,
+        files_total=orm_job.files_total or 0,
+        files_done=orm_job.files_done or 0,
+        files_failed=orm_job.files_failed or 0,
+        created_at=orm_job.created_at,
+        finished=orm_job.completed_at is not None,
+    )
+
+
+def attach_bulk_archive(job_id: str, staged_key: str, files_total: int, db: Session) -> None:
+    """Stage recording the archive a bulk import will read (not committed).
+
+    Args:
+        job_id: The job identifier.
+        staged_key: Storage key of the staged archive.
+        files_total: Importable files it holds.
+        db: Database session.
+    """
+    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
+    if orm_job is None:
+        return
+    orm_job.staged_key = staged_key
+    orm_job.files_total = files_total
+    orm_job.updated_at = datetime.now(UTC)
+    db.flush()
+
+
+def record_bulk_progress(job_id: str, cursor: str | None, files_done: int, files_failed: int, db: Session) -> None:
+    """Stage a bulk import's resume point and counters (not committed).
+
+    Args:
+        job_id: The job identifier.
+        cursor: The last member handled.
+        files_done: Files imported so far.
+        files_failed: Files that could not be imported.
+        db: Database session.
+    """
+    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
+    if orm_job is None:
+        return
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.PROCESSING.value
+    orm_job.cursor = cursor
+    orm_job.files_done = files_done
+    orm_job.files_failed = files_failed
+    orm_job.updated_at = datetime.now(UTC)
+    db.flush()
+
+
+def mark_bulk_completed(job_id: str, cursor: str | None, files_done: int, files_failed: int, db: Session) -> None:
+    """Stage a bulk import as finished (not committed).
+
+    A finished import with failed files is still ``completed``: the counters say
+    how many, and each failed file was recorded as it happened.
+
+    Args:
+        job_id: The job identifier.
+        cursor: The last member handled.
+        files_done: Files imported.
+        files_failed: Files that could not be imported.
+        db: Database session.
+    """
+    orm_job = db.get(activity_ingestion_models.ActivityIngestionJob, job_id)
+    if orm_job is None:
+        return
+    now = datetime.now(UTC)
+    orm_job.status = activity_ingestion_constants.IngestionJobStatus.COMPLETED.value
+    orm_job.error_code = None
+    orm_job.cursor = cursor
+    orm_job.files_done = files_done
+    orm_job.files_failed = files_failed
+    orm_job.staged_key = None
+    orm_job.updated_at = now
+    orm_job.completed_at = now
+    db.flush()
 
 
 def mark_processing(job_id: str, db: Session) -> None:

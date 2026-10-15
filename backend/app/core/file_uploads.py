@@ -30,8 +30,9 @@ import shutil
 import tempfile
 import zipfile
 from collections.abc import Awaitable, Callable, Coroutine, Iterable
+from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import aiofiles
@@ -811,6 +812,35 @@ async def save_validated_bytes(
         raise core_exceptions.ProcessingError("Failed to save file") from err
 
 
+def save_validated_bytes_sync(
+    data: bytes,
+    *,
+    kind: UploadKind,
+    upload_dir: str,
+    filename: str,
+) -> str:
+    """Synchronous counterpart of :func:`save_validated_bytes`.
+
+    For a worker thread with no running event loop (a durable job, the ingestion
+    pool): it drives the async validator on a private loop, as
+    :func:`validate_local_file_sync` does. Must not be called from the main
+    async thread.
+
+    Args:
+        data: Raw byte payload.
+        kind: Logical content type.
+        upload_dir: Trusted destination directory.
+        filename: **Server-generated** filename within ``upload_dir``.
+
+    Returns:
+        Absolute filesystem path of the saved file.
+
+    Raises:
+        DomainError: As :func:`save_validated_bytes`.
+    """
+    return asyncio.run(save_validated_bytes(data, kind=kind, upload_dir=upload_dir, filename=filename))
+
+
 # ---------------------------------------------------------------------------
 # Zip-slip-safe extraction
 # ---------------------------------------------------------------------------
@@ -1349,3 +1379,187 @@ def decompress_gzip(file_path: str | os.PathLike) -> tuple[str, str]:
             with contextlib.suppress(OSError):
                 os.remove(temp_file_path)
         raise core_exceptions.InvalidInputError("Invalid gzip file") from err
+
+
+def extract_validated_zip_sync(
+    zip_path: str | os.PathLike,
+    *,
+    dest_dir: str | os.PathLike,
+    per_entry_kind: UploadKind | None = None,
+    max_entries: int | None = None,
+) -> list[Path]:
+    """Synchronous counterpart of :func:`extract_validated_zip`.
+
+    For a worker thread with no running event loop. Must not be called from the
+    main async thread.
+
+    Args:
+        zip_path: Path of the ZIP archive to extract.
+        dest_dir: Destination directory; created if missing.
+        per_entry_kind: When provided, every entry is re-validated against it.
+        max_entries: Hard cap on number of entries.
+
+    Returns:
+        List of extracted file paths under ``dest_dir``.
+
+    Raises:
+        DomainError: As :func:`extract_validated_zip`.
+    """
+    return asyncio.run(
+        extract_validated_zip(zip_path, dest_dir=dest_dir, per_entry_kind=per_entry_kind, max_entries=max_entries)
+    )
+
+
+#: Caps for a bulk-import archive, which is read member by member and never
+#: extracted to disk wholesale, so they are looser than the extraction caps: a
+#: Strava export holds thousands of activity files.
+MAX_ARCHIVE_MEMBERS = 20_000
+
+#: Largest archive member read into memory (a manifest or a photo); activity files
+#: are streamed to disk instead.
+MAX_READ_MEMBER_BYTES = 50 * 1024 * 1024
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 8 * 1024 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class ZipMember:
+    """One regular file inside an archive.
+
+    Attributes:
+        name: The member's path inside the archive, with ``/`` separators.
+        size: Its uncompressed size in bytes.
+    """
+
+    name: str
+    size: int
+
+
+def save_text_upload_sync(file: UploadFile, *, upload_dir: str, filename: str, max_bytes: int) -> str:
+    """Stream a small text upload (a CSV) to a server-named file, capped on bytes.
+
+    No signature validator covers plain text, so the protection is the cap and a
+    server-generated name; the caller parses the content with a bounded reader.
+
+    Args:
+        file: The incoming upload.
+        upload_dir: Trusted destination directory.
+        filename: **Server-generated** filename within ``upload_dir``.
+        max_bytes: Hard cap on bytes accepted.
+
+    Returns:
+        Absolute filesystem path of the saved file.
+
+    Raises:
+        PayloadTooLargeError: When the upload exceeds ``max_bytes``.
+    """
+    os.makedirs(upload_dir, exist_ok=True)
+    destination = _resolve_upload_path(upload_dir, filename)
+    _stream_to_path_sync(file, destination, max_bytes)
+    return str(destination)
+
+
+def list_zip_members(zip_path: str | os.PathLike, *, max_entries: int | None = None) -> list[ZipMember]:
+    """List an archive's regular files after checking it is safe to read by name.
+
+    Rejects what extraction would reject (traversal and absolute names, symlinks,
+    duplicates, too many entries, an entry or total beyond the size caps) without
+    reading any member's bytes, so a caller can refuse an archive up front and then
+    read members one at a time with :func:`copy_zip_member`.
+
+    Args:
+        zip_path: Path of the ZIP archive.
+        max_entries: Hard cap on entries; defaults to :data:`MAX_ARCHIVE_MEMBERS`.
+
+    Returns:
+        The archive's regular files, in archive order.
+
+    Raises:
+        InvalidInputError: When the archive is malformed or unsafe.
+        PayloadTooLargeError: When a size cap is exceeded.
+    """
+    limit = MAX_ARCHIVE_MEMBERS if max_entries is None else max_entries
+    members: list[ZipMember] = []
+    seen: set[str] = set()
+    total = 0
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            infos = zip_ref.infolist()
+            if len(infos) > limit:
+                raise core_exceptions.InvalidInputError(
+                    f"Archive contains {len(infos)} entries; maximum allowed is {limit}"
+                )
+            for info in infos:
+                if info.is_dir():
+                    continue
+                mode = (info.external_attr >> 16) & 0xFFFF
+                if mode and (mode & 0o170000) == 0o120000:
+                    raise core_exceptions.InvalidInputError("Archive contains a symlink entry")
+                name = info.filename.replace("\\", "/")
+                if (
+                    not name
+                    or name.startswith("/")
+                    or "\x00" in name
+                    or ".." in PurePosixPath(name).parts
+                    or PureWindowsPath(name).drive
+                ):
+                    raise core_exceptions.InvalidInputError("Archive contains an unsafe entry name")
+                if name in seen:
+                    raise core_exceptions.InvalidInputError("Archive contains a duplicate entry")
+                seen.add(name)
+                if info.file_size > _MAX_EXTRACTED_ENTRY_BYTES:
+                    raise core_exceptions.PayloadTooLargeError("Archive entry exceeds the allowed size")
+                total += info.file_size
+                if total > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                    raise core_exceptions.PayloadTooLargeError("Archive contents exceed the allowed size")
+                members.append(ZipMember(name=name, size=info.file_size))
+    except zipfile.BadZipFile as err:
+        raise core_exceptions.InvalidInputError("Invalid ZIP archive") from err
+    return members
+
+
+def copy_zip_member(
+    zip_ref: zipfile.ZipFile,
+    member_name: str,
+    destination: str | os.PathLike,
+    *,
+    max_bytes: int | None = None,
+) -> int:
+    """Stream one archive member to a path the caller chose.
+
+    The destination is never derived from the member name, so a hostile name
+    cannot place the file anywhere. The copy is capped on bytes actually written,
+    not on the size the archive header claims.
+
+    Args:
+        zip_ref: An open archive.
+        member_name: The member to read, as listed by :func:`list_zip_members`.
+        destination: Where to write it.
+        max_bytes: Cap on bytes written; defaults to the activity-file cap.
+
+    Returns:
+        The number of bytes written.
+
+    Raises:
+        InvalidInputError: When the member does not exist.
+        PayloadTooLargeError: When the member inflates beyond the cap; the partial
+            file is removed.
+    """
+    cap = _MAX_ACTIVITY_BYTES if max_bytes is None else max_bytes
+    try:
+        source = zip_ref.open(member_name, "r")
+    except KeyError as err:
+        raise core_exceptions.InvalidInputError("Archive entry not found") from err
+
+    written = 0
+    try:
+        with source, open(destination, "wb") as out:
+            while chunk := source.read(_STREAM_CHUNK_BYTES):
+                written += len(chunk)
+                if written > cap:
+                    raise core_exceptions.PayloadTooLargeError("Archive entry exceeds the allowed size")
+                out.write(chunk)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.remove(destination)
+        raise
+    return written

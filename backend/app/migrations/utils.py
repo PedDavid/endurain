@@ -13,19 +13,18 @@ import migrations.migration_3 as migrations_migration_3
 import migrations.migration_4 as migrations_migration_4
 import migrations.migration_5 as migrations_migration_5
 import migrations.migration_6 as migrations_migration_6
-import migrations.migration_7 as migrations_migration_7
 import migrations.migration_8 as migrations_migration_8
 import migrations.migration_9 as migrations_migration_9
 import migrations.migration_10 as migrations_migration_10
 
 logger = core_logger.get_logger(__name__)
 
-# Synchronous migration handlers keyed by migration ID.
+# Synchronous migration handlers keyed by migration ID. Migration 7 (stored HR zone
+# backfill) is gone: zones are computed when a stream is served.
 _SYNC_MIGRATIONS: dict[int, Callable[[Session], None]] = {
     1: migrations_migration_1.process_migration_1,
     2: migrations_migration_2.process_migration_2,
     3: migrations_migration_3.process_migration_3,
-    7: migrations_migration_7.process_migration_7,
     8: migrations_migration_8.process_migration_8,
     9: migrations_migration_9.process_migration_9,
     10: migrations_migration_10.process_migration_10,

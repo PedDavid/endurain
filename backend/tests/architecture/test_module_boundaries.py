@@ -384,6 +384,10 @@ _SURFACE_UNITS_OF_WORK: dict[str, str] = {
         "The background ingestion entry for provider syncs: it commits each activity and rolls back "
         "a failed file so the rest of the batch continues on the same session."
     ),
+    "activity_ingestion.integration_service.request_provider_sync": (
+        "Creates the refresh job row and publishes its work event in one commit, so the job and the "
+        "outbox event are atomic; the caller is a provider's own route with nothing else to commit."
+    ),
     "activity_media.integration_service.attach_media_bytes": (
         "A race on the unique media hash leaves the session unusable until it is rolled back, so the "
         "write has to own the rollback before it looks up the winner."

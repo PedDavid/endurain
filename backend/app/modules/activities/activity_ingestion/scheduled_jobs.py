@@ -16,6 +16,25 @@ def prune_expired_ingestion_jobs() -> None:
     activity_ingestion_service.prune_expired_ingestion_jobs(platform.lock, platform.clock)
 
 
+def enqueue_provider_refreshes() -> None:
+    """Queue a refresh job for every user who has linked a provider.
+
+    Scheduler-invoked, with no request to carry the providers, so this entry
+    point resolves them.
+    """
+    platform = platform_runtime.get_active_platform()
+    activity_ingestion_service.enqueue_scheduled_refreshes(platform.lock, platform.storage)
+
+
+def schedule_provider_refresh() -> None:
+    """Queue one provider refresh fan-out, so a restart catches up on what it missed."""
+    core_scheduler.run_once(
+        enqueue_provider_refreshes,
+        job_id="endurain_provider_refresh_oneshot",
+        description="provider refresh fan-out",
+    )
+
+
 def fail_stale_ingestion_jobs() -> None:
     """Fail ingestion jobs that stopped progressing.
 
@@ -47,6 +66,11 @@ def recurring_jobs() -> tuple[core_scheduler.ScheduledJob, ...]:
             prune_expired_ingestion_jobs,
             1440,
             "prune expired activity ingestion jobs",
+        ),
+        core_scheduler.ScheduledJob(
+            enqueue_provider_refreshes,
+            60,
+            "queue a refresh for every user with a linked provider",
         ),
         core_scheduler.ScheduledJob(
             fail_stale_ingestion_jobs,

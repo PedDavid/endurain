@@ -133,30 +133,49 @@ class TestUploadRoute:
         assert result == job
 
 
-class TestBulkImportRouteDelegates:
-    """The route is a transport adapter: it delegates and shapes the response."""
+class TestBulkImportRoutesDelegate:
+    """The routes are transport adapters: they delegate and shape the response."""
 
-    def test_delegates_to_the_service_and_returns_the_job_handles(self):
+    def test_the_archive_route_hands_the_upload_to_the_service_unread(self):
         db = MagicMock()
-        jobs = [MagicMock(), MagicMock()]
-        with patch.object(router.activity_ingestion_service, "start_bulk_import", return_value=jobs) as start:
-            result = router.create_activity_with_bulk_import(
-                request=MagicMock(), token_user_id=3, _check_scopes=None, db=db, storage="storage"
+        file = MagicMock()
+        job = MagicMock()
+        with patch.object(router.bulk_import_service, "accept_archive", return_value=job) as accept:
+            result = router.create_bulk_import_from_archive(
+                request=MagicMock(),
+                token_user_id=3,
+                file=file,
+                _check_scopes=None,
+                db=db,
+                storage="storage",
+                source="strava",
             )
 
-        start.assert_called_once_with(3, "storage", db)
-        # One pollable handle per queued file, so the caller can follow the
-        # import instead of being handed a message it cannot act on.
-        assert result == jobs
+        accept.assert_called_once_with(3, file.filename, ANY, "strava", "storage", db)
+        # The service never sees the upload itself: only the shared writer, bound to it.
+        save_upload = accept.call_args.args[2]
+        assert save_upload.func is router.core_file_uploads.save_validated_upload_sync
+        assert save_upload.args == (file,)
+        assert result == job
 
-    def test_a_service_failure_is_not_swallowed(self):
-        """The route must not answer 202 for files that were never queued."""
+    def test_the_folder_route_delegates_with_the_callers_id_and_source(self):
+        db = MagicMock()
+        with patch.object(router.bulk_import_service, "start_from_directory", return_value="job") as start:
+            result = router.create_bulk_import_from_folder(
+                request=MagicMock(), token_user_id=3, _check_scopes=None, db=db, storage="storage", source="generic"
+            )
+
+        start.assert_called_once_with(3, "generic", "storage", db)
+        assert result == "job"
+
+    def test_a_service_refusal_is_not_swallowed(self):
+        """A second import while one runs must reach the client as the conflict it is."""
         with (
             patch.object(
-                router.activity_ingestion_service, "start_bulk_import", side_effect=core_exceptions.ProcessingError()
+                router.bulk_import_service, "start_from_directory", side_effect=core_exceptions.ConflictError()
             ),
-            pytest.raises(core_exceptions.ProcessingError),
+            pytest.raises(core_exceptions.ConflictError),
         ):
-            router.create_activity_with_bulk_import(
-                request=MagicMock(), token_user_id=3, _check_scopes=None, db=MagicMock(), storage="storage"
+            router.create_bulk_import_from_folder(
+                request=MagicMock(), token_user_id=3, _check_scopes=None, db=MagicMock(), storage="s", source="generic"
             )

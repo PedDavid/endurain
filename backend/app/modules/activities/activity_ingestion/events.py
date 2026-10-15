@@ -1,65 +1,33 @@
 """Domain event channel names owned by the activity-ingestion sub-domain."""
 
-from collections.abc import Callable
 from typing import ClassVar
 
 from jasil.event_versioning import VersionedPayload
 from pydantic import ConfigDict
 
-# Published once per file when a bulk import is initiated with durable jobs
-# enabled; a durable subscriber imports each file as an independent,
-# retryable, dead-letterable job. This channel is durable-delivery only — the
-# route only publishes it when JOBS_ENABLED (so it always routes to the outbox →
-# relay → per-file jobs), and falls back to the background threadpool otherwise,
-# so no best-effort bus subscriber exists for it.
-ACTIVITY_BULK_IMPORT_FILE = "activity.bulk_import_file"
+# Published when a bulk import has a batch of its archive left to work through:
+# once when the import is accepted, and again at the end of each batch that left
+# files over, so every batch is a short job that goes to the back of the queue
+# instead of one import holding a worker. Durable-delivery only — without durable
+# jobs the import loops in the in-process pool, so no best-effort bus subscriber
+# exists for it.
+ACTIVITY_BULK_IMPORT_CONTINUE = "activity.bulk_import_continue"
 
 
-def _bulk_import_v2_to_v3(payload: dict) -> dict:
-    """Carry a pre-handle bulk-import payload forward.
-
-    Args:
-        payload: The event payload as written by a build without job handles.
-
-    Returns:
-        The payload with an explicit "this file has no job row" marker, so the
-        subscriber skips the status transitions instead of reading ``job_id`` as
-        a silent default.
-    """
-    return {**payload, "job_id": None}
-
-
-class BulkImportFilePayload(VersionedPayload):
-    """Validated payload for the ``activity.bulk_import_file`` event.
-
-    The durable subscriber validates the event payload against this schema, so a
-    malformed payload raises (surfacing via retry / dead-letter) instead of
-    silently marking the job complete.
+class BulkImportContinuePayload(VersionedPayload):
+    """Validated payload for the ``activity.bulk_import_continue`` event.
 
     Attributes:
-        job_id: The ``activity_ingestion_jobs`` row this file reports through, so
-            the caller can poll one handle per dropped file. ``None`` only for a
-            v2 event staged before the handles existed.
-        storage_key: Key of the staged file in the bulk-import storage area.
-            A key rather than a path so any worker in the fleet can fetch the
-            bytes, not only the node the file was dropped on.
-        filename: The dropped file's original name. Carried separately because
-            the pipeline reads meaning from it (the Strava export's
-            ``activities.csv`` is keyed by filename), while the key is minted.
-        user_id: ID of the user performing the import.
-        import_initiated_time: ISO timestamp of when the import began.
+        job_id: The ``activity_ingestion_jobs`` row to work the next batch of. The
+            owner, archive and resume point are read from the row, never from the
+            event.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    SCHEMA_VERSION: ClassVar[int] = 3
-    UPGRADERS: ClassVar[dict[int, Callable[[dict], dict]]] = {2: _bulk_import_v2_to_v3}
+    SCHEMA_VERSION: ClassVar[int] = 1
 
-    job_id: str | None
-    storage_key: str
-    filename: str
-    user_id: int
-    import_initiated_time: str | None = None
+    job_id: str
 
 
 # Published once per accepted upload when durable jobs are enabled; a durable

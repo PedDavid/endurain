@@ -34,7 +34,6 @@ import core.pagination as core_pagination
 import modules.activities.activity.integration_service as activity_integration
 import modules.activities.activity.schema as activity_schema
 import modules.activities.activity_streams.constants as activity_streams_constants
-import modules.activities.activity_streams.contracts as activity_streams_contracts
 import modules.activities.activity_streams.crud as activity_streams_crud
 import modules.activities.activity_streams.hr_zones as activity_streams_hr_zones
 import modules.activities.activity_streams.schema as activity_streams_schema
@@ -108,6 +107,68 @@ def _page_of(
     )
 
 
+def _max_heart_rate_of(user_id: int, db: Session) -> int | None:
+    """Resolve a user's max heart rate, or ``None`` when it cannot be derived.
+
+    Args:
+        user_id: ID of the stream's owner.
+        db: Database session.
+
+    Returns:
+        The max heart rate, or None when it cannot be derived.
+    """
+    user = users_integration.get_user(user_id, db)
+    if user is None:
+        return None
+    return activity_streams_hr_zones.resolve_max_heart_rate(user.max_heart_rate, user.birthdate, user.timezone)
+
+
+def _with_zones(
+    streams: list[activity_streams_schema.ActivityStreamsRead],
+    activity: activity_schema.ActivityRead,
+    db: Session,
+) -> list[activity_streams_schema.ActivityStreamsRead]:
+    """Attach the heart-rate zone breakdown to the HR streams being served.
+
+    Zones are a function of the samples, the activity's timer time and the
+    owner's *current* max heart rate (which itself follows their age), so they are
+    computed here, per read, rather than stored: a stored value is stale the
+    moment the owner edits their profile or has a birthday, and keeping it
+    fresh costs a pass over every stream the user owns. The pass over one
+    stream's samples is cheap next to serializing them.
+
+    Only streams the caller may see reach this, and the owner is looked up once,
+    only when one of them is an HR stream.
+
+    Args:
+        streams: The streams about to be served, already masked.
+        activity: The parent activity, for its owner and timer time.
+        db: Database session.
+
+    Returns:
+        The streams, the HR one carrying ``zone_percentages`` when the owner's
+        max heart rate is known and the stream has samples.
+    """
+    if not any(stream.stream_type == activity_streams_constants.STREAM_TYPE_HR for stream in streams):
+        return streams
+    max_heart_rate = _max_heart_rate_of(activity.user_id, db)
+    if not max_heart_rate:
+        return streams
+
+    with_zones: list[activity_streams_schema.ActivityStreamsRead] = []
+    for stream in streams:
+        if stream.stream_type == activity_streams_constants.STREAM_TYPE_HR:
+            breakdown = activity_streams_hr_zones.compute_hr_zone_breakdown_sync(
+                stream.stream_waypoints,
+                max_heart_rate,
+                activity.total_timer_time,
+            )
+            if breakdown:
+                stream = stream.model_copy(update={"zone_percentages": {"hr": breakdown}})
+        with_zones.append(stream)
+    return with_zones
+
+
 def list_activity_streams(
     activity_id: int,
     requester_user_id: int,
@@ -141,7 +202,7 @@ def list_activity_streams(
     if requester_user_id != activity.user_id:
         streams = _filter_visible_streams(streams, activity)
 
-    return _page_of(streams, page_number, num_records)
+    return _page_of(_with_zones(streams, activity, db), page_number, num_records)
 
 
 def get_activity_stream(
@@ -177,7 +238,7 @@ def get_activity_stream(
     if requester_user_id != activity.user_id and _is_stream_hidden(activity, stream.stream_type):
         raise core_exceptions.NotFoundError("Activity stream not found")
 
-    return stream
+    return _with_zones([stream], activity, db)[0]
 
 
 def list_public_activity_streams(
@@ -208,7 +269,7 @@ def list_public_activity_streams(
 
     streams = activity_streams_crud.get_activity_streams(activity_id, db)
     return _page_of(
-        _filter_visible_streams(streams, activity),
+        _with_zones(_filter_visible_streams(streams, activity), activity, db),
         page_number,
         num_records,
     )
@@ -245,195 +306,4 @@ def get_public_activity_stream(
     if _is_stream_hidden(activity, stream.stream_type):
         raise core_exceptions.NotFoundError("Activity stream not found")
 
-    return stream
-
-
-# ---------------------------------------------------------------------------
-# Derived-artifact reads
-#
-# ---------------------------------------------------------------------------
-# Heart-rate zone scoring
-#
-# "What is this athlete's max heart rate?" is a users question, and the answer
-# scales every zone. Persistence must not pause mid-batch to consult another
-# bounded context, so the loop lives here: the service resolves the max HR,
-# computes each breakdown, and hands crud a plain ``{stream_id: zones}`` map to
-# store.
-
-
-def _zones_for(
-    stream: activity_streams_contracts.HrStreamForScoring,
-    max_heart_rate: int | None,
-) -> dict | None:
-    """Compute one stream's zone breakdown, or ``None`` when it cannot be scored.
-
-    Args:
-        stream: The stream, with its scoring context.
-        max_heart_rate: The user's max heart rate, or None when unknown.
-
-    Returns:
-        The zone breakdown, or None when it cannot be scored.
-    """
-    if not max_heart_rate:
-        return None
-    breakdown = activity_streams_hr_zones.compute_hr_zone_breakdown_sync(
-        stream.waypoints,
-        max_heart_rate,
-        stream.total_timer_time,
-    )
-    return {"hr": breakdown} if breakdown else None
-
-
-def _with_context(
-    stream: activity_streams_contracts.HrStreamRecord,
-    context,
-) -> activity_streams_contracts.HrStreamForScoring:
-    """Combine stream-owned columns with its activity scoring context.
-
-    Args:
-        stream: The stream-owned columns.
-        context: The parent activity's scoring context.
-
-    Returns:
-        The stream with its scoring context.
-    """
-    return activity_streams_contracts.HrStreamForScoring(
-        stream_id=stream.stream_id,
-        activity_id=stream.activity_id,
-        owner_id=context.owner_id,
-        waypoints=stream.waypoints,
-        total_timer_time=context.total_timer_time,
-    )
-
-
-def _max_heart_rate_of(user_id: int, db: Session) -> int | None:
-    """Resolve a user's max heart rate, or ``None`` when it cannot be derived.
-
-    Args:
-        user_id: ID of the stream's owner.
-        db: Database session.
-
-    Returns:
-        The max heart rate, or None when it cannot be derived.
-    """
-    user = users_integration.get_user(user_id, db)
-    if user is None:
-        return None
-    return activity_streams_hr_zones.resolve_max_heart_rate(user.max_heart_rate, user.birthdate, user.timezone)
-
-
-def recompute_hr_zones_for_user(user_id: int, db: Session) -> None:
-    """Recompute every stored HR-zone breakdown for one user.
-
-    Called after the user's max heart rate or birthdate changes, so activities
-    imported earlier reflect the new zones. Each batch is flushed as it is scored
-    and nothing is committed: the caller owns the unit of work, so a failure
-    leaves no half-recomputed set and the session is rolled back by its owner.
-
-    Args:
-        user_id: The user whose HR streams should be refreshed.
-        db: Database session.
-    """
-    max_heart_rate = _max_heart_rate_of(user_id, db)
-    last_activity_id = 0
-    while True:
-        contexts = activity_integration.list_user_activity_scoring_contexts(
-            user_id,
-            db,
-            after_id=last_activity_id,
-        )
-        if not contexts:
-            break
-        context_by_activity = {context.activity_id: context for context in contexts}
-        records = activity_streams_crud.list_hr_streams_for_activities(list(context_by_activity), db)
-        batch = [
-            _with_context(record, context_by_activity[record.activity_id])
-            for record in records
-            if record.activity_id in context_by_activity
-        ]
-        activity_streams_crud.set_zone_percentages(
-            {stream.stream_id: _zones_for(stream, max_heart_rate) for stream in batch},
-            db,
-        )
-        db.flush()
-        last_activity_id = contexts[-1].activity_id
-    logger.info(
-        "Recomputed HR zone percentages for a user",
-        extra=core_logger.context(user_id=user_id),
-    )
-
-
-def score_activity_hr_zones(activity_id: int, user_id: int, db: Session) -> None:
-    """Compute and store the HR-zone breakdown for one activity.
-
-    Driven by the ``activity.created`` subscriber so scoring stays off the
-    synchronous ingestion path. No-ops when the owner has no resolvable max heart
-    rate or the activity recorded no heart rate. Raises on database error so the
-    durable handler can retry.
-
-    Args:
-        activity_id: The activity whose HR stream should be scored.
-        user_id: The owning user, whose max heart rate scales the zones.
-        db: Database session.
-    """
-    context = activity_integration.get_activity_scoring_context(activity_id, db)
-    if context is None or context.owner_id != user_id:
-        return
-    max_heart_rate = _max_heart_rate_of(context.owner_id, db)
-    if not max_heart_rate:
-        return
-    record = activity_streams_crud.get_activity_hr_stream(activity_id, db)
-    if record is None:
-        return
-    stream = _with_context(record, context)
-    activity_streams_crud.set_zone_percentages({stream.stream_id: _zones_for(stream, max_heart_rate)}, db)
-    db.commit()
-    logger.debug("Scored heart-rate zones", extra=core_logger.context(activity_id=activity_id))
-
-
-def backfill_missing_hr_zones(
-    db: Session,
-    *,
-    batch_size: int = core_pagination.DEFAULT_MAINTENANCE_BATCH_SIZE,
-) -> int:
-    """Score HR streams that carry no zone breakdown yet (reconciliation net).
-
-    The scheduled safety net for the ``activity.created`` HR-zone subscriber.
-    Each owner's max heart rate is resolved once per run; streams whose owner has
-    none are left untouched so a later profile edit can still score them.
-
-    Args:
-        db: Database session.
-        batch_size: Number of streams to score per batch.
-
-    Returns:
-        The number of streams updated.
-    """
-    updated = 0
-    max_hr_cache: dict[int, int | None] = {}
-    last_id = 0
-    while True:
-        records = activity_streams_crud.list_hr_streams_missing_zones(db, after_id=last_id, batch_size=batch_size)
-        if not records:
-            break
-        contexts = activity_integration.get_activity_scoring_contexts(
-            [record.activity_id for record in records],
-            db,
-        )
-        zones_by_stream_id: dict[int, dict | None] = {}
-        for record in records:
-            context = contexts.get(record.activity_id)
-            if context is None:
-                continue
-            stream = _with_context(record, context)
-            if stream.owner_id not in max_hr_cache:
-                max_hr_cache[stream.owner_id] = _max_heart_rate_of(stream.owner_id, db)
-            zones = _zones_for(stream, max_hr_cache[stream.owner_id])
-            if zones is not None:
-                zones_by_stream_id[stream.stream_id] = zones
-        activity_streams_crud.set_zone_percentages(zones_by_stream_id, db)
-        db.commit()
-        logger.debug("Scored a heart-rate zone batch", extra=core_logger.context(scored=len(zones_by_stream_id)))
-        updated += len(zones_by_stream_id)
-        last_id = records[-1].stream_id
-    return updated
+    return _with_zones([stream], activity, db)[0]

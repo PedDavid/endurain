@@ -51,6 +51,27 @@ def create_activity_created_notification(
     )
 
 
+def create_garmin_token_expired_notification(
+    user_id: int,
+    db: Session,
+) -> tuple[notifications_schema.NotificationRead, str]:
+    """
+    Record the notification that a Garmin Connect account was unlinked.
+
+    Args:
+        user_id: The user whose account was unlinked.
+        db: Database session.
+
+    Returns:
+        The created notification row and the websocket message type the caller
+        should push.
+
+    Raises:
+        None.
+    """
+    return notifications_utils.create_garmin_token_expired_notification_row(user_id, db)
+
+
 def create_follow_request_notification(
     requester_user_id: int,
     target_user_id: int,

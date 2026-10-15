@@ -25,14 +25,17 @@ class ActivityProvider:
 
     Attributes:
         name: Stable provider identifier, used for logging and de-duplication.
-        fetch_window: Coroutine fetching one time window for one user.
+        fetch_window: Fetches one time window for one user.
+        linked_user_ids: Pages through the users who linked this provider.
     """
 
     name: str
     fetch_window: activity_ingestion_contracts.FetchWindow
+    linked_user_ids: activity_ingestion_contracts.LinkedUserIds
 
 
 _providers: dict[str, ActivityProvider] = {}
+_bulk_formats: dict[str, activity_ingestion_contracts.BulkImportFormat] = {}
 
 
 def register(provider: ActivityProvider) -> None:
@@ -55,6 +58,40 @@ def registered() -> tuple[ActivityProvider, ...]:
     return tuple(_providers.values())
 
 
+def register_bulk_format(bulk_format: activity_ingestion_contracts.BulkImportFormat) -> None:
+    """Register how a provider's bulk-import archive is laid out.
+
+    Args:
+        bulk_format: The format. Re-registering a name replaces the entry.
+    """
+    _bulk_formats[bulk_format.name] = bulk_format
+
+
+def get_bulk_format(name: str) -> activity_ingestion_contracts.BulkImportFormat | None:
+    """Return the bulk-import format registered under a name.
+
+    Args:
+        name: The format identifier.
+
+    Returns:
+        The format, or ``None`` when none is registered under that name.
+    """
+    return _bulk_formats.get(name)
+
+
+def get(name: str) -> ActivityProvider | None:
+    """Return the provider registered under a name.
+
+    Args:
+        name: The provider identifier.
+
+    Returns:
+        The provider, or ``None`` when none is registered under that name.
+    """
+    return _providers.get(name)
+
+
 def clear() -> None:
     """Drop every registration."""
     _providers.clear()
+    _bulk_formats.clear()

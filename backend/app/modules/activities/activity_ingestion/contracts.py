@@ -11,7 +11,7 @@ dependency runs one way, from provider to activities, and adding a second export
 format means adding a subclass rather than another branch in here.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -25,10 +25,19 @@ import modules.activities.activity.schema as activity_schema
 #: each through the ingestion seam and returning what it stored. Returns an empty
 #: list (or ``None``) when the user has not linked this provider — an unlinked
 #: integration is not an error.
+#:
+#: Synchronous and session-less: it runs on a worker thread, and the provider
+#: opens a short session per unit of work so no transaction is held open across
+#: a network call.
 FetchWindow = Callable[
-    [int, datetime, datetime, Session],
-    Awaitable[list[activity_schema.ActivityRead] | None],
+    [int, datetime, datetime],
+    list[activity_schema.ActivityRead] | None,
 ]
+
+#: The ids of users who have linked this provider, ascending, those greater than
+#: ``after_id``, at most ``limit``. Lets the scheduler enqueue one refresh per
+#: linked user instead of walking every user.
+LinkedUserIds = Callable[[int, int], list[int]]
 
 
 def build_import_record(import_initiated_time: str, source_label: str = "Basic bulk import") -> dict[str, Any]:
@@ -118,27 +127,13 @@ class BulkImportSource:
     Attributes:
         import_initiated_time: ISO timestamp of when the import run started,
             recorded on each imported activity.
-        user_id: Owner of the import, used to resolve that user's error
-            directory. ``None`` when the import has its own shared directory.
+        user_id: Owner of the import.
     """
 
     import_initiated_time: str | None = None
     user_id: int | None = None
 
     kind = "bulk_import"
-
-    @property
-    def error_directory(self) -> str | None:
-        """Directory a failed file is moved to, when the source names its own.
-
-        A generic bulk import names none: the entry service applies the per-user
-        default, so this contract reads no configuration. A provider export that
-        lands in a shared location overrides this.
-
-        Returns:
-            The directory path, or ``None`` to use the entry service's default.
-        """
-        return None
 
     def metadata_for(self, file_base_name: str) -> dict:
         """Build the supplemental metadata to apply to activities from one file.
@@ -209,3 +204,66 @@ class BulkImportSource:
 
 #: Any of the three things that can feed the ingestion pipeline.
 IngestionSource = UploadSource | GarminSource | BulkImportSource
+
+
+#: Read one member of the archive being imported, by name, or ``None`` when it is
+#: not in the archive. Lets a provider export reach its manifest and sidecar media
+#: without knowing where the archive is stored.
+ArchiveMemberReader = Callable[[str], bytes | None]
+
+
+@dataclass(frozen=True)
+class BulkImportFormat:
+    """How one kind of bulk-import archive is laid out and interpreted.
+
+    The generic format is built in. A provider whose export carries a manifest or
+    sidecar media registers its own, so ingestion learns the layout without
+    importing the provider.
+
+    Attributes:
+        name: Stable identifier, the ``import_source`` clients select.
+        is_activity_member: Whether an archive member (``/``-separated path) is an
+            activity file to import.
+        is_export_member: Whether a file in the drop folder belongs to the export
+            (activity files plus a manifest and sidecar media). Only these are
+            packed and consumed; anything else in the folder is left alone.
+        drop_directory: The directory a user places this export's files in for the
+            server-side import, for a given user id.
+        build_source: Builds the source applied to every file of one batch from
+            ``(user_id, import_initiated_time, read_member)``. May raise a domain
+            error when the archive is not a valid export of this format.
+    """
+
+    name: str
+    is_activity_member: Callable[[str], bool]
+    is_export_member: Callable[[str], bool]
+    drop_directory: Callable[[int], str]
+    build_source: Callable[[int, str, ArchiveMemberReader], BulkImportSource]
+
+
+@dataclass(frozen=True)
+class BulkImportState:
+    """What a batch needs to know about a bulk-import job before it starts.
+
+    Attributes:
+        user_id: Owner of the import.
+        import_source: The format name.
+        staged_key: Key of the staged archive, or ``None`` while it is still being
+            assembled (or once the job is finished).
+        cursor: Last member handled, or ``None`` at the start.
+        files_total: Importable files in the archive.
+        files_done: Files imported so far.
+        files_failed: Files that could not be imported.
+        created_at: When the import was requested.
+        finished: Whether the job already reached a terminal state.
+    """
+
+    user_id: int
+    import_source: str
+    staged_key: str | None
+    cursor: str | None
+    files_total: int
+    files_done: int
+    files_failed: int
+    created_at: datetime
+    finished: bool

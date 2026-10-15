@@ -6,7 +6,7 @@ If you run one container with the default compose file, you do not need to chang
 
 ## How background work flows
 
-Some work happens after a request returns: map thumbnails, reverse geocoding, heart-rate zone scoring, retained source files, imports and notifications. Endurain publishes an event when something happens (for example an activity is created), and independent subscribers react to it.
+Some work happens after a request returns: map thumbnails, reverse geocoding, retained source files, imports and notifications. Heart-rate zones are not stored; they are computed from your current max heart rate whenever an activity's streams are read. Endurain publishes an event when something happens (for example an activity is created), and independent subscribers react to it.
 
 | Mode | Setting | Behaviour |
 | --- | --- | --- |
@@ -122,4 +122,18 @@ Each web process keeps its own database pool of up to 60 connections (20 plus 40
 - Each coordination lock held through `postgres-advisory://` keeps one more connection open for as long as the job runs.
 - A long job lease matters: the job runner does not renew a lease while a handler runs, so a job that outlives `JOBS_LEASE_SECONDS` is requeued and may run twice. Handlers are written to be repeatable, but keep the lease above your slowest job.
 - S3 requests use the client's default connect and read timeouts (60 seconds) and retry up to three times, so an unreachable bucket can hold a thread for minutes. Prefer a bucket in the same region as the application.
-- Leftover work is cleaned up on a schedule: ingestion jobs that stop progressing are failed after 24 hours, staged uploads nothing references are removed after 2 days, and staged bulk-import files after 7 days.
+- Leftover work is cleaned up on a schedule: ingestion jobs that stop progressing are failed after 24 hours, and staged uploads and bulk-import archives that no job references are removed after 2 days.
+
+## Strava and Garmin Connect syncs
+
+Every hour Endurain queues one refresh job per user who has linked Strava or Garmin Connect, and each job syncs the last 24 hours for that user (and refreshes their Strava token first). A user whose previous refresh has not finished is skipped, so a backed-up queue does not grow. The same jobs back the "retrieve activities" buttons in settings, which return a job you can poll.
+
+- Each job is independent, so jobs are spread across workers, retried with backoff when durable jobs are enabled, and one slow account cannot hold up the others.
+- Strava's rate limits are per application. When one is hit, every process and replica stops calling Strava until it expires; the state is shared through `STATE_URI`.
+- Without `JOBS_ENABLED`, the jobs run on the API process's small background pool and are re-queued at the next hourly run if lost in a restart.
+
+## Bulk imports
+
+A bulk import is one job over one staged archive. It runs in short batches (each bounded by a number of files and a fraction of `JOBS_LEASE_SECONDS`); a batch that leaves files over records how far it got and queues its own continuation, which goes to the back of the queue so large imports interleave with other work. A crash resumes from the recorded position. Without `JOBS_ENABLED` the whole import runs on the API process's background pool instead.
+
+Importing from a folder on the server is node-bound: the folder is packed on the instance that received the request, so on a deployment with several API replicas it must be mounted where that request can reach it. Uploading a ZIP has no such requirement.

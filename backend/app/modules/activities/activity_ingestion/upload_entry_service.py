@@ -17,7 +17,7 @@ files use. Without that, a ``distributed`` deployment running the parse in a
 separate ``APP_ROLE=worker`` container could not see the file the API wrote
 unless the volume happened to be shared.
 
-Differs from :mod:`bulk_entry_service` in that the file arrives in the request
+Differs from :mod:`provider_entry_service` in that the file arrives in the request
 and has to be streamed to disk before it can be stored.
 """
 
@@ -51,7 +51,7 @@ UPLOAD_STAGING_STORAGE_AREA = activity_file_storage_constants.ACTIVITY_FILE_STOR
 UPLOAD_STAGING_KEY_PREFIX = "upload_staging/"
 
 
-def _upload_staging_storage_key(key: str) -> str:
+def upload_staging_storage_key(key: str) -> str:
     """Build the storage key a staged upload is held under.
 
     Args:
@@ -178,7 +178,7 @@ def store_received_upload(received: ReceivedUpload, storage: platform_providers.
         with open(received.incoming_path, "rb") as handle:
             storage.save_stream(
                 UPLOAD_STAGING_STORAGE_AREA,
-                _upload_staging_storage_key(received.storage_key),
+                upload_staging_storage_key(received.storage_key),
                 handle,
             )
     finally:
@@ -234,7 +234,7 @@ def process_staged_upload(
 
     try:
         if not activity_ingestion_staging.copy_blob_to_path(
-            UPLOAD_STAGING_STORAGE_AREA, _upload_staging_storage_key(staged_key), file_path, storage
+            UPLOAD_STAGING_STORAGE_AREA, upload_staging_storage_key(staged_key), file_path, storage
         ):
             raise core_exceptions.InvalidInputError("The uploaded file is no longer available")
 
@@ -307,7 +307,7 @@ def discard_staged_upload(staged_key: str, storage: platform_providers.StoragePr
     try:
         storage.delete(
             UPLOAD_STAGING_STORAGE_AREA,
-            _upload_staging_storage_key(staged_key),
+            upload_staging_storage_key(staged_key),
         )
     except Exception as err:
         logger.warning(

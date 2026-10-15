@@ -18,7 +18,6 @@ class ActivityStreamsBase(BaseModel):
         stream_type: Stream type code (1-7).
         stream_waypoints: Waypoint data points.
         strava_activity_stream_id: Strava stream ID.
-        zone_percentages: Zone breakdowns keyed by metric (e.g. 'hr').
     """
 
     model_config = ConfigDict(
@@ -30,7 +29,6 @@ class ActivityStreamsBase(BaseModel):
     stream_type: StrictInt
     stream_waypoints: list[dict]
     strava_activity_stream_id: StrictInt | None = None
-    zone_percentages: dict | None = None
 
 
 class ActivityStreamsRead(ActivityStreamsBase):
@@ -38,9 +36,13 @@ class ActivityStreamsRead(ActivityStreamsBase):
 
     Attributes:
         id: Unique stream identifier.
+        zone_percentages: Zone breakdowns keyed by metric (e.g. 'hr'). Computed
+            when the stream is served, from the owner's current thresholds; never
+            stored, so it cannot go stale.
     """
 
     id: StrictInt
+    zone_percentages: dict | None = None
 
 
 #: The envelope every activity child collection answers with. Streams are bounded

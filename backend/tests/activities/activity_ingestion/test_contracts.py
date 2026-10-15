@@ -40,12 +40,6 @@ class TestGarminSource:
         assert (source.gear_id, source.provider_gear_id) == (7, "uuid-1")
 
 
-class TestErrorDirectory:
-    def test_a_generic_import_names_no_directory_of_its_own(self):
-        """The contract reads no settings; the entry service applies the per-user default."""
-        assert sources.BulkImportSource(user_id=7).error_directory is None
-
-
 class TestMetadataFor:
     def test_no_metadata_without_an_initiated_time(self):
         assert sources.BulkImportSource().metadata_for("f.gpx") == {}
