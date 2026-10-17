@@ -18,7 +18,6 @@ The application wires it once in `core/platform_settings.py` (settings) and `mai
 
 Forbidden (enforced by `tests/architecture/test_jasil_boundary.py`):
 `jasil._core`, `jasil.backends`, `jasil.jobs.crud`, `jasil.event_log.crud`.
-Use `jasil.admin` when a short-lived session of its own is needed.
 `core` and `jasil` never import `modules`.
 
 ## Storage

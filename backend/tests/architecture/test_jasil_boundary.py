@@ -18,8 +18,7 @@ What is private, and why:
 ``jasil.jobs.crud`` / ``jasil.event_log.crud``
     Both reach a model at import time (so importing one before
     ``jasil.orm.map_models`` has run raises) and both commit whatever session
-    they are handed — including an admin request's own uncommitted work.
-    ``jasil.admin`` is the seam that opens a short-lived session of its own.
+    they are handed, including a caller's own uncommitted work.
 """
 
 import ast
