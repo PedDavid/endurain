@@ -22,6 +22,113 @@ _DT_FMT = "%Y-%m-%dT%H:%M:%S"
 MAX_UTC_OFFSET = timedelta(hours=14)
 
 
+#: Legacy IANA link names mapped to the canonical zone they point at.
+#:
+#: PostgreSQL builds that omit the legacy ``backward`` links (the ``postgres:18``
+#: image does) reject these in ``AT TIME ZONE``, which turns every date-filtered
+#: activity query into a 500 for a user holding one. Activities are therefore
+#: stored under the canonical name. Only the geographic and country-style
+#: aliases are listed; abbreviations such as ``EST`` or ``CET`` name no place.
+_LEGACY_ALIASES: dict[str, str] = {
+    "Africa/Asmera": "Africa/Asmara",
+    "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+    "America/Catamarca": "America/Argentina/Catamarca",
+    "America/Cordoba": "America/Argentina/Cordoba",
+    "America/Fort_Wayne": "America/Indiana/Indianapolis",
+    "America/Godthab": "America/Nuuk",
+    "America/Indianapolis": "America/Indiana/Indianapolis",
+    "America/Jujuy": "America/Argentina/Jujuy",
+    "America/Knox_IN": "America/Indiana/Knox",
+    "America/Louisville": "America/Kentucky/Louisville",
+    "America/Mendoza": "America/Argentina/Mendoza",
+    "America/Rosario": "America/Argentina/Cordoba",
+    "Asia/Calcutta": "Asia/Kolkata",
+    "Asia/Dacca": "Asia/Dhaka",
+    "Asia/Katmandu": "Asia/Kathmandu",
+    "Asia/Macao": "Asia/Macau",
+    "Asia/Rangoon": "Asia/Yangon",
+    "Asia/Saigon": "Asia/Ho_Chi_Minh",
+    "Asia/Ulan_Bator": "Asia/Ulaanbaatar",
+    "Atlantic/Faeroe": "Atlantic/Faroe",
+    "Australia/ACT": "Australia/Sydney",
+    "Australia/NSW": "Australia/Sydney",
+    "Australia/North": "Australia/Darwin",
+    "Australia/Queensland": "Australia/Brisbane",
+    "Australia/South": "Australia/Adelaide",
+    "Australia/Tasmania": "Australia/Hobart",
+    "Australia/Victoria": "Australia/Melbourne",
+    "Australia/West": "Australia/Perth",
+    "Brazil/Acre": "America/Rio_Branco",
+    "Brazil/East": "America/Sao_Paulo",
+    "Brazil/West": "America/Manaus",
+    "Canada/Atlantic": "America/Halifax",
+    "Canada/Central": "America/Winnipeg",
+    "Canada/Eastern": "America/Toronto",
+    "Canada/Mountain": "America/Edmonton",
+    "Canada/Newfoundland": "America/St_Johns",
+    "Canada/Pacific": "America/Vancouver",
+    "Canada/Saskatchewan": "America/Regina",
+    "Canada/Yukon": "America/Whitehorse",
+    "Chile/Continental": "America/Santiago",
+    "Cuba": "America/Havana",
+    "Egypt": "Africa/Cairo",
+    "Eire": "Europe/Dublin",
+    "Europe/Kiev": "Europe/Kyiv",
+    "GB": "Europe/London",
+    "GB-Eire": "Europe/London",
+    "GMT0": "Etc/GMT",
+    "Greenwich": "Etc/GMT",
+    "Hongkong": "Asia/Hong_Kong",
+    "Iceland": "Atlantic/Reykjavik",
+    "Iran": "Asia/Tehran",
+    "Israel": "Asia/Jerusalem",
+    "Jamaica": "America/Jamaica",
+    "Japan": "Asia/Tokyo",
+    "Libya": "Africa/Tripoli",
+    "Mexico/BajaNorte": "America/Tijuana",
+    "Mexico/General": "America/Mexico_City",
+    "NZ": "Pacific/Auckland",
+    "NZ-CHAT": "Pacific/Chatham",
+    "Navajo": "America/Denver",
+    "PRC": "Asia/Shanghai",
+    "Poland": "Europe/Warsaw",
+    "Portugal": "Europe/Lisbon",
+    "ROC": "Asia/Taipei",
+    "ROK": "Asia/Seoul",
+    "Singapore": "Asia/Singapore",
+    "Turkey": "Europe/Istanbul",
+    "UCT": "Etc/UTC",
+    "US/Alaska": "America/Anchorage",
+    "US/Aleutian": "America/Adak",
+    "US/Arizona": "America/Phoenix",
+    "US/Central": "America/Chicago",
+    "US/East-Indiana": "America/Indiana/Indianapolis",
+    "US/Eastern": "America/New_York",
+    "US/Hawaii": "Pacific/Honolulu",
+    "US/Indiana-Starke": "America/Indiana/Knox",
+    "US/Michigan": "America/Detroit",
+    "US/Mountain": "America/Denver",
+    "US/Pacific": "America/Los_Angeles",
+    "US/Samoa": "Pacific/Pago_Pago",
+    "Universal": "Etc/UTC",
+    "W-SU": "Europe/Moscow",
+    "Zulu": "Etc/UTC",
+}
+
+
+def canonical(tz_name: str | None) -> str | None:
+    """Return the canonical IANA name for a possibly legacy timezone alias.
+
+    Args:
+        tz_name: An IANA timezone name, or None.
+
+    Returns:
+        The canonical name when ``tz_name`` is a known legacy alias, otherwise
+        ``tz_name`` unchanged.
+    """
+    return _LEGACY_ALIASES.get(tz_name, tz_name) if tz_name else tz_name
+
+
 def or_default(tz_name: str | None) -> str:
     """Return the given IANA timezone, or the server's configured default.
 

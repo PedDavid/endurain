@@ -18,4 +18,4 @@ def validate_goal_id(goal_id: int) -> None:
     Raises:
         HTTPException: If goal_id is less than 1.
     """
-    core_dependencies.validate_id(identifier=goal_id, min_value=1, message="Invalid goal ID")
+    core_dependencies.validate_id(identifier=goal_id, min_value=0, message="Invalid goal ID")

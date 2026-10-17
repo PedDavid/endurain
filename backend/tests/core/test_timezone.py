@@ -76,3 +76,31 @@ class TestTodayIn:
 
         with pytest.raises(ZoneInfoNotFoundError):
             core_timezone.today_in("Not/AZone")
+
+
+class TestCanonical:
+    """Tests for canonical function."""
+
+    @pytest.mark.parametrize(
+        ("alias", "expected"),
+        [
+            ("GB-Eire", "Europe/London"),
+            ("Canada/Pacific", "America/Vancouver"),
+            ("US/Eastern", "America/New_York"),
+        ],
+    )
+    def test_legacy_alias_resolves(self, alias, expected):
+        assert core_timezone.canonical(alias) == expected
+
+    def test_canonical_name_unchanged(self):
+        assert core_timezone.canonical("Europe/Lisbon") == "Europe/Lisbon"
+
+    def test_none_and_empty_pass_through(self):
+        assert core_timezone.canonical(None) is None
+        assert core_timezone.canonical("") == ""
+
+    def test_alias_targets_are_valid_zones(self):
+        from zoneinfo import ZoneInfo
+
+        for target in set(core_timezone._LEGACY_ALIASES.values()):
+            ZoneInfo(target)

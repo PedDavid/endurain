@@ -25,7 +25,13 @@ class TestValidateGoalId:
 
         # Assert
         assert result is None
-        mock_validate_id.assert_called_once_with(identifier=goal_id, min_value=1, message="Invalid goal ID")
+        mock_validate_id.assert_called_once_with(identifier=goal_id, min_value=0, message="Invalid goal ID")
+
+    def test_validate_goal_id_accepts_first_goal_unmocked(self):
+        """The smallest real id, 1, passes while 0 is still rejected."""
+        assert user_goals_dependencies.validate_goal_id(1) is None
+        with pytest.raises(HTTPException):
+            user_goals_dependencies.validate_goal_id(0)
 
     @patch("modules.users.users_goals.dependencies.core_dependencies.validate_id")
     def test_validate_goal_id_zero(self, mock_validate_id):

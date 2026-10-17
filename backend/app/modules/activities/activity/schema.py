@@ -158,6 +158,19 @@ class ActivityBase(BaseModel):
     tracker_model: str | None = Field(default=None, max_length=250)
     total_cycles: int | None = Field(default=None, ge=0)
 
+    @field_validator("timezone", mode="after")
+    @classmethod
+    def _canonicalize_timezone(cls, value: str | None) -> str | None:
+        """Store a legacy timezone alias under its canonical IANA name.
+
+        Args:
+            value: The timezone name, or None.
+
+        Returns:
+            The canonical name.
+        """
+        return core_timezone.canonical(value)
+
     @field_validator("start_time", "end_time", "created_at", mode="before")
     @classmethod
     def _normalize_to_utc_aware(cls, value: Any) -> Any:
