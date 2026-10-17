@@ -729,7 +729,7 @@ the conformance test's allowlist.
   removal, and the thumbnail reconciliation lists its whole area each pass.
 - **Timeouts.** The pool (20 + 40, 180 s wait) and the absence of a `statement_timeout` are
   constants in `core/database.py`, not settings, so an operator cannot bound them.
-- **Observability.** Logs and the admin event/job views are the only signal; queue depth, job
+- **Observability.** Logs are the only signal; queue depth, job
   duration and dead-letter counts are not exported as metrics.
 - **Visibility across modules.** The followee set reaches `activity.crud` as an id list, which
   grows with the follow count. A peer-published, read-only query fragment (a followee subquery)

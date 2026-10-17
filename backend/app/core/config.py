@@ -173,7 +173,7 @@ class Settings(BaseSettings):
     # --- Event observability (event_log table) ---
     # When enabled (default), the event bus records every event's lifecycle
     # (published -> processing -> completed/failed) to the ``event_log`` table so
-    # it can be queried and summarized in the admin dashboard. Disable to skip the
+    # it can be queried for diagnostics. Disable to skip the
     # per-event database writes if the extra import-path latency ever matters.
     EVENT_LOG_ENABLED: bool = True
     # Age in days after which ``event_log`` rows are pruned by a scheduled cleanup

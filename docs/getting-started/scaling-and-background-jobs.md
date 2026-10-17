@@ -49,7 +49,7 @@ Every derived-work subscriber also has a scheduled backfill, so a lost event is 
 | `JOBS_BATCH_SIZE` | `10` | Jobs claimed (and outbox rows relayed) per pass. |
 | `JOBS_POLL_INTERVAL_SECONDS` | `2.0` | Idle wait between empty polls. |
 | `JOBS_RETENTION_DAYS` | `90` | Pruning age for completed job bookkeeping. Dead-lettered and in-flight rows are kept. `0` disables pruning. |
-| `EVENT_LOG_ENABLED` | `true` | Record each event's lifecycle in the `event_log` table for the admin dashboard. |
+| `EVENT_LOG_ENABLED` | `true` | Record each event's lifecycle in the `event_log` table for diagnostics. |
 | `EVENT_LOG_RETENTION_DAYS` | `90` | Pruning age for `event_log`. `0` disables pruning. |
 | `APP_ROLE` | `api` | Container role: `api` serves HTTP, `worker` drains the job queue. Requires `JOBS_ENABLED=true`. |
 
@@ -114,7 +114,6 @@ Every replica must share the same database, Redis and bucket. Run one or more wo
 - If the event bus is Redis and `JOBS_ENABLED=false`, the API logs a warning at startup: delivery is best-effort, with no per-subscriber retry and no recovery of a crashed consumer's in-flight events. The scheduled backfills still repair the results; enable `JOBS_ENABLED` for retries you can see.
 - With `JOBS_ENABLED=true` and `JOBS_RUN_IN_PROCESS_WORKER=false`, jobs accumulate unless a worker is running.
 - Dead-lettered jobs are kept for review and are never pruned automatically.
-- The admin event log and jobs views show event lifecycles and job states.
 
 ## Sizing
 

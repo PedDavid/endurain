@@ -401,34 +401,6 @@ export const queryKeys = {
   },
 
   /**
-   * Event-log observability domain (admin). The aggregated dashboard summary is
-   * keyed by its look-back window so changing the window fetches a fresh slice.
-   */
-  eventLog: {
-    /** Broad prefix; invalidating this cascades to every event-log query. */
-    all: () => ['event-log'] as const,
-    /**
-     * @param hours - The look-back window in hours.
-     * @returns A summary query key scoped to that window.
-     */
-    summary: (hours: number) => ['event-log', 'summary', hours] as const,
-  },
-
-  /**
-   * Durable-jobs domain (admin). The processing summary is keyed by its
-   * look-back window; replaying a dead-letter job invalidates the whole domain.
-   */
-  jobs: {
-    /** Broad prefix; invalidating this cascades to every jobs query. */
-    all: () => ['jobs'] as const,
-    /**
-     * @param hours - The look-back window in hours.
-     * @returns A summary query key scoped to that window.
-     */
-    summary: (hours: number) => ['jobs', 'summary', hours] as const,
-  },
-
-  /**
    * Bulk imports. A running import is one ingestion job polled until it is
    * terminal; it creates activities rather than caching any, so it has no
    * invalidation role of its own.
