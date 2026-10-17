@@ -17,6 +17,7 @@ _CANONICAL_COMMENTS = {
     ("event_outbox", "event_metadata"): "Correlation context (request_id, plus any host-defined keys)",
     ("processing_jobs", "event_type"): "Domain-event channel, e.g. order.created",
     ("processing_jobs", "subscriber_id"): "Durable subscriber this job runs, e.g. invoice.render",
+    ("processing_jobs", "source"): "Where the originating event came from, e.g. api:create_order",
     ("processing_jobs", "job_metadata"): "Correlation context (request_id, plus any host-defined keys)",
 }
 
@@ -29,6 +30,7 @@ _LEGACY_COMMENTS = {
     ("event_outbox", "event_metadata"): "Correlation context (request_id, user_id, activity_id)",
     ("processing_jobs", "event_type"): "Domain-event channel, e.g. activity.created",
     ("processing_jobs", "subscriber_id"): "Durable subscriber this job runs, e.g. activity_thumbnail.generate",
+    ("processing_jobs", "source"): "Where the originating event came from, e.g. api:store_activity",
     ("processing_jobs", "job_metadata"): "Correlation context (request_id, user_id, activity_id)",
 }
 

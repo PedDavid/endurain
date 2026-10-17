@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-import httpx
+import httpx2
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 from fastapi import HTTPException, Request, status
 from joserfc import jwt
@@ -100,7 +100,7 @@ class IdentityProviderService:
         self._cache_expiry: dict[int, datetime] = {}
         self._jwks_cache: dict[str, dict[str, Any]] = {}  # Cache JWKS by issuer URL
         self._cache_ttl = timedelta(hours=1)
-        self._http_client: httpx.AsyncClient | None = None
+        self._http_client: httpx2.AsyncClient | None = None
 
     def _prune_expired_caches(self) -> None:
         """
@@ -128,20 +128,20 @@ class IdentityProviderService:
         for uri in expired_jwks_uris:
             self._jwks_cache.pop(uri, None)
 
-    async def _get_http_client(self) -> httpx.AsyncClient:
+    async def _get_http_client(self) -> httpx2.AsyncClient:
         """
-        Asynchronously retrieves or creates an instance of httpx.AsyncClient for making HTTP requests.
+        Asynchronously retrieves or creates an instance of httpx2.AsyncClient for making HTTP requests.
 
         If the HTTP client does not already exist, it initializes a new AsyncClient with a timeout of 10 seconds
         and connection limits (maximum 5 keep-alive connections and 10 total connections). Returns the client instance.
 
         Returns:
-            httpx.AsyncClient: The HTTP client instance for asynchronous requests.
+            httpx2.AsyncClient: The HTTP client instance for asynchronous requests.
         """
         if self._http_client is None:
-            self._http_client = httpx.AsyncClient(
+            self._http_client = httpx2.AsyncClient(
                 timeout=10.0,
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+                limits=httpx2.Limits(max_keepalive_connections=5, max_connections=10),
                 follow_redirects=True,
                 headers={
                     "User-Agent": f"Endurain/{core_config.API_VERSION} (OIDC Client)",
@@ -228,13 +228,13 @@ class IdentityProviderService:
 
             return jwks
 
-        except httpx.TimeoutException as err:
+        except httpx2.TimeoutException as err:
             logger.error(f"Timeout fetching JWKS from {jwks_uri}: {err}", exc_info=err)
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Timeout retrieving signing keys from identity provider",
             ) from err
-        except httpx.HTTPStatusError as err:
+        except httpx2.HTTPStatusError as err:
             logger.error(f"HTTP error fetching JWKS from {jwks_uri}: {err.response.status_code}", exc_info=err)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -511,19 +511,19 @@ class IdentityProviderService:
             self._prune_expired_caches()
 
             return config
-        except httpx.HTTPStatusError as err:
+        except httpx2.HTTPStatusError as err:
             logger.warning(
                 f"HTTP error fetching OIDC discovery for {idp.name}: {err.response.status_code} - {err.response.text}"
             )
             return None
-        except httpx.ConnectError as err:
+        except httpx2.ConnectError as err:
             logger.error(
                 f"Connection error fetching OIDC discovery for {idp.name}. "
                 f"URL: {discovery_url}. Error: {err}. "
                 f"Check if the service is reachable and not using 'localhost' in Docker."
             )
             return None
-        except httpx.RequestError as err:
+        except httpx2.RequestError as err:
             logger.warning(f"Request error fetching OIDC discovery for {idp.name}. URL: {discovery_url}. Error: {err}")
             return None
         except HTTPException as err:
@@ -1002,13 +1002,13 @@ class IdentityProviderService:
                 )
 
                 token_response = await client.fetch_token(token_endpoint, grant_type="authorization_code", code=code)
-            except httpx.TimeoutException as err:
+            except httpx2.TimeoutException as err:
                 logger.error(f"Timeout connecting to IdP {idp.name} token endpoint: {err}", exc_info=err)
                 raise HTTPException(
                     status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                     detail=f"Identity provider {idp.name} is not responding. Please try again later.",
                 ) from err
-            except httpx.HTTPStatusError as err:
+            except httpx2.HTTPStatusError as err:
                 logger.error(
                     f"HTTP error from IdP {idp.name} token endpoint: {err.response.status_code} - {err.response.text}",
                     exc_info=err,
@@ -1025,7 +1025,7 @@ class IdentityProviderService:
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=detail,
                 ) from err
-            except httpx.RequestError as err:
+            except httpx2.RequestError as err:
                 logger.error(f"Network error connecting to IdP {idp.name}: {err}", exc_info=err)
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
@@ -1201,13 +1201,13 @@ class IdentityProviderService:
                     logger.debug("Successfully retrieved userinfo from endpoint")
                 else:
                     logger.warning("No access token available for userinfo request")
-            except httpx.TimeoutException as err:
+            except httpx2.TimeoutException as err:
                 logger.warning(f"Timeout fetching userinfo from endpoint: {err}", exc_info=err)
-            except httpx.HTTPStatusError as err:
+            except httpx2.HTTPStatusError as err:
                 logger.warning(
                     f"HTTP error {err.response.status_code} fetching userinfo: {err.response.text}", exc_info=err
                 )
-            except httpx.RequestError as err:
+            except httpx2.RequestError as err:
                 logger.warning(f"Network error fetching userinfo: {err}", exc_info=err)
             except Exception as err:
                 logger.warning(f"Unexpected error fetching userinfo from endpoint: {err}", exc_info=err)
@@ -1763,12 +1763,12 @@ class IdentityProviderService:
 
             return token_response
 
-        except httpx.TimeoutException as err:
+        except httpx2.TimeoutException as err:
             logger.warning(f"Timeout refreshing IdP session for user {user_id}, idp {idp_id}: {err}", exc_info=err)
             # Don't clear token - IdP may be temporarily down
             return None
 
-        except httpx.HTTPStatusError as err:
+        except httpx2.HTTPStatusError as err:
             # Check if this is a token revocation (400) or auth failure (401)
             if err.response.status_code in (400, 401):
                 logger.warning(
@@ -1790,7 +1790,7 @@ class IdentityProviderService:
                 )
                 return None
 
-        except httpx.RequestError as err:
+        except httpx2.RequestError as err:
             logger.warning(
                 f"Network error refreshing IdP session for user {user_id}, idp {idp_id}: {err}", exc_info=err
             )
@@ -1928,11 +1928,11 @@ class IdentityProviderService:
                     )
                     return False
 
-            except httpx.TimeoutException as err:
+            except httpx2.TimeoutException as err:
                 logger.warning(f"Timeout revoking token at IdP {idp.name} for user {user_id}: {err}", exc_info=err)
                 return False
 
-            except httpx.RequestError as err:
+            except httpx2.RequestError as err:
                 logger.warning(
                     f"Network error revoking token at IdP {idp.name} for user {user_id}: {err}", exc_info=err
                 )

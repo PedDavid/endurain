@@ -84,6 +84,13 @@ def upgrade() -> None:
     )
     op.alter_column(
         "processing_jobs",
+        "source",
+        existing_type=sa.String(length=50),
+        comment="Where the originating event came from, e.g. api:create_order",
+        existing_comment="Where the originating event came from, e.g. api:store_activity",
+    )
+    op.alter_column(
+        "processing_jobs",
         "job_metadata",
         existing_type=sa.JSON(),
         comment="Correlation context (request_id, plus any host-defined keys)",
@@ -105,6 +112,13 @@ def downgrade() -> None:
         existing_type=sa.String(length=200),
         comment="Durable subscriber this job runs, e.g. activity_thumbnail.generate",
         existing_comment="Durable subscriber this job runs, e.g. invoice.render",
+    )
+    op.alter_column(
+        "processing_jobs",
+        "source",
+        existing_type=sa.String(length=50),
+        comment="Where the originating event came from, e.g. api:store_activity",
+        existing_comment="Where the originating event came from, e.g. api:create_order",
     )
     op.alter_column(
         "processing_jobs",

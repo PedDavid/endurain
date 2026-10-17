@@ -23,7 +23,7 @@ import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -306,7 +306,7 @@ class TestFetchJwks:
     """JWKS retrieval: caching, SSRF guard, and error mapping."""
 
     def _client_returning(self, *, json_value=None, raise_for_status_exc=None, get_exc=None) -> AsyncMock:
-        """Build a mock httpx.AsyncClient with a single GET behaviour."""
+        """Build a mock httpx2.AsyncClient with a single GET behaviour."""
         client = AsyncMock()
         if get_exc is not None:
             client.get = AsyncMock(side_effect=get_exc)
@@ -356,7 +356,7 @@ class TestFetchJwks:
 
     @pytest.mark.asyncio
     async def test_timeout_raises_504(self, service):
-        client = self._client_returning(get_exc=httpx.TimeoutException("timeout"))
+        client = self._client_returning(get_exc=httpx2.TimeoutException("timeout"))
         with (
             patch("modules.auth.identity_providers.service.core_network.reject_private_url"),
             patch.object(service, "_get_http_client", AsyncMock(return_value=client)),
@@ -367,7 +367,7 @@ class TestFetchJwks:
 
     @pytest.mark.asyncio
     async def test_http_status_error_raises_502(self, service):
-        err = httpx.HTTPStatusError(
+        err = httpx2.HTTPStatusError(
             "boom",
             request=MagicMock(),
             response=MagicMock(status_code=500),
@@ -509,7 +509,7 @@ class TestGetUserinfo:
     async def test_endpoint_failure_falls_back_to_verified_id_token(self, service):
         """If the userinfo endpoint errors, a verified ID token still wins."""
         client = AsyncMock()
-        client.get = AsyncMock(side_effect=httpx.RequestError("network down"))
+        client.get = AsyncMock(side_effect=httpx2.RequestError("network down"))
         verified = {"sub": "verified-sub"}
         with (
             patch("modules.auth.identity_providers.service.core_network.reject_private_url"),
