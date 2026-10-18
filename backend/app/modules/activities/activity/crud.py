@@ -1155,7 +1155,7 @@ def create_activity(
     return created
 
 
-def set_activity_thumbnail_path(
+def set_activity_thumbnail_key(
     activity_id: int,
     thumbnail_path: str | None,
     db: Session,
@@ -1276,7 +1276,7 @@ def defer_location_lookups(activity_ids: Sequence[int], retry_at: datetime, db: 
     db.flush()
 
 
-def clear_all_activity_thumbnail_paths(db: Session) -> None:
+def clear_all_activity_thumbnail_keys(db: Session) -> None:
     """Stage ``map_thumbnail_path`` = NULL on every activity.
 
     Args:

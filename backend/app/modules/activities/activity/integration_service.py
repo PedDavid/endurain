@@ -323,7 +323,7 @@ def set_thumbnail_key(activity_id: int, key: str | None, db: Session) -> None:
         key: The new storage key, or None to clear it.
         db: Database session.
     """
-    activity_crud.set_activity_thumbnail_path(activity_id, key, db)
+    activity_crud.set_activity_thumbnail_key(activity_id, key, db)
 
 
 def clear_all_thumbnail_keys(db: Session) -> None:
@@ -334,7 +334,7 @@ def clear_all_thumbnail_keys(db: Session) -> None:
     Args:
         db: Database session.
     """
-    activity_crud.clear_all_activity_thumbnail_paths(db)
+    activity_crud.clear_all_activity_thumbnail_keys(db)
 
 
 def list_activities_with_thumbnail(

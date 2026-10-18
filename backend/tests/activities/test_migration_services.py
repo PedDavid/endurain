@@ -21,8 +21,8 @@ import pytest
         (
             "modules.activities.activity.migration_service",
             "activity_crud",
-            "set_activity_thumbnail_path",
-            lambda m, db: m.set_activity_thumbnail_path(2, "k.png", db),
+            "set_activity_thumbnail_key",
+            lambda m, db: m.set_activity_thumbnail_key(2, "k.png", db),
         ),
         (
             "modules.activities.activity_laps.migration_service",

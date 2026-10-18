@@ -38,7 +38,7 @@ def _patch_parser_side_effects(monkeypatch) -> None:
         None.
     """
     monkeypatch.setattr(
-        gpx_utils.activity_file_import_utils,
+        gpx_utils.activity_file_import_parser_utils,
         "resolve_timezone_from_lat_lon",
         lambda _lat, _lon, fallback: fallback,
     )

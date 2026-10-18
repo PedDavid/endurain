@@ -247,7 +247,7 @@ class TestUtilsTcx:
                 return_value=fake_waypoints,
             ),
             patch(
-                "modules.activities.activity_file_import.tcx_utils.activity_file_import_utils.resolve_timezone_from_lat_lon",
+                "modules.activities.activity_file_import.tcx_utils.activity_file_import_parser_utils.resolve_timezone_from_lat_lon",
                 return_value="UTC",
             ),
         ):
@@ -304,7 +304,7 @@ class TestUtilsTcx:
                 return_value=fake_waypoints,
             ),
             patch(
-                "modules.activities.activity_file_import.tcx_utils.activity_file_import_utils.resolve_timezone_from_lat_lon",
+                "modules.activities.activity_file_import.tcx_utils.activity_file_import_parser_utils.resolve_timezone_from_lat_lon",
                 return_value="UTC",
             ),
         ):

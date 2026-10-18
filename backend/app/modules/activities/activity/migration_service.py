@@ -33,7 +33,7 @@ def edit_activity(
     return activity
 
 
-def set_activity_thumbnail_path(activity_id: int, thumbnail_path: str | None, db: Session) -> None:
+def set_activity_thumbnail_key(activity_id: int, thumbnail_path: str | None, db: Session) -> None:
     """Set an activity's thumbnail path and commit it, as migrations did.
 
     Args:
@@ -41,5 +41,5 @@ def set_activity_thumbnail_path(activity_id: int, thumbnail_path: str | None, db
         thumbnail_path: The path or storage key, or None to clear it.
         db: Database session.
     """
-    activity_crud.set_activity_thumbnail_path(activity_id, thumbnail_path, db)
+    activity_crud.set_activity_thumbnail_key(activity_id, thumbnail_path, db)
     db.commit()

@@ -16,7 +16,7 @@ import core.timezone as core_timezone
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.contracts as activity_contracts
 import modules.activities.activity_file_import.fit_frames as activity_file_import_fit_frames
-import modules.activities.activity_file_import.utils as activity_file_import_utils
+import modules.activities.activity_file_import.parser_utils as activity_file_import_parser_utils
 import modules.activities.computation as activities_computation
 
 logger = core_logger.get_logger(__name__)
@@ -76,7 +76,7 @@ def create_activity_objects(
             # derived from it) are not left at zero when they are recoverable.
             resolved_distance = session_record["session"]["distance"]
             if not resolved_distance and session_record["is_lat_lon_set"]:
-                resolved_distance = activity_file_import_utils.compute_distance_from_waypoints(
+                resolved_distance = activity_file_import_parser_utils.compute_distance_from_waypoints(
                     session_record["lat_lon_waypoints"]
                 )
             if not resolved_distance:
@@ -96,7 +96,7 @@ def create_activity_objects(
 
             if activity_type not in activity_constants.VIRTUAL_ACTIVITY_TYPES:
                 if session_record["is_lat_lon_set"]:
-                    session_timezone = activity_file_import_utils.resolve_timezone_from_lat_lon(
+                    session_timezone = activity_file_import_parser_utils.resolve_timezone_from_lat_lon(
                         session_record["lat_lon_waypoints"][0]["lat"],
                         session_record["lat_lon_waypoints"][0]["lon"],
                         timezone,
@@ -113,7 +113,7 @@ def create_activity_objects(
             max_power = session_record["session"]["max_power"]
             np_power = session_record["session"]["np"]
             if session_record["is_power_set"] and (avg_power is None or np_power is None):
-                calc_avg, calc_max, calc_np = activity_file_import_utils.calculate_power_metrics(
+                calc_avg, calc_max, calc_np = activity_file_import_parser_utils.calculate_power_metrics(
                     session_record["power_waypoints"]
                 )
                 if avg_power is None:
@@ -236,7 +236,7 @@ def create_activity_objects(
                 "sets": session_record["sets"],
                 "workout_steps": session_record["workout_steps"],
             }
-            parsed_activity = activity_file_import_utils.build_activity_file_payload(
+            parsed_activity = activity_file_import_parser_utils.build_activity_file_payload(
                 activity,
                 waypoints,
                 session_record["laps"],
@@ -377,7 +377,7 @@ def split_records_by_activity(parsed_data: dict) -> list[dict]:
         if is_temperature_set:
             raw_streams["temp_waypoints"] = temp_waypoints
 
-        filtered = activity_file_import_utils.filter_streams_by_time_range(raw_streams, start_time, end_time)
+        filtered = activity_file_import_parser_utils.filter_streams_by_time_range(raw_streams, start_time, end_time)
 
         if is_lat_lon_set:
             activity_waypoints[i]["lat_lon_waypoints"] = filtered["lat_lon_waypoints"]

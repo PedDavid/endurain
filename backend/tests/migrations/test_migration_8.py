@@ -35,7 +35,7 @@ class TestProcessMigration8:
         process_migration_8(db)
 
         storage.save.assert_called_once_with("activity_thumbnails", "1.webp", b"webp", "image/webp")
-        mock_crud.set_activity_thumbnail_path.assert_called_once_with(1, "1.webp", db)
+        mock_crud.set_activity_thumbnail_key.assert_called_once_with(1, "1.webp", db)
         source.unlink.assert_called_once_with(missing_ok=True)
         mock_migrations.set_migration_as_executed.assert_called_once_with(8, db)
 
@@ -67,7 +67,7 @@ class TestProcessMigration8:
 
         storage.save.assert_not_called()
         mock_reencode.assert_not_called()
-        mock_crud.set_activity_thumbnail_path.assert_called_once_with(1, None, db)
+        mock_crud.set_activity_thumbnail_key.assert_called_once_with(1, None, db)
         mock_migrations.set_migration_as_executed.assert_called_once_with(8, db)
 
     @patch("migrations.migration_8.migrations_crud")

@@ -208,7 +208,7 @@ class TestThumbnailAttemptSchedule:
 
     def test_an_activity_with_a_thumbnail_is_not_a_candidate(self, db):
         created = activity_crud.create_activity(_core(), db)
-        activity_crud.set_activity_thumbnail_path(created.id, f"{created.id}.webp", db)
+        activity_crud.set_activity_thumbnail_key(created.id, f"{created.id}.webp", db)
 
         assert self._ids(db) == []
 
@@ -217,6 +217,6 @@ class TestThumbnailAttemptSchedule:
         created = activity_crud.create_activity(_core(), db)
         activity_crud.defer_thumbnail_attempts([created.id], self._NOW + timedelta(days=1), db)
 
-        activity_crud.clear_all_activity_thumbnail_paths(db)
+        activity_crud.clear_all_activity_thumbnail_keys(db)
 
         assert self._ids(db) == [created.id]

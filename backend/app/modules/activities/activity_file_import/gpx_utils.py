@@ -14,7 +14,7 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.contracts as activity_contracts
-import modules.activities.activity_file_import.utils as activity_file_import_utils
+import modules.activities.activity_file_import.parser_utils as activity_file_import_parser_utils
 import modules.activities.computation as activities_computation
 
 logger = core_logger.get_logger(__name__)
@@ -117,7 +117,7 @@ class ParsedGpxData(TypedDict):
     cad_waypoints: list[dict]
     is_lat_lon_set: bool
     lat_lon_waypoints: list[dict]
-    laps: list[activity_file_import_utils.LapMetrics]
+    laps: list[activity_file_import_parser_utils.LapMetrics]
 
 
 def _extension_local_name(tag: str) -> str:
@@ -438,10 +438,10 @@ def _compute_derived_metrics(
             state.avg_power,
             state.max_power,
             state.normalized_power,
-        ) = activity_file_import_utils.calculate_power_metrics(state.power_waypoints)
+        ) = activity_file_import_parser_utils.calculate_power_metrics(state.power_waypoints)
 
     if state.activity_type not in activity_constants.VIRTUAL_ACTIVITY_TYPES and state.is_lat_lon_set:
-        state.timezone = activity_file_import_utils.resolve_timezone_from_lat_lon(
+        state.timezone = activity_file_import_parser_utils.resolve_timezone_from_lat_lon(
             state.lat_lon_waypoints[0]["lat"],
             state.lat_lon_waypoints[0]["lon"],
             state.timezone,
@@ -570,7 +570,7 @@ def parse_gpx_file(
         # Sum distance per segment (not across the full flat waypoint list) so
         # that gaps between segments are never counted as travelled distance.
         state.distance = sum(
-            activity_file_import_utils.compute_distance_from_waypoints(segment_waypoints)
+            activity_file_import_parser_utils.compute_distance_from_waypoints(segment_waypoints)
             for segment_waypoints in state.lat_lon_segments
         )
 
@@ -581,7 +581,7 @@ def parse_gpx_file(
         laps = []
         for segment_waypoints in state.lat_lon_segments:
             laps.extend(
-                activity_file_import_utils.generate_activity_laps(
+                activity_file_import_parser_utils.generate_activity_laps(
                     segment_waypoints,
                     state.ele_waypoints,
                     state.power_waypoints,

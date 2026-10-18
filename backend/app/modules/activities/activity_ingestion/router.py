@@ -29,7 +29,7 @@ import core.database as core_database
 import core.dependencies as core_dependencies
 import core.file_uploads as core_file_uploads
 import core.rate_limit as core_rate_limit
-import modules.activities.activity_ingestion.bulk_import_service as bulk_import_service
+import modules.activities.activity_ingestion.bulk_import_service as activity_ingestion_bulk_import_service
 import modules.activities.activity_ingestion.dependencies as activity_ingestion_dependencies
 import modules.activities.activity_ingestion.schema as activity_ingestion_schema
 import modules.activities.activity_ingestion.service as activity_ingestion_service
@@ -171,7 +171,7 @@ def create_bulk_import_from_archive(
             max_length=50,
             description="The archive layout: `generic` for plain activity files, or a provider export such as `strava`.",
         ),
-    ] = bulk_import_service.GENERIC_FORMAT_NAME,
+    ] = activity_ingestion_bulk_import_service.GENERIC_FORMAT_NAME,
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Import every activity file in an uploaded ZIP archive.
 
@@ -184,7 +184,7 @@ def create_bulk_import_from_archive(
     One bulk import runs per user at a time; a second request while one is running
     is answered ``409``.
     """
-    return bulk_import_service.accept_archive(
+    return activity_ingestion_bulk_import_service.accept_archive(
         token_user_id,
         file.filename,
         partial(core_file_uploads.save_validated_upload_sync, file),
@@ -218,7 +218,7 @@ def create_bulk_import_from_folder(
             max_length=50,
             description="The folder layout: `generic` for plain activity files, or a provider export such as `strava`.",
         ),
-    ] = bulk_import_service.GENERIC_FORMAT_NAME,
+    ] = activity_ingestion_bulk_import_service.GENERIC_FORMAT_NAME,
 ) -> activity_ingestion_schema.ActivityIngestionJobRead:
     """Import the files in the caller's folder on the server.
 
@@ -231,7 +231,7 @@ def create_bulk_import_from_folder(
     One bulk import runs per user at a time; a second request while one is running
     is answered ``409``.
     """
-    return bulk_import_service.start_from_directory(token_user_id, source, storage, db)
+    return activity_ingestion_bulk_import_service.start_from_directory(token_user_id, source, storage, db)
 
 
 @router.post(

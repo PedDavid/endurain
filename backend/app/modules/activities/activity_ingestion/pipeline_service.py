@@ -6,7 +6,7 @@ obtain the file and what they do when this fails; everything between a validated
 on disk and persisted activities lives here.
 
 The pipeline is format-agnostic. It asks
-:mod:`~modules.activities.activity_file_import.registry` for the parser
+:mod:`~modules.activities.activity_file_import.parser_registry` for the parser
 registered to the extension and iterates whatever activities come back — a
 multi-session ``.fit`` is not special-cased, because the registry hands back the
 same :class:`~modules.activities.activity.contracts.ParsedFile` shape for every

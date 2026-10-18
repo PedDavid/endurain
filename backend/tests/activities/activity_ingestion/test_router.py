@@ -140,7 +140,7 @@ class TestBulkImportRoutesDelegate:
         db = MagicMock()
         file = MagicMock()
         job = MagicMock()
-        with patch.object(router.bulk_import_service, "accept_archive", return_value=job) as accept:
+        with patch.object(router.activity_ingestion_bulk_import_service, "accept_archive", return_value=job) as accept:
             result = router.create_bulk_import_from_archive(
                 request=MagicMock(),
                 token_user_id=3,
@@ -160,7 +160,9 @@ class TestBulkImportRoutesDelegate:
 
     def test_the_folder_route_delegates_with_the_callers_id_and_source(self):
         db = MagicMock()
-        with patch.object(router.bulk_import_service, "start_from_directory", return_value="job") as start:
+        with patch.object(
+            router.activity_ingestion_bulk_import_service, "start_from_directory", return_value="job"
+        ) as start:
             result = router.create_bulk_import_from_folder(
                 request=MagicMock(), token_user_id=3, _check_scopes=None, db=db, storage="storage", source="generic"
             )
@@ -172,7 +174,9 @@ class TestBulkImportRoutesDelegate:
         """A second import while one runs must reach the client as the conflict it is."""
         with (
             patch.object(
-                router.bulk_import_service, "start_from_directory", side_effect=core_exceptions.ConflictError()
+                router.activity_ingestion_bulk_import_service,
+                "start_from_directory",
+                side_effect=core_exceptions.ConflictError(),
             ),
             pytest.raises(core_exceptions.ConflictError),
         ):

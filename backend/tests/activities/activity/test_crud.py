@@ -1176,7 +1176,7 @@ class TestSetActivityThumbnailPath:
 
         a = mock_model(am.Activity, id=1)
         setup_mock_execute(mock_db, return_one_or_none=a)
-        crud.set_activity_thumbnail_path(activity_id=1, thumbnail_path="/path/to/thumb.png", db=mock_db)
+        crud.set_activity_thumbnail_key(activity_id=1, thumbnail_path="/path/to/thumb.png", db=mock_db)
         assert a.map_thumbnail_path == "/path/to/thumb.png"
         mock_db.flush.assert_called_once()
         mock_db.commit.assert_not_called()
@@ -1185,7 +1185,7 @@ class TestSetActivityThumbnailPath:
         import modules.activities.activity.crud as crud
 
         setup_mock_execute(mock_db, return_one_or_none=None)
-        crud.set_activity_thumbnail_path(activity_id=999, thumbnail_path="/path/to/thumb.png", db=mock_db)
+        crud.set_activity_thumbnail_key(activity_id=999, thumbnail_path="/path/to/thumb.png", db=mock_db)
         mock_db.commit.assert_not_called()
 
 
@@ -1193,7 +1193,7 @@ class TestClearAllActivityThumbnailPaths:
     def test_success(self, mock_db):
         import modules.activities.activity.crud as crud
 
-        crud.clear_all_activity_thumbnail_paths(db=mock_db)
+        crud.clear_all_activity_thumbnail_keys(db=mock_db)
         mock_db.execute.assert_called_once()
         mock_db.commit.assert_not_called()
 

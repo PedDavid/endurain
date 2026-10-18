@@ -102,12 +102,12 @@ def process_migration_8(db: Session) -> None:
                         data,
                         activity_thumbnail_render.THUMBNAIL_CONTENT_TYPE,
                     )
-                    activities_crud.set_activity_thumbnail_path(activity.id, key, db)
+                    activities_crud.set_activity_thumbnail_key(activity.id, key, db)
                     source.unlink(missing_ok=True)
                     converted += 1
                 else:
                     # Missing or unreadable source: clear so the backfill regenerates.
-                    activities_crud.set_activity_thumbnail_path(activity.id, None, db)
+                    activities_crud.set_activity_thumbnail_key(activity.id, None, db)
                     source.unlink(missing_ok=True)
                     cleared += 1
             except Exception as err:

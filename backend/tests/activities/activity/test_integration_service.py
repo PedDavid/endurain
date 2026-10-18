@@ -114,7 +114,7 @@ class TestDerivedArtifactWritesStageOnly:
         db = MagicMock()
         integration_service.set_thumbnail_key(7, "7.png", db)
 
-        mock_crud.set_activity_thumbnail_path.assert_called_once_with(7, "7.png", db)
+        mock_crud.set_activity_thumbnail_key.assert_called_once_with(7, "7.png", db)
         db.commit.assert_not_called()
         db.rollback.assert_not_called()
 
@@ -125,7 +125,7 @@ class TestDerivedArtifactWritesStageOnly:
         db = MagicMock()
         integration_service.clear_all_thumbnail_keys(db)
 
-        mock_crud.clear_all_activity_thumbnail_paths.assert_called_once_with(db)
+        mock_crud.clear_all_activity_thumbnail_keys.assert_called_once_with(db)
         db.commit.assert_not_called()
 
     @patch("modules.activities.activity.integration_service.activity_crud")

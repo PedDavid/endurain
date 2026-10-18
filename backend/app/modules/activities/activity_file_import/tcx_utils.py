@@ -10,7 +10,7 @@ import core.logger as core_logger
 import core.timezone as core_timezone
 import modules.activities.activity.constants as activity_constants
 import modules.activities.activity.contracts as activity_contracts
-import modules.activities.activity_file_import.utils as activity_file_import_utils
+import modules.activities.activity_file_import.parser_utils as activity_file_import_parser_utils
 import modules.activities.computation as activities_computation
 
 logger = core_logger.get_logger(__name__)
@@ -41,7 +41,7 @@ def _parse_lap_power(
     if not power_waypoints:
         return None, None, None
 
-    return activity_file_import_utils.calculate_power_metrics(power_waypoints)
+    return activity_file_import_parser_utils.calculate_power_metrics(power_waypoints)
 
 
 def _parse_laps(
@@ -358,7 +358,7 @@ def parse_tcx_file(
             # Some TCX sources omit the summary Distance element even when a
             # GPS track is present. Fall back to the geodesic sum over the
             # track, mirroring the FIT/GPX importers.
-            distance = round(activity_file_import_utils.compute_distance_from_waypoints(lat_lon_wp))
+            distance = round(activity_file_import_parser_utils.compute_distance_from_waypoints(lat_lon_wp))
 
         if lat_lon_wp:
             pace = activities_computation.calculate_pace(
@@ -367,14 +367,14 @@ def parse_tcx_file(
                 trackpoints[-1]["time"],
             )
 
-            timezone = activity_file_import_utils.resolve_timezone_from_lat_lon(
+            timezone = activity_file_import_parser_utils.resolve_timezone_from_lat_lon(
                 trackpoints[0]["latitude"],
                 trackpoints[0]["longitude"],
                 timezone,
             )
 
         if power_wp:
-            avg_power, max_power, norm_power = activity_file_import_utils.calculate_power_metrics(power_wp)
+            avg_power, max_power, norm_power = activity_file_import_parser_utils.calculate_power_metrics(power_wp)
 
         # Recompute avg/max HR from waypoints, excluding zeros (zero is not a
         # valid HR value — it means the sensor was disconnected). This overrides
@@ -423,7 +423,7 @@ def parse_tcx_file(
                 has_power=bool(power_wp),
             ),
         )
-        return activity_file_import_utils.build_activity_file_payload(activity, waypoints_combined, laps)
+        return activity_file_import_parser_utils.build_activity_file_payload(activity, waypoints_combined, laps)
 
     except core_exceptions.DomainError:
         raise
