@@ -38,6 +38,7 @@ import core.platform_settings as core_platform_settings
 import core.problem_details as core_problem_details
 import core.rate_limit as core_rate_limit
 import core.scheduler as core_scheduler
+import core.signing as core_signing
 import module_registry as runtime_module_registry
 import modules.activities.activity_ingestion.integration_service as activity_ingestion_integration
 import modules.auth.identity_providers.link_tokens.utils as idp_link_token_utils
@@ -185,6 +186,7 @@ async def startup_event(fastapi_app: FastAPI) -> None:
     # Publish it process-wide so background work (scheduler, Garmin login thread)
     # that has no request can resolve providers via jasil.runtime.
     platform_runtime.set_active_platform(platform)
+    fastapi_app.state.storage_origin = core_signing.blob_origin()
 
     # Capture the running event loop so synchronous code (sync routes in the
     # threadpool, in-process event subscribers) can dispatch async I/O — e.g. a

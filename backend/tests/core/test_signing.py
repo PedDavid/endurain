@@ -144,3 +144,29 @@ class TestBlobUrl:
         url = core_signing.blob_url("area", "k.webp", local_path="/things/1/blob", token="tok")
 
         assert url == "/api/v1/things/1/blob?t=tok"
+
+
+class TestBlobOrigin:
+    @patch("core.signing.core_config")
+    def test_local_storage_needs_no_extra_origin(self, mock_config):
+        mock_config.settings.resolved_storage_uri = "local://"
+
+        assert core_signing.blob_origin() is None
+
+    @patch("core.signing.platform_runtime")
+    @patch("core.signing.core_config")
+    def test_object_storage_origin_comes_from_the_presigned_url(self, mock_config, mock_runtime):
+        mock_config.settings.resolved_storage_uri = "s3://bucket/prefix"
+        storage = MagicMock()
+        storage.url.return_value = "https://bucket.s3.eu-west-1.amazonaws.com/prefix/a/k?X-Amz-Signature=s"
+        mock_runtime.get_active_platform.return_value.storage = storage
+
+        assert core_signing.blob_origin() == "https://bucket.s3.eu-west-1.amazonaws.com"
+
+    @patch("core.signing.platform_runtime")
+    @patch("core.signing.core_config")
+    def test_uninitialised_platform_yields_no_origin(self, mock_config, mock_runtime):
+        mock_config.settings.resolved_storage_uri = "s3://bucket"
+        mock_runtime.get_active_platform.side_effect = RuntimeError("no platform")
+
+        assert core_signing.blob_origin() is None

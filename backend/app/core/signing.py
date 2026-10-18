@@ -25,6 +25,7 @@ access decision, only against its own signature and age.
 
 import functools
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import jasil.runtime as platform_runtime
 from itsdangerous import BadData, URLSafeTimedSerializer
@@ -154,3 +155,27 @@ def blob_url(area: str, key: str, *, local_path: str, token: str) -> str:
         except RuntimeError:
             pass
     return f"{core_config.ROOT_PATH}{local_path}?t={token}"
+
+
+def blob_origin() -> str | None:
+    """Return the origin browsers fetch blobs from, when it is not this server.
+
+    Object storage serves presigned URLs on its own origin, which a
+    ``Content-Security-Policy`` must allow or the browser blocks every thumbnail,
+    photo and media file. Local storage is served by this server, so it needs
+    nothing extra. The origin is read from a real presigned URL rather than
+    rebuilt from the storage URI, so it is right for virtual-hosted AWS, path-style
+    and S3-compatible endpoints alike.
+
+    Returns:
+        ``scheme://host[:port]`` of the storage origin, or ``None`` for local
+        storage or when the platform is not initialised.
+    """
+    if not core_config.settings.resolved_storage_uri.startswith("s3"):
+        return None
+    try:
+        url = platform_runtime.get_active_platform().storage.url("origin_probe", "probe")
+    except RuntimeError:
+        return None
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}" if parts.scheme and parts.netloc else None
